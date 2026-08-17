@@ -56,7 +56,7 @@ export const healthMetrics = pgTable(
     vo2Max: real("vo2_max"),
     sleepHours: real("sleep_hours"),
     sleepScore: real("sleep_score"),
-    steps: integer("steps"),
+    steps: real("steps"),
     activeEnergyKcal: real("active_energy_kcal"),
     weightKg: real("weight_kg"),
     raw: jsonb("raw"),
