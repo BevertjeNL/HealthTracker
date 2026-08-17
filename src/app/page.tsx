@@ -106,10 +106,14 @@ export default async function Home() {
                   {recentMetrics.map((m) => (
                     <tr key={m.id} className="border-t border-zinc-200 dark:border-zinc-800">
                       <td className="px-4 py-2">{fmtDate(m.date)}</td>
-                      <td className="px-4 py-2">{m.restingHeartRate ?? "-"}</td>
-                      <td className="px-4 py-2">{m.hrvMs ?? "-"}</td>
-                      <td className="px-4 py-2">{m.sleepHours ?? "-"}</td>
-                      <td className="px-4 py-2">{m.steps ?? "-"}</td>
+                      <td className="px-4 py-2">
+                        {m.restingHeartRate ? Math.round(m.restingHeartRate) : "-"}
+                      </td>
+                      <td className="px-4 py-2">{m.hrvMs ? Math.round(m.hrvMs) : "-"}</td>
+                      <td className="px-4 py-2">
+                        {m.sleepHours ? m.sleepHours.toFixed(1) : "-"}
+                      </td>
+                      <td className="px-4 py-2">{m.steps ? Math.round(m.steps) : "-"}</td>
                     </tr>
                   ))}
                 </tbody>

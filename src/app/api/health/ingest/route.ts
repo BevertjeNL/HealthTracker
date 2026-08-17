@@ -2,31 +2,30 @@ import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { healthMetrics } from "@/db/schema";
 
-// Health Auto Export sends: { data: { metrics: [ { name, units, data: [ { date, qty|Avg|Sum|Min|Max }, ... ] }, ... ] } }
+// Health Auto Export sends: { data: { metrics: [ { name, units, data: [ { date, qty|Avg|value }, ... ] }, ... ] } }
+// Each metric can contain many points per day (e.g. one per hour), so we need
+// to aggregate per calendar day ourselves — Health Auto Export does not do
+// this for us even with "aggregate data" enabled.
 type HaePoint = {
   date: string;
   qty?: number;
   Avg?: number;
-  Sum?: number;
-  Min?: number;
-  Max?: number;
   value?: number;
 };
 type HaeMetric = { name: string; data: HaePoint[] };
 type HaePayload = { data: { metrics: HaeMetric[] } };
 
 type Column = keyof typeof COLUMN_DEFAULTS;
+type Agg = "sum" | "avg" | "last";
 
-// Cumulative metrics (steps, active energy) need the daily Sum when the export
-// is aggregated; rate/level metrics (heart rate, HRV, weight) need the Avg.
-const METRIC_MAP: Record<string, { column: Column; preferSum: boolean }> = {
-  resting_heart_rate: { column: "restingHeartRate", preferSum: false },
-  heart_rate_variability: { column: "hrvMs", preferSum: false },
-  vo2_max: { column: "vo2Max", preferSum: false },
-  sleep_analysis: { column: "sleepHours", preferSum: true },
-  step_count: { column: "steps", preferSum: true },
-  active_energy: { column: "activeEnergyKcal", preferSum: true },
-  weight_body_mass: { column: "weightKg", preferSum: false },
+const METRIC_MAP: Record<string, { column: Column; agg: Agg }> = {
+  resting_heart_rate: { column: "restingHeartRate", agg: "avg" },
+  heart_rate_variability: { column: "hrvMs", agg: "avg" },
+  vo2_max: { column: "vo2Max", agg: "last" },
+  sleep_analysis: { column: "sleepHours", agg: "sum" },
+  step_count: { column: "steps", agg: "sum" },
+  active_energy: { column: "activeEnergyKcal", agg: "sum" },
+  weight_body_mass: { column: "weightKg", agg: "last" },
 };
 
 const COLUMN_DEFAULTS = {
@@ -43,9 +42,8 @@ function dayKey(dateStr: string) {
   return dateStr.slice(0, 10);
 }
 
-function pointValue(p: HaePoint, preferSum: boolean) {
-  if (preferSum) return p.Sum ?? p.qty ?? p.value ?? p.Avg ?? null;
-  return p.Avg ?? p.qty ?? p.value ?? p.Sum ?? null;
+function pointValue(p: HaePoint) {
+  return p.qty ?? p.Avg ?? p.value ?? null;
 }
 
 export async function POST(request: Request) {
@@ -57,28 +55,43 @@ export async function POST(request: Request) {
   const payload = (await request.json()) as HaePayload;
   const metrics = payload?.data?.metrics ?? [];
 
-  console.log(
-    "health/ingest received metrics:",
-    JSON.stringify(metrics.map((m) => ({ name: m.name, sample: m.data?.[0] }))),
-  );
-
-  const byDate = new Map<string, Partial<typeof COLUMN_DEFAULTS>>();
+  // date -> column -> chronologically ordered values for that day
+  const buckets = new Map<string, Partial<Record<Column, number[]>>>();
 
   for (const metric of metrics) {
     const mapping = METRIC_MAP[metric.name];
     if (!mapping) continue;
-    for (const point of metric.data ?? []) {
-      const key = dayKey(point.date);
-      const value = pointValue(point, mapping.preferSum);
+
+    const points = [...(metric.data ?? [])].sort((a, b) => a.date.localeCompare(b.date));
+    for (const point of points) {
+      const value = pointValue(point);
       if (value === null) continue;
-      const existing = byDate.get(key) ?? {};
-      existing[mapping.column] = value;
-      byDate.set(key, existing);
+      const key = dayKey(point.date);
+      const dayBucket = buckets.get(key) ?? {};
+      const values = dayBucket[mapping.column] ?? [];
+      values.push(value);
+      dayBucket[mapping.column] = values;
+      buckets.set(key, dayBucket);
     }
   }
 
+  function reduce(values: number[], agg: Agg) {
+    if (agg === "sum") return values.reduce((a, b) => a + b, 0);
+    if (agg === "avg") return values.reduce((a, b) => a + b, 0) / values.length;
+    return values[values.length - 1]; // last (chronologically)
+  }
+
   let upserted = 0;
-  for (const [date, values] of byDate) {
+  for (const [date, dayBucket] of buckets) {
+    const values: Partial<typeof COLUMN_DEFAULTS> = {};
+    for (const mapping of Object.values(METRIC_MAP)) {
+      const arr = dayBucket[mapping.column];
+      if (arr && arr.length > 0) {
+        values[mapping.column] = reduce(arr, mapping.agg);
+      }
+    }
+    if (Object.keys(values).length === 0) continue;
+
     await db
       .insert(healthMetrics)
       .values({ date, ...values })
