@@ -1,27 +1,14 @@
+import Link from "next/link";
 import { db } from "@/db";
 import { activities, healthMetrics } from "@/db/schema";
 import { desc } from "drizzle-orm";
+import { fmtDate, fmtPace, fmtKm } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
 
-function fmtDate(d: Date | string) {
-  return new Date(d).toLocaleDateString("nl-NL", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-  });
-}
-
-function fmtPace(minPerKm?: number | null) {
-  if (!minPerKm) return "-";
-  const min = Math.floor(minPerKm);
-  const sec = Math.round((minPerKm - min) * 60);
-  return `${min}:${sec.toString().padStart(2, "0")} /km`;
-}
-
 export default async function Home() {
   const [recentActivities, recentMetrics] = await Promise.all([
-    db.select().from(activities).orderBy(desc(activities.startDate)).limit(10),
+    db.select().from(activities).orderBy(desc(activities.startDate)).limit(5),
     db.select().from(healthMetrics).orderBy(desc(healthMetrics.date)).limit(14),
   ]);
 
@@ -38,9 +25,17 @@ export default async function Home() {
         </header>
 
         <section>
-          <h2 className="mb-3 text-lg font-medium text-black dark:text-zinc-50">
-            Recente runs
-          </h2>
+          <div className="mb-3 flex items-center justify-between">
+            <h2 className="text-lg font-medium text-black dark:text-zinc-50">Recente runs</h2>
+            {recentActivities.length > 0 && (
+              <Link
+                href="/runs"
+                className="text-sm text-orange-600 hover:underline dark:text-orange-400"
+              >
+                Alle runs & trends →
+              </Link>
+            )}
+          </div>
           {recentActivities.length === 0 ? (
             <p className="text-sm text-zinc-500 dark:text-zinc-400">
               Nog geen activiteiten. Verbind Strava via{" "}
@@ -63,12 +58,17 @@ export default async function Home() {
                 </thead>
                 <tbody>
                   {recentActivities.map((a) => (
-                    <tr key={a.id} className="border-t border-zinc-200 dark:border-zinc-800">
-                      <td className="px-4 py-2">{fmtDate(a.startDate)}</td>
-                      <td className="px-4 py-2">{a.name}</td>
+                    <tr
+                      key={a.id}
+                      className="border-t border-zinc-200 hover:bg-zinc-100 dark:border-zinc-800 dark:hover:bg-zinc-900"
+                    >
                       <td className="px-4 py-2">
-                        {a.distanceM ? (a.distanceM / 1000).toFixed(2) + " km" : "-"}
+                        <Link href={`/runs/${a.id}`} className="hover:underline">
+                          {fmtDate(a.startDate)}
+                        </Link>
                       </td>
+                      <td className="px-4 py-2">{a.name}</td>
+                      <td className="px-4 py-2">{fmtKm(a.distanceM)}</td>
                       <td className="px-4 py-2">{fmtPace(a.avgPaceMinPerKm)}</td>
                       <td className="px-4 py-2">
                         {a.avgHeartRate ? Math.round(a.avgHeartRate) : "-"}

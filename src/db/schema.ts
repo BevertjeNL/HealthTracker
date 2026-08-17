@@ -10,14 +10,18 @@ import {
   uniqueIndex,
 } from "drizzle-orm/pg-core";
 
-export const stravaTokens = pgTable("strava_tokens", {
-  id: serial("id").primaryKey(),
-  athleteId: text("athlete_id").notNull(),
-  accessToken: text("access_token").notNull(),
-  refreshToken: text("refresh_token").notNull(),
-  expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
-  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
-});
+export const stravaTokens = pgTable(
+  "strava_tokens",
+  {
+    id: serial("id").primaryKey(),
+    athleteId: text("athlete_id").notNull(),
+    accessToken: text("access_token").notNull(),
+    refreshToken: text("refresh_token").notNull(),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [uniqueIndex("strava_tokens_athlete_id_idx").on(table.athleteId)],
+);
 
 export const activities = pgTable(
   "activities",
