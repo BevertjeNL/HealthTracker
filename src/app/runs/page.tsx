@@ -4,6 +4,7 @@ import { activities } from "@/db/schema";
 import { desc, gte } from "drizzle-orm";
 import { fmtDate, fmtPace, fmtDuration, fmtKm } from "@/lib/format";
 import { RunTrendsChart } from "@/components/RunTrendsChart";
+import { SyncButton } from "@/components/SyncButton";
 
 export const dynamic = "force-dynamic";
 
@@ -90,22 +91,25 @@ export default async function RunsPage({
               {RANGES[range].label}, {runs.length} run{runs.length === 1 ? "" : "s"}
             </p>
           </div>
-          <nav className="flex gap-1 rounded-lg p-1" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
-            {(Object.keys(RANGES) as RangeKey[]).map((key) => (
-              <Link
-                key={key}
-                href={key === "1y" ? "/runs" : `/runs?range=${key}`}
-                className="rounded-md px-3 py-1.5 text-sm font-medium transition-colors"
-                style={
-                  key === range
-                    ? { background: "var(--series-orange)", color: "#fff" }
-                    : { color: "var(--text-secondary)" }
-                }
-              >
-                {RANGES[key].label}
-              </Link>
-            ))}
-          </nav>
+          <div className="flex flex-col items-end gap-3">
+            <SyncButton />
+            <nav className="flex gap-1 rounded-lg p-1" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
+              {(Object.keys(RANGES) as RangeKey[]).map((key) => (
+                <Link
+                  key={key}
+                  href={key === "1y" ? "/runs" : `/runs?range=${key}`}
+                  className="rounded-md px-3 py-1.5 text-sm font-medium transition-colors"
+                  style={
+                    key === range
+                      ? { background: "var(--series-orange)", color: "#fff" }
+                      : { color: "var(--text-secondary)" }
+                  }
+                >
+                  {RANGES[key].label}
+                </Link>
+              ))}
+            </nav>
+          </div>
         </header>
 
         {runs.length === 0 ? (
