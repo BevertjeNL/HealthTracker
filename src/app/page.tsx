@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { db } from "@/db";
 import { activities, healthMetrics } from "@/db/schema";
-import { desc, gte } from "drizzle-orm";
+import { desc, gte, sql } from "drizzle-orm";
 import { fmtDate, fmtPace, fmtKm } from "@/lib/format";
 import { weightSummary, runPerformanceSummary, buildInsights } from "@/lib/insights";
 import { StatTile } from "@/components/StatTile";
@@ -11,7 +11,8 @@ import { TrendChart } from "@/components/TrendChart";
 export const dynamic = "force-dynamic";
 
 export default async function Home() {
-  const ninetyDaysAgo = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000);
+  const ninetyDaysAgo = sql<Date>`CURRENT_TIMESTAMP - INTERVAL '90 days'`;
+  const ninetyDaysAgoDate = sql<string>`CURRENT_DATE - 90`;
 
   const [runs, metrics] = await Promise.all([
     db
@@ -19,7 +20,7 @@ export default async function Home() {
       .from(activities)
       .where(gte(activities.startDate, ninetyDaysAgo))
       .orderBy(desc(activities.startDate)),
-    db.select().from(healthMetrics).where(gte(healthMetrics.date, ninetyDaysAgo.toISOString().slice(0, 10))),
+    db.select().from(healthMetrics).where(gte(healthMetrics.date, ninetyDaysAgoDate)),
   ]);
 
   const recentRuns = runs.slice(0, 5);

@@ -21,7 +21,7 @@ export async function exchangeCodeForToken(code: string) {
       grant_type: "authorization_code",
     }),
   });
-  if (!res.ok) throw new Error(`Strava token exchange failed: ${await res.text()}`);
+  if (!res.ok) throw new Error(`Strava token exchange failed with status ${res.status}`);
   return (await res.json()) as StravaTokenResponse;
 }
 
@@ -36,7 +36,7 @@ async function refreshToken(refreshToken: string) {
       grant_type: "refresh_token",
     }),
   });
-  if (!res.ok) throw new Error(`Strava token refresh failed: ${await res.text()}`);
+  if (!res.ok) throw new Error(`Strava token refresh failed with status ${res.status}`);
   return (await res.json()) as StravaTokenResponse;
 }
 

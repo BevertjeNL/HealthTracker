@@ -1,18 +1,19 @@
 import { NextResponse } from "next/server";
 import { syncStravaRuns } from "@/lib/sync";
+import { bearerToken, hasValidSharedSecret } from "@/lib/security";
 
 async function handleSync(request: Request) {
-  const authHeader = request.headers.get("authorization");
-  const cronSecret = request.headers.get("x-cron-secret") ?? authHeader?.replace("Bearer ", "");
-  if (cronSecret !== process.env.CRON_SECRET) {
+  const cronSecret =
+    request.headers.get("x-cron-secret") ?? bearerToken(request.headers.get("authorization"));
+  if (!hasValidSharedSecret(cronSecret, process.env.CRON_SECRET)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   try {
     const result = await syncStravaRuns();
     return NextResponse.json(result);
-  } catch (err) {
-    return NextResponse.json({ error: (err as Error).message }, { status: 502 });
+  } catch {
+    return NextResponse.json({ error: "Strava sync failed" }, { status: 502 });
   }
 }
 

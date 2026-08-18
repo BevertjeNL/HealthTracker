@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { db } from "@/db";
 import { activities } from "@/db/schema";
-import { desc, gte } from "drizzle-orm";
+import { desc, gte, sql } from "drizzle-orm";
 import { fmtDate, fmtPace, fmtDuration, fmtKm } from "@/lib/format";
 import { RunTrendsChart } from "@/components/RunTrendsChart";
 import { SyncButton } from "@/components/SyncButton";
@@ -51,7 +51,10 @@ export default async function RunsPage({
   const { range: rangeParam } = await searchParams;
   const range: RangeKey = isRangeKey(rangeParam) ? rangeParam : "1y";
   const { days } = RANGES[range];
-  const since = days != null ? new Date(Date.now() - days * 24 * 60 * 60 * 1000) : new Date(0);
+  const since =
+    days != null
+      ? sql<Date>`CURRENT_TIMESTAMP - (${days} * INTERVAL '1 day')`
+      : new Date(0);
 
   const runs = await db
     .select()

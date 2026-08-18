@@ -2,11 +2,14 @@
   "name": "healthtracker",
   "version": "0.1.0",
   "private": true,
+  "type": "module",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
+    "typecheck": "tsc --noEmit",
+    "test": "node --test tests/*.test.mjs",
     "db:generate": "node --env-file=.env.local ./node_modules/.bin/drizzle-kit generate",
     "db:push": "node --env-file=.env.local ./node_modules/.bin/drizzle-kit push",
     "db:studio": "node --env-file=.env.local ./node_modules/.bin/drizzle-kit studio"
@@ -14,6 +17,7 @@
   "dependencies": {
     "@neondatabase/serverless": "^1.1.0",
     "drizzle-orm": "^0.45.2",
+    "jose": "^6.2.9",
     "next": "16.3.1",
     "react": "19.2.8",
     "react-dom": "19.2.8",

@@ -19,10 +19,12 @@ De gebruiker loopt ongeveer één keer per week (Strava is daarvoor de bron), ma
 
 ## Functionaliteit
 
-- **Strava-koppeling** — eenmalige OAuth-autorisatie, daarna haalt een dagelijkse cronjob (of handmatige aanroep) nieuwe runs op.
-- **Runs-dashboard** (`/runs`) — totale afstand, gemiddeld tempo, gemiddelde hartslag en hoogtemeters over de laatste 90 dagen; trendgrafieken voor tempo en hartslag; volledige tabel met alle runs.
+- **Afgeschermde single-user toegang** — dashboardpagina's en handmatige acties vereisen een login; sessies worden ondertekend en in een HttpOnly-cookie bewaard.
+- **Strava-koppeling** — OAuth-autorisatie met `state`-controle, daarna haalt een dagelijkse cronjob of de knop in het dashboard de volledige runhistorie op.
+- **Inzichtendashboard** (`/`) — gewicht, VO2max, tempo, recente runs en voorzichtige regelgebaseerde observaties over herstel en prestaties.
+- **Runs-dashboard** (`/runs`) — totale afstand, gemiddeld tempo, gemiddelde hartslag en hoogtemeters; bereikfilter, trendgrafieken en volledige tabel.
 - **Detailpagina per run** (`/runs/[id]`) — alle metrics van één activiteit, met link naar Strava.
-- **Dagelijkse gezondheidsdata** (homepage) — rust-hartslag, HRV, slaapuren en stappen van de laatste 14 dagen, gevuld door Health Auto Export.
+- **Dagelijkse gezondheidsdata** — rust-hartslag, HRV, slaap, stappen, VO2max, actieve energie en gewicht, gevuld door Health Auto Export.
 
 ## Architectuur in het kort
 
@@ -43,6 +45,17 @@ De gebruiker loopt ongeveer één keer per week (Strava is daarvoor de bron), ma
 ```
 
 ## Setup vanaf nul
+
+### 0. Applicatietoegang
+
+Genereer twee sterke, verschillende waarden en zet ze lokaal én in Vercel:
+
+```bash
+openssl rand -base64 24   # APP_PASSWORD (minimaal 16 tekens)
+openssl rand -base64 32   # SESSION_SECRET (minimaal 32 tekens)
+```
+
+Zonder beide waarden blijft de applicatie fail-closed: er kan dan niet worden ingelogd.
 
 ### 1. Database (Neon via Vercel)
 1. Maak een Vercel-project van deze repo (**Add New → Project**, importeer vanaf GitHub).
@@ -92,6 +105,8 @@ Open `http://localhost:3000`.
 | `STRAVA_CLIENT_SECRET` | ✅ | strava.com/settings/api |
 | `CRON_SECRET` | ✅ | Zelf verzinnen (willekeurige string) |
 | `HEALTH_INGEST_SECRET` | ✅ | Zelf verzinnen (willekeurige string) |
+| `APP_PASSWORD` | ✅ | Uniek wachtwoord van minimaal 16 tekens voor de eigenaar |
+| `SESSION_SECRET` | ✅ | Willekeurige waarde van minimaal 32 tekens voor ondertekende sessies |
 
 Zie `.env.local.example` voor het exacte formaat.
 
@@ -101,6 +116,8 @@ Zie `.env.local.example` voor het exacte formaat.
 npm run dev          # lokale dev-server
 npm run build         # productie-build
 npm run lint          # eslint
+npm run typecheck     # TypeScript-controle
+npm test              # regressietests
 npm run db:push       # schema naar Neon pushen
 npm run db:generate   # SQL-migratiebestanden genereren
 npm run db:studio     # Drizzle Studio (GUI voor de database)
@@ -108,16 +125,29 @@ npm run db:studio     # Drizzle Studio (GUI voor de database)
 
 ## Bekende beperkingen
 
-- Geen authenticatie — dit is bewust een single-user app zonder login.
-- Geen filter/sorteer-UI op de runs-tabel (wel alle data aanwezig).
+- De Health Auto Export-mapping en eenheden moeten nog met geanonimiseerde echte exports als regressiefixtures worden vastgelegd.
+- De inzichten zijn eenvoudige observationele regels, geen medische conclusies of vervanging voor professioneel advies.
+- Er zijn nog geen versieerbare database-migraties of gedocumenteerde back-up/hersteltest.
 - Cadans ontbreekt soms per activiteit, afhankelijk van wat Strava/het horloge meestuurt.
 - `health_metrics.sleep_score` staat in het schema maar wordt nog niet gevuld.
-- Health Auto Export-mapping is gebaseerd op typische veldnamen, nog niet gevalideerd tegen een echte export — als de ingest geen rijen oplevert, eerst de ruwe payload loggen.
+
+## Privacy en beveiliging
+
+- Dashboardpagina's, Strava-koppeling en handmatige synchronisatie vereisen een geldige login.
+- De cron- en ingest-endpoints gebruiken afzonderlijke secrets en weigeren toegang als configuratie ontbreekt.
+- OAuth-callbacks worden met een kortlevende `state`-cookie aan de initiërende browser gekoppeld.
+- Gezondheidswaarden, tokens en ruwe payloads horen nooit in logs, issues, commits of CI-output.
+- De app is een persoonlijk hulpmiddel en geeft geen medisch advies.
+
+## Kwaliteitscontrole
+
+GitHub Actions draait bij iedere pull request en push naar `main`: productie-dependency-audit, lint, typecheck, tests en productiebuild. Schemawijzigingen worden nog niet automatisch uitgevoerd.
 
 ## Roadmap
 
-- Filters/sortering op de runs-tabel.
-- Correlaties zichtbaar maken: HRV/slaap vóór een run vs. hoe die run ging.
+- Health Auto Export-fixtures en uitgebreidere ingestvalidatie.
+- Betrouwbaarheid en steekproefgrootte expliciet tonen bij inzichten.
+- Versieerbare migraties, back-upcontrole en operationele monitoring.
 - AI-coaching: periodieke samenvatting van recente data naar een LLM sturen voor concreet advies.
 
 ## Voor AI coding assistants

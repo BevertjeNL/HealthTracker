@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { healthMetrics } from "@/db/schema";
+import { hasValidSharedSecret } from "@/lib/security";
 
 // Health Auto Export sends: { data: { metrics: [ { name, units, data: [ { date, qty|Avg|value }, ... ] }, ... ] } }
 // Each metric can contain many points per day (e.g. one per hour), so we need
@@ -15,7 +16,16 @@ type HaePoint = {
 type HaeMetric = { name: string; data: HaePoint[] };
 type HaePayload = { data: { metrics: HaeMetric[] } };
 
-type Column = keyof typeof COLUMN_DEFAULTS;
+type MetricValues = {
+  restingHeartRate: number | null;
+  hrvMs: number | null;
+  vo2Max: number | null;
+  sleepHours: number | null;
+  steps: number | null;
+  activeEnergyKcal: number | null;
+  weightKg: number | null;
+};
+type Column = keyof MetricValues;
 type Agg = "sum" | "avg" | "last";
 
 const METRIC_MAP: Record<string, { column: Column; agg: Agg }> = {
@@ -28,16 +38,6 @@ const METRIC_MAP: Record<string, { column: Column; agg: Agg }> = {
   weight_body_mass: { column: "weightKg", agg: "last" },
 };
 
-const COLUMN_DEFAULTS = {
-  restingHeartRate: null as number | null,
-  hrvMs: null as number | null,
-  vo2Max: null as number | null,
-  sleepHours: null as number | null,
-  steps: null as number | null,
-  activeEnergyKcal: null as number | null,
-  weightKg: null as number | null,
-};
-
 function dayKey(dateStr: string) {
   return dateStr.slice(0, 10);
 }
@@ -48,11 +48,16 @@ function pointValue(p: HaePoint) {
 
 export async function POST(request: Request) {
   const secret = request.headers.get("x-ingest-secret");
-  if (secret !== process.env.HEALTH_INGEST_SECRET) {
+  if (!hasValidSharedSecret(secret, process.env.HEALTH_INGEST_SECRET)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const payload = (await request.json()) as HaePayload;
+  let payload: HaePayload;
+  try {
+    payload = (await request.json()) as HaePayload;
+  } catch {
+    return NextResponse.json({ error: "Invalid JSON payload" }, { status: 400 });
+  }
   const metrics = payload?.data?.metrics ?? [];
 
   // date -> column -> chronologically ordered values for that day
@@ -83,7 +88,7 @@ export async function POST(request: Request) {
 
   let upserted = 0;
   for (const [date, dayBucket] of buckets) {
-    const values: Partial<typeof COLUMN_DEFAULTS> = {};
+    const values: Partial<MetricValues> = {};
     for (const mapping of Object.values(METRIC_MAP)) {
       const arr = dayBucket[mapping.column];
       if (arr && arr.length > 0) {
