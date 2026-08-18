@@ -18,7 +18,7 @@ type Point = {
 };
 
 function fmtDateShort(d: string) {
-  return new Date(d).toLocaleDateString("nl-NL", { day: "numeric", month: "short" });
+  return new Date(d).toLocaleDateString("nl-NL", { day: "numeric", month: "short", year: "2-digit" });
 }
 
 function fmtPaceTick(v: number) {
