@@ -10,12 +10,6 @@ import { TrendChart } from "@/components/TrendChart";
 
 export const dynamic = "force-dynamic";
 
-function fmtPaceTick(v: number) {
-  const min = Math.floor(v);
-  const sec = Math.round((v - min) * 60);
-  return `${min}:${sec.toString().padStart(2, "0")}`;
-}
-
 export default async function Home() {
   const ninetyDaysAgo = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000);
 
@@ -122,15 +116,13 @@ export default async function Home() {
                 title="Gewicht (7-daags gemiddelde)"
                 points={weight.trend}
                 color="var(--series-blue)"
-                formatValue={(v) => `${v.toFixed(1)} kg`}
-                formatTick={(v) => v.toFixed(0)}
+                unit="kg"
               />
               <TrendChart
                 title="Tempo per run"
                 points={perf.paceTrend}
                 color="var(--series-orange)"
-                formatValue={(v) => `${fmtPaceTick(v)} /km`}
-                formatTick={fmtPaceTick}
+                unit="pace"
                 reversed
               />
             </section>

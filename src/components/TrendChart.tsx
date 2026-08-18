@@ -4,27 +4,41 @@ import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tool
 
 type Point = { date: string; value: number | null };
 
+type Unit = "kg" | "pace" | "number";
+
 function fmtDateShort(d: string) {
   return new Date(d).toLocaleDateString("nl-NL", { day: "numeric", month: "short" });
 }
+
+function fmtPaceTick(v: number) {
+  const min = Math.floor(v);
+  const sec = Math.round((v - min) * 60);
+  return `${min}:${sec.toString().padStart(2, "0")}`;
+}
+
+// formatValue/formatTick can't be passed as props from a Server Component (functions
+// aren't serializable across the RSC boundary), so the unit picks the formatter here instead.
+const FORMATTERS: Record<Unit, { value: (v: number) => string; tick: (v: number) => string }> = {
+  kg: { value: (v) => `${v.toFixed(1)} kg`, tick: (v) => v.toFixed(0) },
+  pace: { value: (v) => `${fmtPaceTick(v)} /km`, tick: fmtPaceTick },
+  number: { value: (v) => v.toFixed(1), tick: (v) => String(Math.round(v)) },
+};
 
 export function TrendChart({
   title,
   points,
   color,
-  formatValue,
-  formatTick,
+  unit,
   reversed = false,
 }: {
   title: string;
   points: Point[];
   color: string;
-  formatValue: (v: number) => string;
-  formatTick?: (v: number) => string;
+  unit: Unit;
   reversed?: boolean;
 }) {
   const data = points.map((p) => ({ ...p, dateLabel: fmtDateShort(p.date) }));
-  const tickFmt = formatTick ?? ((v: number) => String(Math.round(v)));
+  const { value: formatValue, tick: formatTick } = FORMATTERS[unit];
 
   return (
     <div
@@ -47,7 +61,7 @@ export function TrendChart({
             tick={{ fontSize: 11, fill: "var(--text-muted)" }}
             domain={["dataMin", "dataMax"]}
             reversed={reversed}
-            tickFormatter={tickFmt}
+            tickFormatter={formatTick}
             width={44}
             axisLine={false}
             tickLine={false}
