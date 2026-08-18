@@ -12,6 +12,10 @@ A personal dashboard that combines:
 
 The goal (not yet built) is to eventually correlate daily health/recovery signals with weekly run quality, and add AI-generated coaching advice. Current state: data ingestion + a dashboard for runs is done; the health-metrics side of the dashboard exists but is minimal; no AI advice layer yet.
 
+## Working preferences
+
+The user (tomnl@mailo.com) wants tasks carried through to completion end-to-end, not handed back partway. Concretely: after opening a PR with a fix, don't stop and ask the user to review/merge it themselves — go ahead and merge it (once CI is green, if CI is configured) so the fix actually reaches production. Only stop and ask if something genuinely requires the user's input (e.g. a decision only they can make, missing credentials, or a change that's unusually risky/destructive beyond routine merges).
+
 ## Stack
 
 - **Next.js 16** (App Router, TypeScript, Tailwind v4), deployed on **Vercel**.
