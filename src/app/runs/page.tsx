@@ -7,6 +7,20 @@ import { RunTrendsChart } from "@/components/RunTrendsChart";
 
 export const dynamic = "force-dynamic";
 
+const RANGES = {
+  "3m": { label: "3 mnd", days: 90 },
+  "6m": { label: "6 mnd", days: 180 },
+  "1y": { label: "1 jaar", days: 365 },
+  "2y": { label: "2 jaar", days: 730 },
+  alles: { label: "Alles", days: null },
+} as const;
+
+type RangeKey = keyof typeof RANGES;
+
+function isRangeKey(v: string | undefined): v is RangeKey {
+  return !!v && v in RANGES;
+}
+
 function StatCard({ label, value, sub }: { label: string; value: string; sub?: string }) {
   return (
     <div
@@ -28,13 +42,20 @@ function StatCard({ label, value, sub }: { label: string; value: string; sub?: s
   );
 }
 
-export default async function RunsPage() {
-  const ninetyDaysAgo = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000);
+export default async function RunsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ range?: string }>;
+}) {
+  const { range: rangeParam } = await searchParams;
+  const range: RangeKey = isRangeKey(rangeParam) ? rangeParam : "1y";
+  const { days } = RANGES[range];
+  const since = days != null ? new Date(Date.now() - days * 24 * 60 * 60 * 1000) : new Date(0);
 
   const runs = await db
     .select()
     .from(activities)
-    .where(gte(activities.startDate, ninetyDaysAgo))
+    .where(gte(activities.startDate, since))
     .orderBy(desc(activities.startDate));
 
   const totalDistanceM = runs.reduce((sum, r) => sum + (r.distanceM ?? 0), 0);
@@ -46,27 +67,45 @@ export default async function RunsPage() {
   const avgHr = validHr.length ? validHr.reduce((a, b) => a + b, 0) / validHr.length : null;
   const totalElevation = runs.reduce((sum, r) => sum + (r.elevationGainM ?? 0), 0);
 
-  const chartPoints = runs
-    .slice(0, 12)
-    .map((r) => ({
-      date: r.startDate.toISOString(),
-      paceMinPerKm: r.avgPaceMinPerKm,
-      avgHeartRate: r.avgHeartRate,
-    }));
+  // All runs in range (RunTrendsChart reverses to oldest-first internally) — the chart
+  // scrolls/zooms via a brush, so we don't pre-truncate to a fixed count like before.
+  const chartPoints = runs.map((r) => ({
+    date: r.startDate.toISOString(),
+    paceMinPerKm: r.avgPaceMinPerKm,
+    avgHeartRate: r.avgHeartRate,
+  }));
 
   return (
     <div className="min-h-screen px-6 py-12" style={{ background: "var(--background)" }}>
       <main className="mx-auto flex max-w-5xl flex-col gap-10">
-        <header>
-          <Link href="/" className="text-sm hover:underline" style={{ color: "var(--text-secondary)" }}>
-            ← HealthTracker
-          </Link>
-          <h1 className="mt-2 text-2xl font-semibold tracking-tight" style={{ color: "var(--text-primary)" }}>
-            Runs
-          </h1>
-          <p className="mt-1 text-sm" style={{ color: "var(--text-secondary)" }}>
-            Laatste 90 dagen, {runs.length} run{runs.length === 1 ? "" : "s"}
-          </p>
+        <header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <Link href="/" className="text-sm hover:underline" style={{ color: "var(--text-secondary)" }}>
+              ← HealthTracker
+            </Link>
+            <h1 className="mt-2 text-2xl font-semibold tracking-tight" style={{ color: "var(--text-primary)" }}>
+              Runs
+            </h1>
+            <p className="mt-1 text-sm" style={{ color: "var(--text-secondary)" }}>
+              {RANGES[range].label}, {runs.length} run{runs.length === 1 ? "" : "s"}
+            </p>
+          </div>
+          <nav className="flex gap-1 rounded-lg p-1" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
+            {(Object.keys(RANGES) as RangeKey[]).map((key) => (
+              <Link
+                key={key}
+                href={key === "1y" ? "/runs" : `/runs?range=${key}`}
+                className="rounded-md px-3 py-1.5 text-sm font-medium transition-colors"
+                style={
+                  key === range
+                    ? { background: "var(--series-orange)", color: "#fff" }
+                    : { color: "var(--text-secondary)" }
+                }
+              >
+                {RANGES[key].label}
+              </Link>
+            ))}
+          </nav>
         </header>
 
         {runs.length === 0 ? (
@@ -88,7 +127,7 @@ export default async function RunsPage() {
 
             <section>
               <h2 className="mb-3 text-lg font-medium" style={{ color: "var(--text-primary)" }}>
-                Trends (laatste {chartPoints.length} runs)
+                Trends ({chartPoints.length} runs — sleep de balk onderin om in/uit te zoomen)
               </h2>
               <RunTrendsChart points={chartPoints} />
             </section>
