@@ -25,6 +25,28 @@ function paceMinPerKm(avgSpeedMPerS?: number) {
   return Number.isFinite(minPerKm) ? minPerKm : null;
 }
 
+const RUN_TYPES = new Set(["Run", "TrailRun", "VirtualRun"]);
+
+// Strava paginates at up to 200/page; walk pages until one comes back short of
+// a full page, which means we've reached the end of the athlete's history.
+async function fetchAllRuns(accessToken: string): Promise<StravaActivity[]> {
+  const perPage = 200;
+  const runs: StravaActivity[] = [];
+  for (let page = 1; ; page++) {
+    const res = await fetch(
+      `https://www.strava.com/api/v3/athlete/activities?per_page=${perPage}&page=${page}`,
+      { headers: { Authorization: `Bearer ${accessToken}` } },
+    );
+    if (!res.ok) {
+      throw new Error(`Strava API error (page ${page}): ${await res.text()}`);
+    }
+    const pageActivities = (await res.json()) as StravaActivity[];
+    runs.push(...pageActivities.filter((a) => RUN_TYPES.has(a.type)));
+    if (pageActivities.length < perPage) break;
+  }
+  return runs;
+}
+
 async function handleSync(request: Request) {
   const authHeader = request.headers.get("authorization");
   const cronSecret = request.headers.get("x-cron-secret") ?? authHeader?.replace("Bearer ", "");
@@ -34,14 +56,12 @@ async function handleSync(request: Request) {
 
   const accessToken = await getValidAccessToken();
 
-  const res = await fetch(
-    "https://www.strava.com/api/v3/athlete/activities?per_page=50",
-    { headers: { Authorization: `Bearer ${accessToken}` } },
-  );
-  if (!res.ok) {
-    return NextResponse.json({ error: await res.text() }, { status: 502 });
+  let stravaActivities: StravaActivity[];
+  try {
+    stravaActivities = await fetchAllRuns(accessToken);
+  } catch (err) {
+    return NextResponse.json({ error: (err as Error).message }, { status: 502 });
   }
-  const stravaActivities = (await res.json()) as StravaActivity[];
 
   let upserted = 0;
   for (const a of stravaActivities) {

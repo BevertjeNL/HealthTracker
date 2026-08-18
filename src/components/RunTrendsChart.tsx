@@ -8,6 +8,7 @@ import {
   YAxis,
   CartesianGrid,
   Tooltip,
+  Brush,
 } from "recharts";
 
 type Point = {
@@ -17,7 +18,7 @@ type Point = {
 };
 
 function fmtDateShort(d: string) {
-  return new Date(d).toLocaleDateString("nl-NL", { day: "numeric", month: "short" });
+  return new Date(d).toLocaleDateString("nl-NL", { day: "numeric", month: "short", year: "2-digit" });
 }
 
 function fmtPaceTick(v: number) {
@@ -26,15 +27,19 @@ function fmtPaceTick(v: number) {
   return `${min}:${sec.toString().padStart(2, "0")}`;
 }
 
+const DEFAULT_WINDOW = 26; // roughly 6 months at ~1 run/week — the brush lets you widen it
+
 export function RunTrendsChart({ points }: { points: Point[] }) {
   const data = [...points].reverse().map((p) => ({
     ...p,
     dateLabel: fmtDateShort(p.date),
   }));
+  const showBrush = data.length > DEFAULT_WINDOW;
+  const startIndex = showBrush ? data.length - DEFAULT_WINDOW : undefined;
 
   return (
     <div className="grid gap-6 sm:grid-cols-2">
-      <div className="h-64 rounded-xl p-4" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
+      <div className="h-72 rounded-xl p-4" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
         <p className="mb-2 text-sm font-medium" style={{ color: "var(--text-secondary)" }}>
           Tempo per run
         </p>
@@ -65,11 +70,21 @@ export function RunTrendsChart({ points }: { points: Point[] }) {
               dot={{ r: 3, fill: "var(--series-orange)", stroke: "var(--surface-1)", strokeWidth: 2 }}
               connectNulls
             />
+            {showBrush && (
+              <Brush
+                dataKey="dateLabel"
+                height={22}
+                startIndex={startIndex}
+                stroke="var(--series-orange)"
+                fill="var(--surface-1)"
+                travellerWidth={8}
+              />
+            )}
           </LineChart>
         </ResponsiveContainer>
       </div>
 
-      <div className="h-64 rounded-xl p-4" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
+      <div className="h-72 rounded-xl p-4" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
         <p className="mb-2 text-sm font-medium" style={{ color: "var(--text-secondary)" }}>
           Gemiddelde hartslag per run
         </p>
@@ -91,6 +106,16 @@ export function RunTrendsChart({ points }: { points: Point[] }) {
               dot={{ r: 3, fill: "var(--series-red)", stroke: "var(--surface-1)", strokeWidth: 2 }}
               connectNulls
             />
+            {showBrush && (
+              <Brush
+                dataKey="dateLabel"
+                height={22}
+                startIndex={startIndex}
+                stroke="var(--series-red)"
+                fill="var(--surface-1)"
+                travellerWidth={8}
+              />
+            )}
           </LineChart>
         </ResponsiveContainer>
       </div>
