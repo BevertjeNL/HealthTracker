@@ -1,3 +1,4 @@
+import { notInArray } from "drizzle-orm";
 import { db } from "@/db";
 import { activities } from "@/db/schema";
 import { getValidAccessToken } from "@/lib/strava";
@@ -46,7 +47,7 @@ async function fetchAllRuns(accessToken: string): Promise<StravaActivity[]> {
   return runs;
 }
 
-export async function syncStravaRuns(): Promise<{ synced: number }> {
+export async function syncStravaRuns(): Promise<{ synced: number; deleted: number }> {
   const accessToken = await getValidAccessToken();
   const stravaActivities = await fetchAllRuns(accessToken);
 
@@ -75,5 +76,16 @@ export async function syncStravaRuns(): Promise<{ synced: number }> {
     upserted++;
   }
 
-  return { synced: upserted };
+  // fetchAllRuns walks the athlete's full history, so any run currently in the
+  // DB but absent from this result set was deleted (or un-Run-ified) on Strava.
+  const currentStravaIds = stravaActivities.map((a) => String(a.id));
+  const deleteResult =
+    currentStravaIds.length > 0
+      ? await db
+          .delete(activities)
+          .where(notInArray(activities.stravaId, currentStravaIds))
+          .returning({ id: activities.id })
+      : [];
+
+  return { synced: upserted, deleted: deleteResult.length };
 }
