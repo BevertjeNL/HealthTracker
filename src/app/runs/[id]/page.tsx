@@ -9,13 +9,11 @@ export const dynamic = "force-dynamic";
 
 function Stat({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-xl p-4" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
-      <p className="text-xs font-medium uppercase tracking-wide" style={{ color: "var(--text-muted)" }}>
+    <div className="rounded-lg border border-zinc-200 p-4 dark:border-zinc-800">
+      <p className="text-xs font-medium uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
         {label}
       </p>
-      <p className="mt-1 text-xl font-semibold" style={{ color: "var(--text-primary)" }}>
-        {value}
-      </p>
+      <p className="mt-1 text-xl font-semibold text-black dark:text-zinc-50">{value}</p>
     </div>
   );
 }
@@ -35,16 +33,16 @@ export default async function RunDetailPage({
   if (!run) notFound();
 
   return (
-    <div className="min-h-screen px-6 py-12" style={{ background: "var(--background)" }}>
+    <div className="min-h-screen bg-zinc-50 px-6 py-12 font-sans dark:bg-black">
       <main className="mx-auto flex max-w-3xl flex-col gap-8">
         <header>
-          <Link href="/runs" className="text-sm hover:underline" style={{ color: "var(--text-secondary)" }}>
+          <Link href="/runs" className="text-sm text-zinc-500 hover:underline dark:text-zinc-400">
             ← Alle runs
           </Link>
-          <h1 className="mt-2 text-2xl font-semibold tracking-tight" style={{ color: "var(--text-primary)" }}>
+          <h1 className="mt-2 text-2xl font-semibold tracking-tight text-black dark:text-zinc-50">
             {run.name}
           </h1>
-          <p className="mt-1 text-sm" style={{ color: "var(--text-secondary)" }}>
+          <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
             {fmtDate(run.startDate)} · {run.type}
           </p>
         </header>
@@ -80,8 +78,7 @@ export default async function RunDetailPage({
           href={`https://www.strava.com/activities/${run.stravaId}`}
           target="_blank"
           rel="noopener noreferrer"
-          className="text-sm hover:underline"
-          style={{ color: "var(--series-orange)" }}
+          className="text-sm text-orange-600 hover:underline dark:text-orange-400"
         >
           Bekijk op Strava →
         </a>

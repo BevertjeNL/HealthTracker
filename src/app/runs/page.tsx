@@ -9,21 +9,12 @@ export const dynamic = "force-dynamic";
 
 function StatCard({ label, value, sub }: { label: string; value: string; sub?: string }) {
   return (
-    <div
-      className="rounded-xl p-4"
-      style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}
-    >
-      <p className="text-xs font-medium uppercase tracking-wide" style={{ color: "var(--text-muted)" }}>
+    <div className="rounded-lg border border-zinc-200 p-4 dark:border-zinc-800">
+      <p className="text-xs font-medium uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
         {label}
       </p>
-      <p className="mt-1 text-2xl font-semibold" style={{ color: "var(--text-primary)" }}>
-        {value}
-      </p>
-      {sub && (
-        <p className="mt-0.5 text-xs" style={{ color: "var(--text-secondary)" }}>
-          {sub}
-        </p>
-      )}
+      <p className="mt-1 text-2xl font-semibold text-black dark:text-zinc-50">{value}</p>
+      {sub && <p className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">{sub}</p>}
     </div>
   );
 }
@@ -55,22 +46,22 @@ export default async function RunsPage() {
     }));
 
   return (
-    <div className="min-h-screen px-6 py-12" style={{ background: "var(--background)" }}>
+    <div className="min-h-screen bg-zinc-50 px-6 py-12 font-sans dark:bg-black">
       <main className="mx-auto flex max-w-5xl flex-col gap-10">
         <header>
-          <Link href="/" className="text-sm hover:underline" style={{ color: "var(--text-secondary)" }}>
+          <Link href="/" className="text-sm text-zinc-500 hover:underline dark:text-zinc-400">
             ← HealthTracker
           </Link>
-          <h1 className="mt-2 text-2xl font-semibold tracking-tight" style={{ color: "var(--text-primary)" }}>
+          <h1 className="mt-2 text-2xl font-semibold tracking-tight text-black dark:text-zinc-50">
             Runs
           </h1>
-          <p className="mt-1 text-sm" style={{ color: "var(--text-secondary)" }}>
+          <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
             Laatste 90 dagen, {runs.length} run{runs.length === 1 ? "" : "s"}
           </p>
         </header>
 
         {runs.length === 0 ? (
-          <p className="text-sm" style={{ color: "var(--text-secondary)" }}>
+          <p className="text-sm text-zinc-500 dark:text-zinc-400">
             Nog geen runs gevonden. Verbind Strava via{" "}
             <a className="underline" href="/api/strava/auth">
               /api/strava/auth
@@ -87,22 +78,19 @@ export default async function RunsPage() {
             </section>
 
             <section>
-              <h2 className="mb-3 text-lg font-medium" style={{ color: "var(--text-primary)" }}>
+              <h2 className="mb-3 text-lg font-medium text-black dark:text-zinc-50">
                 Trends (laatste {chartPoints.length} runs)
               </h2>
               <RunTrendsChart points={chartPoints} />
             </section>
 
             <section>
-              <h2 className="mb-3 text-lg font-medium" style={{ color: "var(--text-primary)" }}>
+              <h2 className="mb-3 text-lg font-medium text-black dark:text-zinc-50">
                 Alle runs
               </h2>
-              <div
-                className="overflow-x-auto rounded-xl"
-                style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}
-              >
+              <div className="overflow-x-auto rounded-lg border border-zinc-200 dark:border-zinc-800">
                 <table className="w-full text-sm">
-                  <thead className="text-left" style={{ color: "var(--text-muted)" }}>
+                  <thead className="bg-zinc-100 text-left text-zinc-500 dark:bg-zinc-900 dark:text-zinc-400">
                     <tr>
                       <th className="px-4 py-2">Datum</th>
                       <th className="px-4 py-2">Naam</th>
@@ -117,30 +105,33 @@ export default async function RunsPage() {
                   </thead>
                   <tbody>
                     {runs.map((r) => (
-                      <tr key={r.id} style={{ borderTop: "1px solid var(--border)" }}>
+                      <tr
+                        key={r.id}
+                        className="border-t border-zinc-200 hover:bg-zinc-100 dark:border-zinc-800 dark:hover:bg-zinc-900"
+                      >
                         <td className="px-4 py-2">
-                          <Link href={`/runs/${r.id}`} className="hover:underline" style={{ color: "var(--text-primary)" }}>
+                          <Link href={`/runs/${r.id}`} className="hover:underline">
                             {fmtDate(r.startDate)}
                           </Link>
                         </td>
                         <td className="px-4 py-2">
-                          <Link href={`/runs/${r.id}`} className="hover:underline" style={{ color: "var(--text-primary)" }}>
+                          <Link href={`/runs/${r.id}`} className="hover:underline">
                             {r.name}
                           </Link>
                         </td>
-                        <td className="px-4 py-2" style={{ color: "var(--text-secondary)" }}>{fmtKm(r.distanceM)}</td>
-                        <td className="px-4 py-2" style={{ color: "var(--text-secondary)" }}>{fmtDuration(r.movingTimeS)}</td>
-                        <td className="px-4 py-2" style={{ color: "var(--text-secondary)" }}>{fmtPace(r.avgPaceMinPerKm)}</td>
-                        <td className="px-4 py-2" style={{ color: "var(--text-secondary)" }}>
+                        <td className="px-4 py-2">{fmtKm(r.distanceM)}</td>
+                        <td className="px-4 py-2">{fmtDuration(r.movingTimeS)}</td>
+                        <td className="px-4 py-2">{fmtPace(r.avgPaceMinPerKm)}</td>
+                        <td className="px-4 py-2">
                           {r.avgHeartRate ? Math.round(r.avgHeartRate) : "-"}
                         </td>
-                        <td className="px-4 py-2" style={{ color: "var(--text-secondary)" }}>
+                        <td className="px-4 py-2">
                           {r.elevationGainM ? Math.round(r.elevationGainM) + " m" : "-"}
                         </td>
-                        <td className="px-4 py-2" style={{ color: "var(--text-secondary)" }}>
+                        <td className="px-4 py-2">
                           {r.avgCadence ? Math.round(r.avgCadence * 2) : "-"}
                         </td>
-                        <td className="px-4 py-2" style={{ color: "var(--text-secondary)" }}>
+                        <td className="px-4 py-2">
                           {r.sufferScore ? Math.round(r.sufferScore) : "-"}
                         </td>
                       </tr>
