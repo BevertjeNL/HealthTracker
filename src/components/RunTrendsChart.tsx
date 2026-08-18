@@ -34,53 +34,61 @@ export function RunTrendsChart({ points }: { points: Point[] }) {
 
   return (
     <div className="grid gap-6 sm:grid-cols-2">
-      <div className="h-64 rounded-lg border border-zinc-200 p-4 dark:border-zinc-800">
-        <p className="mb-2 text-sm font-medium text-zinc-600 dark:text-zinc-400">
+      <div className="h-64 rounded-xl p-4" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
+        <p className="mb-2 text-sm font-medium" style={{ color: "var(--text-secondary)" }}>
           Tempo per run
         </p>
         <ResponsiveContainer width="100%" height="90%">
           <LineChart data={data} margin={{ left: -10, right: 10 }}>
-            <CartesianGrid strokeDasharray="3 3" className="stroke-zinc-200 dark:stroke-zinc-800" />
-            <XAxis dataKey="dateLabel" tick={{ fontSize: 11 }} />
+            <CartesianGrid strokeDasharray="3 3" stroke="var(--gridline)" vertical={false} />
+            <XAxis dataKey="dateLabel" tick={{ fontSize: 11, fill: "var(--text-muted)" }} axisLine={{ stroke: "var(--axis)" }} tickLine={false} />
             <YAxis
-              tick={{ fontSize: 11 }}
+              tick={{ fontSize: 11, fill: "var(--text-muted)" }}
               domain={["dataMin - 0.3", "dataMax + 0.3"]}
               reversed
               tickFormatter={fmtPaceTick}
               width={45}
+              axisLine={false}
+              tickLine={false}
             />
             <Tooltip
+              contentStyle={{ background: "var(--surface-1)", border: "1px solid var(--border)", borderRadius: 8, fontSize: 12 }}
+              labelStyle={{ color: "var(--text-secondary)" }}
               formatter={(value) => [fmtPaceTick(Number(value)) + " /km", "Tempo"]}
               labelFormatter={(label) => label}
             />
             <Line
               type="monotone"
               dataKey="paceMinPerKm"
-              stroke="#FC5200"
+              stroke="var(--series-orange)"
               strokeWidth={2}
-              dot={{ r: 3 }}
+              dot={{ r: 3, fill: "var(--series-orange)", stroke: "var(--surface-1)", strokeWidth: 2 }}
               connectNulls
             />
           </LineChart>
         </ResponsiveContainer>
       </div>
 
-      <div className="h-64 rounded-lg border border-zinc-200 p-4 dark:border-zinc-800">
-        <p className="mb-2 text-sm font-medium text-zinc-600 dark:text-zinc-400">
+      <div className="h-64 rounded-xl p-4" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
+        <p className="mb-2 text-sm font-medium" style={{ color: "var(--text-secondary)" }}>
           Gemiddelde hartslag per run
         </p>
         <ResponsiveContainer width="100%" height="90%">
           <LineChart data={data} margin={{ left: -10, right: 10 }}>
-            <CartesianGrid strokeDasharray="3 3" className="stroke-zinc-200 dark:stroke-zinc-800" />
-            <XAxis dataKey="dateLabel" tick={{ fontSize: 11 }} />
-            <YAxis tick={{ fontSize: 11 }} domain={["dataMin - 5", "dataMax + 5"]} width={35} />
-            <Tooltip formatter={(value) => [Math.round(Number(value)) + " bpm", "Gem. HR"]} />
+            <CartesianGrid strokeDasharray="3 3" stroke="var(--gridline)" vertical={false} />
+            <XAxis dataKey="dateLabel" tick={{ fontSize: 11, fill: "var(--text-muted)" }} axisLine={{ stroke: "var(--axis)" }} tickLine={false} />
+            <YAxis tick={{ fontSize: 11, fill: "var(--text-muted)" }} domain={["dataMin - 5", "dataMax + 5"]} width={35} axisLine={false} tickLine={false} />
+            <Tooltip
+              contentStyle={{ background: "var(--surface-1)", border: "1px solid var(--border)", borderRadius: 8, fontSize: 12 }}
+              labelStyle={{ color: "var(--text-secondary)" }}
+              formatter={(value) => [Math.round(Number(value)) + " bpm", "Gem. HR"]}
+            />
             <Line
               type="monotone"
               dataKey="avgHeartRate"
-              stroke="#e11d48"
+              stroke="var(--series-red)"
               strokeWidth={2}
-              dot={{ r: 3 }}
+              dot={{ r: 3, fill: "var(--series-red)", stroke: "var(--surface-1)", strokeWidth: 2 }}
               connectNulls
             />
           </LineChart>
