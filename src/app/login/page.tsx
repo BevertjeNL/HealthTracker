@@ -1,4 +1,6 @@
+import Link from "next/link";
 import { LoginForm } from "@/app/login/LoginForm";
+import { AppLogo } from "@/components/AppLogo";
 
 export default function LoginPage() {
   return (
@@ -7,9 +9,9 @@ export default function LoginPage() {
         className="w-full max-w-sm rounded-2xl p-6 shadow-sm"
         style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}
       >
-        <p className="text-sm font-medium" style={{ color: "var(--series-orange)" }}>
-          HealthTracker
-        </p>
+        <Link href="/" className="brand-mark" aria-label="Naar Pulse dashboard">
+          <AppLogo />
+        </Link>
         <h1 className="mt-2 text-2xl font-semibold" style={{ color: "var(--text-primary)" }}>
           Persoonlijke gegevens
         </h1>

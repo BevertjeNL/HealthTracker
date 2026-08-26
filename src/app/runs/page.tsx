@@ -5,6 +5,7 @@ import { desc, gte, sql } from "drizzle-orm";
 import { fmtDate, fmtPace, fmtDuration, fmtKm } from "@/lib/format";
 import { RunTrendsChart } from "@/components/RunTrendsChart";
 import { SyncButton } from "@/components/SyncButton";
+import { AppLogo } from "@/components/AppLogo";
 
 export const dynamic = "force-dynamic";
 
@@ -84,8 +85,8 @@ export default async function RunsPage({
       <main className="mx-auto flex max-w-5xl flex-col gap-10">
         <header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <Link href="/" className="text-sm hover:underline" style={{ color: "var(--text-secondary)" }}>
-              ← HealthTracker
+            <Link href="/" className="brand-mark" aria-label="Naar Pulse dashboard">
+              <AppLogo />
             </Link>
             <h1 className="mt-2 text-2xl font-semibold tracking-tight" style={{ color: "var(--text-primary)" }}>
               Runs

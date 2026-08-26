@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { healthMetrics } from "@/db/schema";
 import { hasValidSharedSecret } from "@/lib/security";
+import { normalizeHealthMetricValue } from "@/lib/health-import";
 
 // Health Auto Export sends: { data: { metrics: [ { name, units, data: [ { date, qty|Avg|value }, ... ] }, ... ] } }
 // Each metric can contain many points per day (e.g. one per hour), so we need
@@ -13,14 +14,15 @@ type HaePoint = {
   Avg?: number;
   value?: number;
 };
-type HaeMetric = { name: string; data: HaePoint[] };
+type HaeMetric = { name: string; units?: string; data: HaePoint[] };
 type HaePayload = { data: { metrics: HaeMetric[] } };
 
 type MetricValues = {
   restingHeartRate: number | null;
   hrvMs: number | null;
+  cardioRecovery1m: number | null;
+  walkingHeartRateAverage: number | null;
   vo2Max: number | null;
-  sleepHours: number | null;
   steps: number | null;
   activeEnergyKcal: number | null;
   weightKg: number | null;
@@ -31,11 +33,14 @@ type Agg = "sum" | "avg" | "last";
 const METRIC_MAP: Record<string, { column: Column; agg: Agg }> = {
   resting_heart_rate: { column: "restingHeartRate", agg: "avg" },
   heart_rate_variability: { column: "hrvMs", agg: "avg" },
+  cardio_recovery: { column: "cardioRecovery1m", agg: "avg" },
+  heart_rate_recovery_one_minute: { column: "cardioRecovery1m", agg: "avg" },
+  walking_heart_rate_average: { column: "walkingHeartRateAverage", agg: "avg" },
   vo2_max: { column: "vo2Max", agg: "last" },
-  sleep_analysis: { column: "sleepHours", agg: "sum" },
   step_count: { column: "steps", agg: "sum" },
   active_energy: { column: "activeEnergyKcal", agg: "sum" },
   weight_body_mass: { column: "weightKg", agg: "last" },
+  "weight_&_body_mass": { column: "weightKg", agg: "last" },
 };
 
 function dayKey(dateStr: string) {
@@ -59,6 +64,9 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Invalid JSON payload" }, { status: 400 });
   }
   const metrics = payload?.data?.metrics ?? [];
+  const receivedMetrics = [...new Set(metrics.map((metric) => metric.name))].sort();
+  const importedMetrics = receivedMetrics.filter((name) => name in METRIC_MAP);
+  const ignoredMetrics = receivedMetrics.filter((name) => !(name in METRIC_MAP));
 
   // date -> column -> chronologically ordered values for that day
   const buckets = new Map<string, Partial<Record<Column, number[]>>>();
@@ -70,11 +78,11 @@ export async function POST(request: Request) {
     const points = [...(metric.data ?? [])].sort((a, b) => a.date.localeCompare(b.date));
     for (const point of points) {
       const value = pointValue(point);
-      if (value === null) continue;
+      if (value === null || !Number.isFinite(value)) continue;
       const key = dayKey(point.date);
       const dayBucket = buckets.get(key) ?? {};
       const values = dayBucket[mapping.column] ?? [];
-      values.push(value);
+      values.push(normalizeHealthMetricValue(metric.name, metric.units, value));
       dayBucket[mapping.column] = values;
       buckets.set(key, dayBucket);
     }
@@ -107,9 +115,23 @@ export async function POST(request: Request) {
     upserted++;
   }
 
-  return NextResponse.json({ upserted });
+  return NextResponse.json({ upserted, receivedMetrics, importedMetrics, ignoredMetrics });
 }
 
 export async function GET() {
-  return NextResponse.json({ ok: true, hint: "POST Health Auto Export payloads here" });
+  return NextResponse.json({
+    ok: true,
+    hint: "POST Health Auto Export payloads here",
+    acceptedMetrics: Object.keys(METRIC_MAP).sort(),
+    recommendedMetrics: [
+      "heart_rate_variability",
+      "resting_heart_rate",
+      "cardio_recovery",
+      "walking_heart_rate_average",
+      "vo2_max",
+      "step_count",
+      "active_energy",
+      "weight_&_body_mass",
+    ],
+  });
 }

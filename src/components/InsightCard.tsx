@@ -12,23 +12,25 @@ const statusLabel: Record<Insight["status"], string> = {
   neutral: "Neutraal",
 };
 
-export function InsightCard({ insight }: { insight: Insight }) {
+export function InsightCard({ insight, index }: { insight: Insight; index?: number }) {
   return (
-    <div
-      className="flex gap-3 rounded-xl p-4"
-      style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}
-    >
+    <div className="insight-card">
       <span
-        className="mt-1 h-2 w-2 shrink-0 rounded-full"
+        className="insight-index"
         style={{ background: statusColor[insight.status] }}
-        aria-hidden
-      />
+        aria-hidden>{index ?? "•"}</span>
       <div>
         <p className="text-[11px] font-medium uppercase tracking-wide" style={{ color: "var(--text-muted)" }}>
-          {statusLabel[insight.status]}
+          {statusLabel[insight.status]} · betrouwbaarheid {insight.confidence}
         </p>
-        <p className="mt-0.5 text-sm leading-relaxed" style={{ color: "var(--text-primary)" }}>
+        <h3 className="mt-1 text-sm font-semibold" style={{ color: "var(--text-primary)" }}>
+          {insight.title}
+        </h3>
+        <p className="mt-1 text-sm leading-relaxed" style={{ color: "var(--text-secondary)" }}>
           {insight.text}
+        </p>
+        <p className="mt-2 text-sm leading-relaxed" style={{ color: "var(--text-primary)" }}>
+          <strong>Advies:</strong> {insight.recommendation}
         </p>
       </div>
     </div>
