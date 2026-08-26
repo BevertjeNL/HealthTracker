@@ -23,6 +23,7 @@ src/db/index.ts                         Neon client
 src/lib/strava.ts                       Strava OAuth token exchange/refresh + storage
 src/lib/sync.ts                         Full-history Strava run sync and reconciliation
 src/lib/format.ts                       Shared date/pace/duration/km formatters (nl-NL locale)
+src/lib/health-import.ts                Health unit normalization (kJ→kcal, lb/lbs→kg)
 src/lib/insights.ts                     Rule-based summaries and observation generation
 src/lib/security.ts                     Constant-time secret comparison and Bearer parsing
 src/lib/session.ts                      Session signing/verification and password check
@@ -32,14 +33,23 @@ src/app/login/*                         Single-user login/logout actions and UI
 src/app/api/strava/auth/route.ts        GET → redirects to Strava OAuth consent
 src/app/api/strava/callback/route.ts    GET → validates OAuth state, exchanges code, saves tokens
 src/app/api/strava/sync/route.ts        GET/POST, requires Authorization: Bearer $CRON_SECRET → syncs runs
-src/app/api/health/ingest/route.ts      POST, requires x-ingest-secret: $HEALTH_INGEST_SECRET → accepts Health Auto Export payloads, aggregates per calendar day, upserts into health_metrics
+src/app/api/health/ingest/route.ts      GET metric contract + protected POST ingest; aggregates accepted Health Auto Export metrics per local calendar day and upserts health_metrics
+src/app/layout.tsx                      Pulse metadata, favicon/Apple/Safari/PWA integration and authenticated shell
+src/app/manifest.ts                     PWA manifest and installable app icons
 src/app/page.tsx                        Insight dashboard over the latest 90 days
 src/app/runs/page.tsx                   Range filters, stat cards, trend charts and runs table
 src/app/runs/actions.ts                 Authenticated manual Strava sync Server Action
 src/app/runs/[id]/page.tsx              Single-run detail page
+src/components/AppLogo.tsx              Shared Pulse wordmark used throughout the UI
 src/components/*                        Charts, stat/insight cards and sync/logout controls
+public/icons/*                          SVG, PNG and maskable PWA icons
+public/favicon.ico                      Multi-size browser favicon
+public/apple-touch-icon.png             Apple home-screen/bookmark icon
+public/safari-pinned-tab.svg            Safari pinned-tab mask icon
 .github/workflows/quality.yml           Audit, lint, typecheck, tests and build in CI
 tests/security.test.mjs                 Shared-secret fail-closed regression tests
+tests/health-import.test.mjs            Health unit-normalization regression tests
+tests/insights.test.mjs                 Insight thresholds, staleness and recommendations
 vercel.json                             Daily cron hitting /api/strava/sync (05:00 UTC)
 drizzle.config.ts                       Points at src/db/schema.ts, reads DATABASE_URL
 ```
@@ -50,12 +60,14 @@ When you add a file that a future agent would need to know about to orient itsel
 
 - `activities.start_date` is stored `timestamptz` — always in UTC as returned by Strava. Convert to local time (`Europe/Amsterdam`, via `src/lib/format.ts`) only at render time, never at write time.
 - `health_metrics.date` is a plain `date` (no timezone) representing a **calendar day as reported by Health Auto Export**, which exports in the device's local time. Do not reinterpret it through a timezone conversion — treat the string as already being the correct local day and only use `.slice(0, 10)` / string comparison, not `new Date(...)` arithmetic that could shift it across a day boundary.
-- Cumulative metrics (steps, active energy, sleep hours) are **summed** per calendar day across all points Health Auto Export sends for that day. Point-in-time metrics (resting HR, HRV) are **averaged**. Single-sample metrics (VO2 max, weight) take the **last** chronological value. This mapping lives in `METRIC_MAP` in `src/app/api/health/ingest/route.ts` — if you add a metric, decide its aggregation deliberately and document it there, don't default to "last" out of laziness.
+- Cumulative metrics (steps and active energy) are **summed** per calendar day. Resting HR, HRV, one-minute cardio recovery and walking heart-rate average are **averaged**. VO2 max and weight take the **last** chronological value. This mapping lives in `METRIC_MAP` in `src/app/api/health/ingest/route.ts` — if you add a metric, decide its aggregation deliberately and document it there, don't default to "last" out of laziness.
+- `active_energy` is normalized from kJ to kcal and weight from lb/lbs to kg in `src/lib/health-import.ts`; new units need explicit tests before import.
+- Sleep is intentionally not accepted, imported or analyzed because the connected export does not provide usable sleep data. `sleep_hours` and `sleep_score` are legacy nullable columns only; do not re-enable them without confirming that reliable source data exists and adding fixtures/tests.
 - All distances in the DB are meters; pace is precomputed at ingest as `avg_pace_min_per_km`. Don't re-derive pace from raw Strava fields in the UI layer — use the stored column so there's one source of truth.
 
 ## Minimum sample size for insights
 
-Any feature that surfaces a trend, average, correlation, or "insight" must not present a computed value derived from fewer than **3 data points** as if it were meaningful. Below that threshold, show the raw values or an explicit "not enough data yet" state instead of an average/trend line. This matters even more if an AI advice layer is added — a coaching suggestion based on one bad night's sleep is worse than no suggestion.
+Any feature that surfaces a trend, average, correlation, or "insight" must not present a computed value derived from fewer than **3 data points** as if it were meaningful. Below that threshold, show the raw values or an explicit "not enough data yet" state instead of an average/trend line. This matters even more if an AI advice layer is added — a coaching suggestion based on one anomalous measurement is worse than no suggestion.
 
 ## Security rules (non-negotiable)
 
@@ -93,7 +105,9 @@ Run all of these, in order, before telling the user a change is finished:
 
 ## Definition of done
 
-A change is done when: audit, lint, typecheck, tests and build pass; the changed behavior has been verified live; CI is green; any schema change has the required constraints; no health data or secrets appear in logs/errors/commits; and the architecture list is current. If a live integration cannot be exercised, report that limitation explicitly.
+A change is done when: audit, lint, typecheck, tests and build pass; it has been committed on a feature branch, reviewed through a pull request, merged into `main`, deployed to production, and the changed behavior has been verified on the live URL; CI is green; any schema change has the required constraints and is applied to the live Neon database; no health data or secrets appear in logs/errors/commits; and both README.md and this architecture list are current. If a live integration cannot be exercised, report that limitation explicitly and do not describe the task as fully complete.
+
+The standing user preference for this repository is **always carry implementation work through to live production**, unless the user explicitly asks for a local-only prototype, analysis, or draft. "Done" and "klaar" therefore include PR, merge, CI, Vercel deployment and a live smoke check; they never mean only that files were edited locally.
 
 ## Autonomy boundary — when you may finish without asking
 
@@ -103,7 +117,9 @@ You must stop and get explicit sign-off before finishing, even if all checks pas
 
 ## Deploy and rollback
 
-- Deploys are automatic on push to `main` via Vercel's GitHub integration — pushing to `main` is a production deploy, not a neutral git operation. Confirm with the user before pushing a change that hasn't been through the checks above.
+- Deploys are automatic on push to `main` via Vercel's GitHub integration — pushing to `main` is a production deploy, not a neutral git operation. Never push a change that has not been through the checks above.
+- Canonical public production URL: `https://health-tracker-mu-six.vercel.app`. The `main` alias `https://health-tracker-git-main-bevertje.vercel.app` must resolve to the same deployment. After every deploy, inspect both aliases; a successful Vercel build does not guarantee that a manually managed alias moved with it.
+- Verify the deployment identity with `npx vercel inspect <url>` and then exercise the changed public route or asset. Vercel CLI may print a harmless cache-update `EPERM` after returning valid deployment data in this sandbox; judge the deployment from the fetched ID/status and the live request, not that local cache write.
 - Cron (`vercel.json`, daily Strava sync at 05:00 UTC) redeploys with the app; no separate step needed.
 - Rollback: use the Vercel dashboard ("Instant Rollback" to a previous deployment) rather than force-pushing or reverting commits under time pressure — it's faster and doesn't touch git history. Only fall back to a `git revert` + push if the bad deploy also needs to be removed from history (e.g. it committed a secret).
 - A schema migration is not automatically rolled back by an app rollback — if a deploy that included a `db:push` needs to be undone, the schema change needs its own explicit reversal; check what changed in `src/db/schema.ts` before assuming a Vercel rollback alone fixes it.
@@ -143,10 +159,13 @@ npm run db:studio     # Drizzle Studio GUI against the live DB
 5. **Vercel CLI is a local devDependency, not global** (global install fails with `EACCES`, no sudo on this machine). Always invoke via `npx vercel ...`.
 6. **`vercel link` / `vercel env pull`** is the only path to a local `DATABASE_URL` — the DB was provisioned through Vercel's Storage tab, not neon.com directly, so there's no separate manual Neon dashboard step.
 7. **If ingest silently produces zero rows**, inspect the payload's *shape* (metric names present, point counts, date range) — never its values, see Security rules — before assuming the DB or auth is broken.
+8. **Vercel aliases can become stale.** The production deployment and `git-main` alias have diverged before. Compare deployment IDs after each merge and explicitly repair the alias before calling the work live.
+9. **Sleep is intentionally skipped.** Do not add sleep to Health Auto Export instructions or insights merely because nullable legacy columns still exist.
 
 ## Not built yet (known gaps)
 
 - No AI-generated coaching/advice layer; current insights are deliberately rule-based observations.
-- Health Auto Export mapping and units are not yet covered by anonymized real-payload fixtures.
+- Unit conversion and insight rules have synthetic regression tests, but Health Auto Export mapping is not yet covered by anonymized real-payload fixtures.
 - Database changes still use direct `db:push`; versioned migrations and a tested restore procedure remain future work.
-- `health_metrics.sleep_score` and `.raw` columns are defined but not populated by anything yet.
+- `health_metrics.sleep_hours`, `.sleep_score` and `.raw` are legacy columns and are not populated.
+- Cardio recovery and walking heart-rate insights remain unavailable until enough daily samples have accumulated.
