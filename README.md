@@ -24,7 +24,7 @@ De inzichten zijn observationeel en persoonlijk; ze zijn geen diagnose of vervan
 
 ## Apple Health: wat wordt geïmporteerd
 
-Health Auto Export POST dagelijks naar `/api/health/ingest`. De import accepteert deze metriek-namen:
+Health Auto Export stuurt dagelijks een POST-verzoek naar `/api/health/ingest`. De import accepteert deze metriek-namen:
 
 | Health Auto Export-naam | Opslag/gebruik | Aggregatie per dag |
 |---|---|---|
