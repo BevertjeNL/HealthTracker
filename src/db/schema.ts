@@ -53,6 +53,8 @@ export const healthMetrics = pgTable(
     date: date("date").notNull(),
     restingHeartRate: real("resting_heart_rate"),
     hrvMs: real("hrv_ms"),
+    cardioRecovery1m: real("cardio_recovery_1m"),
+    walkingHeartRateAverage: real("walking_heart_rate_average"),
     vo2Max: real("vo2_max"),
     sleepHours: real("sleep_hours"),
     sleepScore: real("sleep_score"),

@@ -4,6 +4,7 @@ import { db } from "@/db";
 import { activities } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { fmtDate, fmtPace, fmtDuration, fmtKm } from "@/lib/format";
+import { AppLogo } from "@/components/AppLogo";
 
 export const dynamic = "force-dynamic";
 
@@ -38,7 +39,10 @@ export default async function RunDetailPage({
     <div className="min-h-screen px-6 py-12" style={{ background: "var(--background)" }}>
       <main className="mx-auto flex max-w-3xl flex-col gap-8">
         <header>
-          <Link href="/runs" className="text-sm hover:underline" style={{ color: "var(--text-secondary)" }}>
+          <Link href="/" className="brand-mark" aria-label="Naar Pulse dashboard">
+            <AppLogo />
+          </Link>
+          <Link href="/runs" className="mt-5 inline-block text-sm hover:underline" style={{ color: "var(--text-secondary)" }}>
             ← Alle runs
           </Link>
           <h1 className="mt-2 text-2xl font-semibold tracking-tight" style={{ color: "var(--text-primary)" }}>

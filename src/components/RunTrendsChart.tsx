@@ -9,6 +9,7 @@ import {
   CartesianGrid,
   Tooltip,
   Brush,
+  ReferenceLine,
 } from "recharts";
 
 type Point = {
@@ -22,8 +23,12 @@ function fmtDateShort(d: string) {
 }
 
 function fmtPaceTick(v: number) {
-  const min = Math.floor(v);
-  const sec = Math.round((v - min) * 60);
+  let min = Math.floor(v);
+  let sec = Math.round((v - min) * 60);
+  if (sec === 60) {
+    min += 1;
+    sec = 0;
+  }
   return `${min}:${sec.toString().padStart(2, "0")}`;
 }
 
@@ -36,15 +41,20 @@ export function RunTrendsChart({ points }: { points: Point[] }) {
   }));
   const showBrush = data.length > DEFAULT_WINDOW;
   const startIndex = showBrush ? data.length - DEFAULT_WINDOW : undefined;
+  const paces = data.map((p) => p.paceMinPerKm).filter((v): v is number => v != null);
+  const heartRates = data.map((p) => p.avgHeartRate).filter((v): v is number => v != null);
+  const averagePace = paces.length >= 3 ? paces.reduce((sum, value) => sum + value, 0) / paces.length : null;
+  const averageHeartRate = heartRates.length >= 3 ? heartRates.reduce((sum, value) => sum + value, 0) / heartRates.length : null;
 
   return (
     <div className="grid gap-6 sm:grid-cols-2">
-      <div className="h-72 rounded-xl p-4" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
-        <p className="mb-2 text-sm font-medium" style={{ color: "var(--text-secondary)" }}>
-          Tempo per run
-        </p>
-        <ResponsiveContainer width="100%" height="90%">
-          <LineChart data={data} margin={{ left: -10, right: 10 }}>
+      <article className="h-80 rounded-2xl p-4" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }} aria-label="Tempo per run trendgrafiek">
+        <div className="mb-2 flex items-baseline justify-between gap-3">
+          <div><h3 className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>Tempo per run</h3><p className="text-xs" style={{ color: "var(--text-muted)" }}>Lager is sneller</p></div>
+          {averagePace != null && <p className="text-xs tabular-nums" style={{ color: "var(--text-secondary)" }}>Gem. <strong>{fmtPaceTick(averagePace)} min/km</strong></p>}
+        </div>
+        {paces.length < 3 ? <p className="flex h-60 items-center justify-center text-sm" style={{ color: "var(--text-muted)" }}>Nog te weinig data ({paces.length}/3 runs).</p> : <ResponsiveContainer width="100%" height="85%">
+          <LineChart data={data} margin={{ left: 4, right: 10 }} accessibilityLayer>
             <CartesianGrid strokeDasharray="3 3" stroke="var(--gridline)" vertical={false} />
             <XAxis dataKey="dateLabel" tick={{ fontSize: 11, fill: "var(--text-muted)" }} axisLine={{ stroke: "var(--axis)" }} tickLine={false} />
             <YAxis
@@ -55,7 +65,9 @@ export function RunTrendsChart({ points }: { points: Point[] }) {
               width={45}
               axisLine={false}
               tickLine={false}
+              label={{ value: "min/km", angle: -90, position: "insideLeft", fill: "var(--text-muted)", fontSize: 10 }}
             />
+            {averagePace != null && <ReferenceLine y={averagePace} stroke="var(--text-muted)" strokeDasharray="5 5" />}
             <Tooltip
               contentStyle={{ background: "var(--surface-1)", border: "1px solid var(--border)", borderRadius: 8, fontSize: 12 }}
               labelStyle={{ color: "var(--text-secondary)" }}
@@ -81,18 +93,20 @@ export function RunTrendsChart({ points }: { points: Point[] }) {
               />
             )}
           </LineChart>
-        </ResponsiveContainer>
-      </div>
+        </ResponsiveContainer>}
+      </article>
 
-      <div className="h-72 rounded-xl p-4" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
-        <p className="mb-2 text-sm font-medium" style={{ color: "var(--text-secondary)" }}>
-          Gemiddelde hartslag per run
-        </p>
-        <ResponsiveContainer width="100%" height="90%">
-          <LineChart data={data} margin={{ left: -10, right: 10 }}>
+      <article className="h-80 rounded-2xl p-4" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }} aria-label="Gemiddelde hartslag per run trendgrafiek">
+        <div className="mb-2 flex items-baseline justify-between gap-3">
+          <div><h3 className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>Hartslag per run</h3><p className="text-xs" style={{ color: "var(--text-muted)" }}>Gemiddelde tijdens activiteit</p></div>
+          {averageHeartRate != null && <p className="text-xs tabular-nums" style={{ color: "var(--text-secondary)" }}>Gem. <strong>{Math.round(averageHeartRate)} bpm</strong></p>}
+        </div>
+        {heartRates.length < 3 ? <p className="flex h-60 items-center justify-center text-sm" style={{ color: "var(--text-muted)" }}>Nog te weinig data ({heartRates.length}/3 runs).</p> : <ResponsiveContainer width="100%" height="85%">
+          <LineChart data={data} margin={{ left: 4, right: 10 }} accessibilityLayer>
             <CartesianGrid strokeDasharray="3 3" stroke="var(--gridline)" vertical={false} />
             <XAxis dataKey="dateLabel" tick={{ fontSize: 11, fill: "var(--text-muted)" }} axisLine={{ stroke: "var(--axis)" }} tickLine={false} />
-            <YAxis tick={{ fontSize: 11, fill: "var(--text-muted)" }} domain={["dataMin - 5", "dataMax + 5"]} width={35} axisLine={false} tickLine={false} />
+            <YAxis tick={{ fontSize: 11, fill: "var(--text-muted)" }} domain={["dataMin - 5", "dataMax + 5"]} width={50} axisLine={false} tickLine={false} label={{ value: "bpm", angle: -90, position: "insideLeft", fill: "var(--text-muted)", fontSize: 10 }} />
+            {averageHeartRate != null && <ReferenceLine y={averageHeartRate} stroke="var(--text-muted)" strokeDasharray="5 5" />}
             <Tooltip
               contentStyle={{ background: "var(--surface-1)", border: "1px solid var(--border)", borderRadius: 8, fontSize: 12 }}
               labelStyle={{ color: "var(--text-secondary)" }}
@@ -117,8 +131,8 @@ export function RunTrendsChart({ points }: { points: Point[] }) {
               />
             )}
           </LineChart>
-        </ResponsiveContainer>
-      </div>
+        </ResponsiveContainer>}
+      </article>
     </div>
   );
 }
