@@ -1,6 +1,6 @@
 # Pulse HealthTracker
 
-Pulse is een persoonlijk, afgeschermd dashboard dat hardloopdata uit **Strava** combineert met dagelijkse gezondheidsdata uit **Apple Health**. Apple Health wordt aangeleverd via **Health Auto Export** op de iPhone. De app zet die bronnen om in trends, conclusies en praktische trainingsaanbevelingen op basis van de persoonlijke historie van de gebruiker.
+Pulse is een persoonlijk, afgeschermd dashboard dat hardloopdata uit **Strava** combineert met dagelijkse gezondheidsdata uit **Apple Health**. Apple Health wordt gratis aangeleverd via **Apple Opdrachten** op de iPhone; het bestaande Health Auto Export-formaat blijft compatibel. De app zet die bronnen om in trends, conclusies en praktische trainingsaanbevelingen op basis van de persoonlijke historie van de gebruiker.
 
 ## Live omgeving
 
@@ -24,9 +24,9 @@ De inzichten zijn observationeel en persoonlijk; ze zijn geen diagnose of vervan
 
 ## Apple Health: wat wordt geïmporteerd
 
-Health Auto Export stuurt dagelijks een POST-verzoek naar `/api/health/ingest`. De import accepteert deze metriek-namen:
+Apple Opdrachten stuurt dagelijks een POST-verzoek naar `/api/health/ingest`. De import accepteert ook nog bestaande Health Auto Export-verzoeken en deze metriek-namen:
 
-| Health Auto Export-naam | Opslag/gebruik | Aggregatie per dag |
+| API-naam | Opslag/gebruik | Aggregatie per dag |
 |---|---|---|
 | `heart_rate_variability` | HRV in ms, herstel t.o.v. eigen basislijn | Gemiddelde |
 | `resting_heart_rate` | Rusthartslag, herstel t.o.v. eigen basislijn | Gemiddelde |
@@ -43,7 +43,7 @@ Eenheden worden waar nodig genormaliseerd: kJ naar kcal en lb/lbs naar kg. Het e
 
 Slaapdata wordt momenteel bewust overgeslagen omdat de aangesloten export geen bruikbare slaapgegevens levert. `sleep_hours` en `sleep_score` bestaan nog als ongebruikte legacy-kolommen in het databaseschema, maar de ingest-route accepteert of vult ze niet en de analyse trekt er geen conclusies uit.
 
-### Aanbevolen Health Auto Export-selectie
+### Aanbevolen Apple Health-selectie
 
 Selecteer bij voorkeur:
 
@@ -67,13 +67,13 @@ Ontbrekende metrics blokkeren de import niet. De app toont de werkelijke dekking
 | Database | Neon serverless Postgres |
 | ORM | Drizzle ORM met Neon HTTP-driver |
 | Grafieken | Recharts |
-| Databronnen | Strava API en Health Auto Export |
+| Databronnen | Strava API en Apple Opdrachten (Health Auto Export blijft compatibel) |
 | CI | GitHub Actions: audit, lint, typecheck, tests en productiebuild |
 
 ```text
 Strava ──OAuth/REST──► Next.js API ──► Neon Postgres
                            ▲                 │
-Health Auto Export ──POST──┘                 ▼
+Apple Opdrachten ──POST──┘                  ▼
                                       Pulse-dashboard
 ```
 
@@ -129,16 +129,16 @@ Schemawijzigingen worden momenteel rechtstreeks met `db:push` uitgevoerd; beoord
 4. Log in op Pulse en open `/api/strava/auth` om de koppeling te voltooien.
 5. De cronjob synchroniseert dagelijks om 05:00 UTC; handmatig kan ook via de beveiligde sync-route.
 
-### 5. Health Auto Export configureren
+### 5. Apple Opdrachten configureren
 
-Configureer een dagelijkse REST-export naar:
+Maak een dagelijkse Apple-opdracht die een eenvoudige JSON-body verstuurt naar:
 
 ```text
 POST https://health-tracker-mu-six.vercel.app/api/health/ingest
 x-ingest-secret: <HEALTH_INGEST_SECRET>
 ```
 
-Een `GET` op hetzelfde endpoint geeft de actuele geaccepteerde en aanbevolen metriek-namen terug, zonder privédata te tonen.
+De volledige Nederlandstalige configuratie staat in [docs/apple-shortcuts.md](docs/apple-shortcuts.md). Een `GET` op hetzelfde endpoint geeft de actuele veldnamen, verwachte eenheden en ondersteunde formaten terug, zonder privédata te tonen.
 
 ## Scripts
 
@@ -172,8 +172,8 @@ Controleer daarna GitHub Actions, de Vercel-deployment, de publieke URL, de `mai
 
 ## Bekende beperkingen en vervolgwerk
 
-- Health Auto Export moet betrouwbaar dagelijks blijven draaien; het dashboard waarschuwt wanneer de laatste Health-dag ouder dan twee dagen is.
-- Echte, geanonimiseerde Health Auto Export-payloads zijn nog niet als fixtures in de regressietests opgenomen.
+- De persoonlijke Apple-automatisering moet dagelijks blijven draaien; het dashboard waarschuwt wanneer de laatste Health-dag ouder dan twee dagen is.
+- De Health-import heeft synthetische regressietests voor zowel Apple Opdrachten als het compatibele Health Auto Export-formaat; echte gezondheidswaarden worden niet als fixtures bewaard.
 - Databasewijzigingen gebruiken nog directe `db:push`; versieerbare migraties en een geteste herstelprocedure ontbreken.
 - Cardio Recovery en Walking Heart Rate Average leveren pas conclusies nadat voldoende nieuwe metingen zijn verzameld.
 - De aanbevelingen zijn regelgebaseerd; er is nog geen LLM-gegenereerde coachinglaag.

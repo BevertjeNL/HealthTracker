@@ -165,7 +165,7 @@ export default async function Home() {
             <p>Pulse combineert herstel, dagelijkse beweging en gezondheid met iedere run. Zo zie je niet alleen wat er gebeurde, maar vooral wat je lichaam vandaag aankan.</p>
             <div className="empty-actions">
               <a className="primary-button" href="/api/strava/auth">Verbind Strava <Icon name="arrow" /></a>
-              <span>Health Auto Export → <code>/api/health/ingest</code></span>
+              <span>Apple Opdrachten → <code>/api/health/ingest</code></span>
             </div>
           </section>
         ) : (

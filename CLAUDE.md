@@ -23,7 +23,7 @@ src/db/index.ts                         Neon client
 src/lib/strava.ts                       Strava OAuth token exchange/refresh + storage
 src/lib/sync.ts                         Full-history Strava run sync and reconciliation
 src/lib/format.ts                       Shared date/pace/duration/km formatters (nl-NL locale)
-src/lib/health-import.ts                Health unit normalization (kJ→kcal, lb/lbs→kg)
+src/lib/health-import.ts                Apple Shortcuts/Health Auto Export payload parsing, daily aggregation and unit normalization
 src/lib/insights.ts                     Rule-based summaries and observation generation
 src/lib/security.ts                     Constant-time secret comparison and Bearer parsing
 src/lib/session.ts                      Session signing/verification and password check
@@ -33,7 +33,7 @@ src/app/login/*                         Single-user login/logout actions and UI
 src/app/api/strava/auth/route.ts        GET → redirects to Strava OAuth consent
 src/app/api/strava/callback/route.ts    GET → validates OAuth state, exchanges code, saves tokens
 src/app/api/strava/sync/route.ts        GET/POST, requires Authorization: Bearer $CRON_SECRET → syncs runs
-src/app/api/health/ingest/route.ts      GET metric contract + protected POST ingest; aggregates accepted Health Auto Export metrics per local calendar day and upserts health_metrics
+src/app/api/health/ingest/route.ts      GET metric contract + protected POST ingest for Apple Shortcuts and legacy Health Auto Export payloads; upserts health_metrics
 src/app/layout.tsx                      Pulse metadata, favicon/Apple/Safari/PWA integration and authenticated shell
 src/app/manifest.ts                     PWA manifest and installable app icons
 src/app/page.tsx                        Insight dashboard over the latest 90 days
@@ -49,6 +49,7 @@ public/safari-pinned-tab.svg            Safari pinned-tab mask icon
 .github/workflows/quality.yml           Audit, lint, typecheck, tests and build in CI
 tests/security.test.mjs                 Shared-secret fail-closed regression tests
 tests/health-import.test.mjs            Health unit-normalization regression tests
+docs/apple-shortcuts.md                 iPhone setup guide for the subscription-free Apple Shortcuts Health sync
 tests/insights.test.mjs                 Insight thresholds, staleness and recommendations
 vercel.json                             Daily cron hitting /api/strava/sync (05:00 UTC)
 drizzle.config.ts                       Points at src/db/schema.ts, reads DATABASE_URL
@@ -59,9 +60,9 @@ When you add a file that a future agent would need to know about to orient itsel
 ## Data definitions and timezone policy
 
 - `activities.start_date` is stored `timestamptz` — always in UTC as returned by Strava. Convert to local time (`Europe/Amsterdam`, via `src/lib/format.ts`) only at render time, never at write time.
-- `health_metrics.date` is a plain `date` (no timezone) representing a **calendar day as reported by Health Auto Export**, which exports in the device's local time. Do not reinterpret it through a timezone conversion — treat the string as already being the correct local day and only use `.slice(0, 10)` / string comparison, not `new Date(...)` arithmetic that could shift it across a day boundary.
-- Cumulative metrics (steps and active energy) are **summed** per calendar day. Resting HR, HRV, one-minute cardio recovery and walking heart-rate average are **averaged**. VO2 max and weight take the **last** chronological value. This mapping lives in `METRIC_MAP` in `src/app/api/health/ingest/route.ts` — if you add a metric, decide its aggregation deliberately and document it there, don't default to "last" out of laziness.
-- `active_energy` is normalized from kJ to kcal and weight from lb/lbs to kg in `src/lib/health-import.ts`; new units need explicit tests before import.
+- `health_metrics.date` is a plain `date` (no timezone) representing a **calendar day reported by the iPhone source**. Apple Shortcuts sends an explicit local `yyyy-MM-dd` string; Health Auto Export supplies its device-local date. Do not reinterpret either through a timezone conversion — treat the string as already being the correct local day and only use string comparison, not local/UTC date arithmetic that could shift it across a day boundary.
+- Cumulative metrics (steps and active energy) are **summed** per calendar day. Resting HR, HRV, one-minute cardio recovery and walking heart-rate average are **averaged**. VO2 max and weight take the **last** chronological value. This mapping lives in `HEALTH_METRIC_MAP` in `src/lib/health-import.ts` — if you add a metric, decide its aggregation deliberately and document it there, don't default to "last" out of laziness.
+- Apple Shortcuts sends already aggregated daily values in kcal/kg and the other documented canonical units. Legacy Health Auto Export samples are aggregated server-side; `active_energy` is normalized from kJ to kcal and weight from lb/lbs to kg in `src/lib/health-import.ts`. New units need explicit tests before import.
 - Sleep is intentionally not accepted, imported or analyzed because the connected export does not provide usable sleep data. `sleep_hours` and `sleep_score` are legacy nullable columns only; do not re-enable them without confirming that reliable source data exists and adding fixtures/tests.
 - All distances in the DB are meters; pace is precomputed at ingest as `avg_pace_min_per_km`. Don't re-derive pace from raw Strava fields in the UI layer — use the stored column so there's one source of truth.
 
@@ -131,7 +132,7 @@ You must stop and get explicit sign-off before finishing, even if all checks pas
 | `DATABASE_URL` | Vercel's Neon integration (Storage tab) | Pulled locally via `vercel env pull .env.local` |
 | `STRAVA_CLIENT_ID` / `STRAVA_CLIENT_SECRET` | strava.com/settings/api | Set in both `.env.local` and Vercel project settings |
 | `CRON_SECRET` | Manually generated random string | Protects `/api/strava/sync` |
-| `HEALTH_INGEST_SECRET` | Manually generated random string | Protects `/api/health/ingest`; must match Health Auto Export's automation config |
+| `HEALTH_INGEST_SECRET` | Manually generated random string | Protects `/api/health/ingest`; must match the Apple Shortcut header (and any legacy Health Auto Export config) |
 | `APP_PASSWORD` | Manually generated, minimum 16 characters | Single-user login; use a unique value |
 | `SESSION_SECRET` | `openssl rand -base64 32` | Signs seven-day HttpOnly sessions; minimum 32 characters |
 
@@ -160,12 +161,12 @@ npm run db:studio     # Drizzle Studio GUI against the live DB
 6. **`vercel link` / `vercel env pull`** is the only path to a local `DATABASE_URL` — the DB was provisioned through Vercel's Storage tab, not neon.com directly, so there's no separate manual Neon dashboard step.
 7. **If ingest silently produces zero rows**, inspect the payload's *shape* (metric names present, point counts, date range) — never its values, see Security rules — before assuming the DB or auth is broken.
 8. **Vercel aliases can become stale.** The production deployment and `git-main` alias have diverged before. Compare deployment IDs after each merge and explicitly repair the alias before calling the work live.
-9. **Sleep is intentionally skipped.** Do not add sleep to Health Auto Export instructions or insights merely because nullable legacy columns still exist.
+9. **Sleep is intentionally skipped.** Do not add sleep to Apple Shortcuts or Health Auto Export instructions or insights merely because nullable legacy columns still exist.
 
 ## Not built yet (known gaps)
 
 - No AI-generated coaching/advice layer; current insights are deliberately rule-based observations.
-- Unit conversion and insight rules have synthetic regression tests, but Health Auto Export mapping is not yet covered by anonymized real-payload fixtures.
+- Health payload parsing, unit conversion and insight rules have synthetic regression tests. Never add real health values as fixtures.
 - Database changes still use direct `db:push`; versioned migrations and a tested restore procedure remain future work.
 - `health_metrics.sleep_hours`, `.sleep_score` and `.raw` are legacy columns and are not populated.
 - Cardio recovery and walking heart-rate insights remain unavailable until enough daily samples have accumulated.
