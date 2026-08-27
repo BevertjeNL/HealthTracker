@@ -149,7 +149,7 @@ export function buildInsights(
         status: "warning",
         title: "Apple Health loopt achter",
         text: `De laatste Health-dag is ${latestMetric.date} (${ageDays} dagen geleden). Een actuele herstelconclusie zou daardoor schijnprecisie zijn.`,
-        recommendation: "Controleer de Health Auto Export-automatisering en voer één handmatige export van de afgelopen 7 dagen uit.",
+        recommendation: "Controleer de persoonlijke Apple Opdrachten-automatisering en voer de opdracht één keer handmatig uit.",
         confidence: "hoog",
       });
     }
