@@ -13,6 +13,7 @@ const RANGE_OPTIONS = [
   { days: 180, label: "6 maanden" },
   { days: 365, label: "1 jaar" },
   { days: 730, label: "2 jaar" },
+  { days: null, label: "Alles" },
 ] as const;
 
 function shiftDate(date: string, days: number) {
@@ -101,9 +102,13 @@ function AdjustableTrendChart({
 }) {
   const [rangeIndex, setRangeIndex] = useState(defaultRangeIndex);
   const selectedRange = RANGE_OPTIONS[rangeIndex];
+  const earliestDate = useMemo(
+    () => points.map((point) => point.date.slice(0, 10)).sort()[0] ?? today,
+    [points, today],
+  );
   const cutoff = useMemo(
-    () => shiftDate(today, -(selectedRange.days - 1)),
-    [selectedRange.days, today],
+    () => selectedRange.days == null ? earliestDate : shiftDate(today, -(selectedRange.days - 1)),
+    [earliestDate, selectedRange.days, today],
   );
   const visiblePoints = useMemo(
     () => points.filter((point) => point.date.slice(0, 10) >= cutoff && point.date.slice(0, 10) <= today),
@@ -130,7 +135,7 @@ function AdjustableTrendChart({
       />
       <div className="chart-range-ends" aria-hidden="true">
         <span>14 dagen</span>
-        <span>2 jaar</span>
+        <span>Alles</span>
       </div>
       <p className="chart-card-range-count" aria-live="polite">
         {visibleCount} {countLabel} zichtbaar
