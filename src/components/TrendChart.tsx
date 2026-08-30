@@ -1,5 +1,7 @@
 "use client";
 
+import type { ReactNode } from "react";
+
 import {
   CartesianGrid,
   Line,
@@ -50,6 +52,7 @@ export function TrendChart({
   color,
   unit,
   reversed = false,
+  controls,
 }: {
   title: string;
   subtitle?: string;
@@ -57,6 +60,7 @@ export function TrendChart({
   color: string;
   unit: Unit;
   reversed?: boolean;
+  controls?: ReactNode;
 }) {
   const formatter = FORMATTERS[unit];
   const firstIdx = points.findIndex((p) => p.value != null);
@@ -96,6 +100,7 @@ export function TrendChart({
           </div>
         )}
       </div>
+      {controls}
       {values.length < 3 ? (
         <div className="flex h-56 items-center justify-center rounded-xl" style={{ background: "var(--surface-2)" }}>
           <p className="max-w-56 text-center text-sm" style={{ color: "var(--text-muted)" }}>

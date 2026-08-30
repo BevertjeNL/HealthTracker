@@ -113,6 +113,13 @@ export type Insight = {
   confidence: "hoog" | "middel" | "laag";
 };
 
+export type TrainingAdvice = {
+  label: string;
+  detail: string;
+  coach: string;
+  rhythm: string;
+};
+
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 function dateMs(date: string) {
@@ -125,6 +132,103 @@ function runKm(runs: Activity[]) {
 
 function percentChange(current: number, baseline: number) {
   return baseline === 0 ? 0 : ((current - baseline) / baseline) * 100;
+}
+
+function median(values: number[]) {
+  if (!values.length) return null;
+  const sorted = [...values].sort((a, b) => a - b);
+  const middle = Math.floor(sorted.length / 2);
+  return sorted.length % 2 === 0
+    ? (sorted[middle - 1] + sorted[middle]) / 2
+    : sorted[middle];
+}
+
+/**
+ * Chooses a run, rest or recovery suggestion from the athlete's actual rhythm.
+ * A non-running day is a first-class outcome, not a missing workout.
+ */
+export function buildTrainingAdvice(
+  runs: Activity[],
+  readiness: number | null,
+  loadChange: number | null,
+  now = new Date(),
+): TrainingAdvice {
+  const nowMs = now.getTime();
+  const recentRuns = [...runs]
+    .filter((run) => run.startDate.getTime() >= nowMs - 42 * DAY_MS)
+    .sort((a, b) => a.startDate.getTime() - b.startDate.getTime());
+  const runsPerWeek = recentRuns.length / 6;
+  const runDays = [...new Set(recentRuns.map((run) => run.startDate.toISOString().slice(0, 10)))];
+  const gaps = runDays.slice(1).map((date, index) => Math.max(1, Math.round(
+    (dateMs(date) - dateMs(runDays[index])) / DAY_MS,
+  )));
+  const medianGap = median(gaps);
+  const lastRun = recentRuns.at(-1) ?? [...runs].sort((a, b) => a.startDate.getTime() - b.startDate.getTime()).at(-1);
+  const daysSinceLastRun = lastRun
+    ? Math.max(0, Math.floor((nowMs - lastRun.startDate.getTime()) / DAY_MS))
+    : null;
+  const lastDistanceKm = (lastRun?.distanceM ?? 0) / 1000;
+  const lastName = lastRun?.name?.toLowerCase() ?? "";
+  const lastRunWasDemanding = lastDistanceKm >= 12 || /interval|tempo|lange|wedstrijd/.test(lastName);
+  const roundedFrequency = Math.round(runsPerWeek * 10) / 10;
+  const rhythm = recentRuns.length >= 2
+    ? `Jouw ritme: gemiddeld ${roundedFrequency.toLocaleString("nl-NL")} loopdagen per week${medianGap != null ? `, meestal ${Math.round(medianGap)} dagen ertussen` : ""}.`
+    : "Jouw loopritme wordt nog opgebouwd; een rustdag is een volwaardige trainingsdag.";
+
+  if (daysSinceLastRun === 0) {
+    return {
+      label: "Vandaag niet nogmaals lopen",
+      detail: `Herstel na ${lastDistanceKm.toFixed(1)} km · wandelen optioneel`,
+      coach: "Je hebt vandaag al gelopen. Extra kilometers leveren nu minder op dan herstel, eten en slaap.",
+      rhythm,
+    };
+  }
+
+  if (daysSinceLastRun === 1 && lastRunWasDemanding) {
+    return {
+      label: "Maak er een rustdag van",
+      detail: "Rust of 20–40 min rustig wandelen",
+      coach: `Je vorige training was ${lastDistanceKm.toFixed(1)} km en vroeg relatief veel. Geef die prikkel eerst tijd om effect te krijgen.`,
+      rhythm,
+    };
+  }
+
+  if ((loadChange != null && loadChange > 30 && (daysSinceLastRun ?? 0) <= 2) || (readiness != null && readiness < 58)) {
+    return {
+      label: "Kies herstel boven kilometers",
+      detail: "Rust, wandelen of zeer rustig fietsen",
+      coach: "Je recente belasting of herstel pleit tegen een nieuwe loopprikkel. Vandaag niets hoeven bewijzen past beter bij je opbouw.",
+      rhythm,
+    };
+  }
+
+  const expectedGap = Math.max(2, Math.round(medianGap ?? (runsPerWeek > 0 ? 7 / runsPerWeek : 3)));
+  if (daysSinceLastRun != null && daysSinceLastRun < expectedGap) {
+    return {
+      label: "Geen looptraining nodig",
+      detail: "Rustdag binnen je normale ritme",
+      coach: `Je laatste run was ${daysSinceLastRun} dag${daysSinceLastRun === 1 ? "" : "en"} geleden. Binnen jouw eigen patroon is vandaag overslaan normaal, niet achterlopen.`,
+      rhythm,
+    };
+  }
+
+  if (readiness != null && readiness >= 78) {
+    return {
+      label: "Ruimte voor een kwaliteitsloop",
+      detail: "35–45 min · snelle blokken beheerst",
+      coach: "Je herstel én het moment binnen je normale loopritme geven ruimte voor kwaliteit. Stop als het loopgevoel niet klopt.",
+      rhythm,
+    };
+  }
+
+  return {
+    label: "Rustige duurloop past vandaag",
+    detail: "30–45 min · comfortabel gesprekstempo",
+    coach: readiness == null
+      ? "Het is volgens je normale ritme weer een logisch loopmoment, maar je hersteldata zijn nog onvolledig. Houd de inspanning daarom comfortabel."
+      : "Het is volgens je normale ritme weer een logisch loopmoment. Bouw rustig en voeg vandaag geen extra intensiteit toe.",
+    rhythm,
+  };
 }
 
 /**
