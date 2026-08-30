@@ -3,7 +3,7 @@ import Link from "next/link";
 import { desc, gte, sql } from "drizzle-orm";
 import { InsightCard } from "@/components/InsightCard";
 import { StatTile } from "@/components/StatTile";
-import { TrendChart } from "@/components/TrendChart";
+import { TrendChartsSection } from "@/components/TrendChartsSection";
 import { AppLogo } from "@/components/AppLogo";
 import { db } from "@/db";
 import { activities, healthMetrics } from "@/db/schema";
@@ -54,11 +54,11 @@ function recencyLabel(signal: RecoverySignal | null) {
 }
 
 export default async function Home() {
-  const ninetyDaysAgo = sql<Date>`CURRENT_TIMESTAMP - INTERVAL '90 days'`;
-  const ninetyDaysAgoDate = sql<string>`CURRENT_DATE - 90`;
+  const historyStart = sql<Date>`CURRENT_TIMESTAMP - INTERVAL '730 days'`;
+  const historyStartDate = sql<string>`CURRENT_DATE - 730`;
   const [runs, metrics] = await Promise.all([
-    db.select().from(activities).where(gte(activities.startDate, ninetyDaysAgo)).orderBy(desc(activities.startDate)),
-    db.select().from(healthMetrics).where(gte(healthMetrics.date, ninetyDaysAgoDate)),
+    db.select().from(activities).where(gte(activities.startDate, historyStart)).orderBy(desc(activities.startDate)),
+    db.select().from(healthMetrics).where(gte(healthMetrics.date, historyStartDate)),
   ]);
 
   const hasData = runs.length > 0 || metrics.length > 0;
@@ -244,11 +244,7 @@ export default async function Home() {
 
             <section className="content-grid">
               <div className="main-column">
-                <div className="section-heading"><div><span className="eyebrow">Ontdek het patroon</span><h2>Gezondheid × prestatie</h2></div><span className="context-pill">Laatste 90 dagen</span></div>
-                <div className="chart-grid">
-                  <TrendChart title="Gewicht" subtitle="7-daags gemiddelde" points={weight.trend} color="var(--series-blue)" unit="kg" />
-                  <TrendChart title="Tempo per run" subtitle="Lager is sneller" points={perf.paceTrend} color="var(--series-orange)" unit="pace" reversed />
-                </div>
+                <TrendChartsSection weightPoints={weight.trend} pacePoints={perf.paceTrend} today={today} />
                 <div className="section-heading compact"><div><span className="eyebrow">Coachanalyse</span><h2>Dit valt op in jouw data</h2></div></div>
                 <div className="insights-list">{insights.slice(0, 3).map((insight, index) => <InsightCard key={insight.id} insight={insight} index={index + 1} />)}</div>
               </div>
