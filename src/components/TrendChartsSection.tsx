@@ -38,7 +38,7 @@ export function TrendChartsSection({
   pacePoints: Point[];
   today: string;
 }) {
-  const [rangeIndex, setRangeIndex] = useState(3);
+  const [rangeIndex, setRangeIndex] = useState(5);
   const selectedRange = RANGE_OPTIONS[rangeIndex];
   const cutoff = useMemo(
     () => shiftDate(today, -(selectedRange.days - 1)),
@@ -52,6 +52,8 @@ export function TrendChartsSection({
     () => pacePoints.filter((point) => point.date.slice(0, 10) >= cutoff && point.date.slice(0, 10) <= today),
     [cutoff, pacePoints, today],
   );
+  const visibleWeightCount = visibleWeight.filter((point) => point.value != null).length;
+  const visiblePaceCount = visiblePace.filter((point) => point.value != null).length;
 
   return (
     <section className="trend-section" aria-labelledby="trend-section-title">
@@ -84,6 +86,10 @@ export function TrendChartsSection({
           <span>14 dagen</span>
           <span>2 jaar</span>
         </div>
+        <p className="chart-range-status" aria-live="polite">
+          <span>Gewicht: <strong>{visibleWeightCount} metingen</strong></span>
+          <span>Tempo: <strong>{visiblePaceCount} runs</strong></span>
+        </p>
       </div>
 
       <div className="chart-grid">
