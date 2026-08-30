@@ -17,11 +17,15 @@ type Point = { date: string; value: number | null };
 type Unit = "kg" | "pace" | "bpm" | "ms" | "hours" | "number";
 
 function fmtDateShort(d: string) {
-  return new Date(d).toLocaleDateString("nl-NL", { day: "numeric", month: "short" });
+  return new Date(`${d.slice(0, 10)}T12:00:00Z`).toLocaleDateString("nl-NL", { day: "numeric", month: "short" });
 }
 
 function fmtDateLong(d: string) {
-  return new Date(d).toLocaleDateString("nl-NL", { weekday: "short", day: "numeric", month: "long", year: "numeric" });
+  return new Date(`${d.slice(0, 10)}T12:00:00Z`).toLocaleDateString("nl-NL", { weekday: "short", day: "numeric", month: "long", year: "numeric" });
+}
+
+function dateTimestamp(d: string) {
+  return new Date(`${d.slice(0, 10)}T12:00:00Z`).getTime();
 }
 
 function fmtPace(v: number) {
@@ -53,6 +57,7 @@ export function TrendChart({
   unit,
   reversed = false,
   controls,
+  dateDomain,
 }: {
   title: string;
   subtitle?: string;
@@ -61,13 +66,13 @@ export function TrendChart({
   unit: Unit;
   reversed?: boolean;
   controls?: ReactNode;
+  dateDomain?: [string, string];
 }) {
   const formatter = FORMATTERS[unit];
-  const firstIdx = points.findIndex((p) => p.value != null);
-  const lastIdx = points.length - 1 - [...points].reverse().findIndex((p) => p.value != null);
-  const trimmed = firstIdx === -1 ? [] : points.slice(firstIdx, lastIdx + 1);
-  const data = trimmed.map((p) => ({ ...p, dateLabel: fmtDateShort(p.date) }));
-  const values = trimmed.map((p) => p.value).filter((v): v is number => v != null);
+  const data = points
+    .filter((point) => point.value != null)
+    .map((point) => ({ ...point, timestamp: dateTimestamp(point.date) }));
+  const values = data.map((point) => point.value).filter((value): value is number => value != null);
   const average = values.length >= 3 ? values.reduce((sum, value) => sum + value, 0) / values.length : null;
   const latest = values.at(-1);
   const first = values[0];
@@ -112,7 +117,18 @@ export function TrendChart({
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={data} margin={{ top: 8, right: 12, bottom: 8, left: 8 }} accessibilityLayer>
               <CartesianGrid strokeDasharray="3 4" stroke="var(--gridline)" vertical={false} />
-              <XAxis dataKey="dateLabel" minTickGap={34} tick={{ fontSize: 11, fill: "var(--text-muted)" }} axisLine={{ stroke: "var(--axis)" }} tickLine={false} />
+              <XAxis
+                dataKey="timestamp"
+                type="number"
+                scale="time"
+                domain={dateDomain ? dateDomain.map(dateTimestamp) : ["dataMin", "dataMax"]}
+                allowDataOverflow
+                minTickGap={34}
+                tickFormatter={(value) => fmtDateShort(new Date(Number(value)).toISOString().slice(0, 10))}
+                tick={{ fontSize: 11, fill: "var(--text-muted)" }}
+                axisLine={{ stroke: "var(--axis)" }}
+                tickLine={false}
+              />
               <YAxis
                 domain={domain}
                 reversed={reversed}

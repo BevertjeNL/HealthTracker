@@ -143,6 +143,7 @@ function AdjustableTrendChart({
       title={title}
       subtitle={subtitle}
       points={visiblePoints}
+      dateDomain={[cutoff, today]}
       color={color}
       unit={unit}
       reversed={reversed}
