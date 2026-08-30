@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { buildInsights, buildTrainingAdvice } from "../src/lib/insights.ts";
+import { buildInsights, buildTrainingAdvice, weightSummary } from "../src/lib/insights.ts";
 
 function run(daysAgo, distanceKm, pace = 6, heartRate = 145) {
   const now = new Date("2026-08-27T12:00:00Z");
@@ -87,4 +87,17 @@ test("treats a day between normal run days as intentional rest", () => {
 
   assert.match(advice.label, /geen looptraining nodig/i);
   assert.match(advice.coach, /overslaan normaal/i);
+});
+
+test("weight trend contains only real measurement dates and averages by calendar week", () => {
+  const summary = weightSummary([
+    { date: "2026-08-01", weightKg: 71 },
+    { date: "2026-08-02", weightKg: null },
+    { date: "2026-08-07", weightKg: null },
+    { date: "2026-08-08", weightKg: 70 },
+    { date: "2026-08-10", weightKg: 69 },
+  ]);
+
+  assert.deepEqual(summary.trend.map((point) => point.date), ["2026-08-01", "2026-08-08", "2026-08-10"]);
+  assert.deepEqual(summary.trend.map((point) => point.value), [71, 70, 69.5]);
 });

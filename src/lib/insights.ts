@@ -15,6 +15,22 @@ export function rollingAverage(points: TrendPoint[], window: number): TrendPoint
   });
 }
 
+/** Trailing calendar-day average, emitted only on dates with a real measurement. */
+export function rollingCalendarAverage(points: TrendPoint[], days: number): TrendPoint[] {
+  const valid = points
+    .filter((point): point is { date: string; value: number } => point.value != null)
+    .sort((a, b) => a.date.localeCompare(b.date));
+
+  return valid.map((point, index) => {
+    const cutoff = dateMs(point.date) - (days - 1) * DAY_MS;
+    const values = valid
+      .slice(0, index + 1)
+      .filter((candidate) => dateMs(candidate.date) >= cutoff)
+      .map((candidate) => candidate.value);
+    return { date: point.date, value: avg(values) };
+  });
+}
+
 function avg(values: number[]): number | null {
   return values.length ? values.reduce((a, b) => a + b, 0) / values.length : null;
 }
@@ -29,10 +45,9 @@ export type WeightSummary = {
 /** Weight trend as a 7-day rolling average, plus net change since the earliest reading in range. */
 export function weightSummary(metrics: HealthMetric[]): WeightSummary {
   const sorted = [...metrics].sort((a, b) => a.date.localeCompare(b.date));
-  const raw: TrendPoint[] = sorted.map((m) => ({ date: m.date, value: m.weightKg }));
-  const trend = rollingAverage(raw, 7);
-
   const withWeight = sorted.filter((m) => m.weightKg != null);
+  const raw: TrendPoint[] = withWeight.map((metric) => ({ date: metric.date, value: metric.weightKg }));
+  const trend = rollingCalendarAverage(raw, 7);
   if (withWeight.length < 2) {
     return {
       current: withWeight.at(-1)?.weightKg ?? null,

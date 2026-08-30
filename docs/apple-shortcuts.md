@@ -79,3 +79,17 @@ Een volledige body heeft deze vorm; de getallen hieronder zijn uitsluitend een v
 6. Kies `Voer onmiddellijk uit` en laat de automatisering `Pulse Health-sync` starten.
 
 Bij `401 Unauthorized` klopt de geheime header niet. Bij `upserted:0` waren alle meegestuurde metriekvelden leeg of ongeldig. De respons noemt wel veldnamen, maar geeft nooit gezondheidswaarden terug.
+
+## 5. Bestaande gewichtshistorie eenmalig aanvullen
+
+De dagelijkse opdracht leest alleen gisteren. Maak daarom een aparte opdracht `Pulse gewicht-backfill` om oudere, werkelijk gemeten gewichten met hun eigen meetdatum te bewaren:
+
+1. Zoek **Gewicht** in Gezondheid, met begindatum in de laatste twee jaar. Sorteer op begindatum, oudste eerst, zonder limiet.
+2. Voeg **Herhaal met elk onderdeel** toe voor de gevonden gezondheidswaarden.
+3. Haal binnen de herhaling de **Begindatum** en **Waarde** van het herhaalonderdeel op.
+4. Formatteer de begindatum als `yyyy-MM-dd`.
+5. Voeg binnen de herhaling dezelfde `POST`-actie en geheime koptekst toe als in `Pulse Health-sync`.
+6. Gebruik als JSON-body alleen `source: apple-shortcuts`, `date: [geformatteerde begindatum]` en `weight_body_mass: [waarde]`.
+7. Voer deze backfill één keer handmatig uit. Automatiseer hem niet en verwijder hem na een geslaagde import.
+
+Pulse zet metingen niet kunstmatig door op dagen zonder weging. Daardoor blijft de gewichtsgrafiek gebaseerd op echte Health-metingen.
