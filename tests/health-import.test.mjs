@@ -3,12 +3,28 @@ import test from "node:test";
 import {
   InvalidHealthPayloadError,
   normalizeHealthMetricValue,
+  isValidHealthMetricValue,
   parseHealthPayload,
 } from "../src/lib/health-import.ts";
 
 test("converts Health Auto Export active energy from kJ to kcal", () => {
   assert.ok(Math.abs(normalizeHealthMetricValue("active_energy", "kJ", 418.4) - 100) < 0.001);
   assert.equal(normalizeHealthMetricValue("active_energy", "kcal", 100), 100);
+});
+
+test("rejects impossible recovery values", () => {
+  assert.equal(isValidHealthMetricValue("heart_rate_variability", 0), false);
+  assert.equal(isValidHealthMetricValue("resting_heart_rate", 0), false);
+  assert.equal(isValidHealthMetricValue("heart_rate_variability", 42), true);
+
+  const parsed = parseHealthPayload({
+    source: "apple-shortcuts",
+    date: "2026-08-29",
+    heart_rate_variability: 0,
+    resting_heart_rate: 0,
+    step_count: 4617,
+  });
+  assert.deepEqual(parsed.rows[0].values, { steps: 4617 });
 });
 
 test("normalizes both Health Auto Export weight metric names", () => {

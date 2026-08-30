@@ -80,6 +80,24 @@ function finiteNumber(value: unknown) {
   return Number.isFinite(parsed) ? parsed : null;
 }
 
+const VALID_METRIC_RANGES: Record<string, { min: number; max: number }> = {
+  heart_rate_variability: { min: 1, max: 300 },
+  resting_heart_rate: { min: 25, max: 220 },
+  cardio_recovery: { min: 1, max: 150 },
+  heart_rate_recovery_one_minute: { min: 1, max: 150 },
+  walking_heart_rate_average: { min: 30, max: 220 },
+  vo2_max: { min: 5, max: 100 },
+  step_count: { min: 0, max: 200_000 },
+  active_energy: { min: 0, max: 10_000 },
+  weight_body_mass: { min: 20, max: 400 },
+  "weight_&_body_mass": { min: 20, max: 400 },
+};
+
+export function isValidHealthMetricValue(metricName: string, value: number) {
+  const range = VALID_METRIC_RANGES[metricName];
+  return range ? value >= range.min && value <= range.max : false;
+}
+
 export function normalizeHealthMetricValue(
   metricName: string,
   units: string | undefined,
@@ -128,7 +146,7 @@ function parseShortcutPayload(payload: Record<string, unknown>): ParsedHealthPay
 
   for (const metricName of lists.importedMetrics) {
     const value = finiteNumber(metricFields[metricName]);
-    if (value === null) continue;
+    if (value === null || !isValidHealthMetricValue(metricName, value)) continue;
     values[HEALTH_METRIC_MAP[metricName].column] = value;
   }
 
@@ -160,9 +178,11 @@ function parseHealthAutoExportPayload(payload: Record<string, unknown>): ParsedH
       const date = dayKey(point.date);
       const value = finiteNumber(point.qty ?? point.Avg ?? point.value);
       if (!date || value === null) continue;
+      const normalizedValue = normalizeHealthMetricValue(metric.name, units, value);
+      if (!isValidHealthMetricValue(metric.name, normalizedValue)) continue;
       const dayBucket = buckets.get(date) ?? {};
       const values = dayBucket[mapping.column] ?? [];
-      values.push(normalizeHealthMetricValue(metric.name, units, value));
+      values.push(normalizedValue);
       dayBucket[mapping.column] = values;
       buckets.set(date, dayBucket);
     }

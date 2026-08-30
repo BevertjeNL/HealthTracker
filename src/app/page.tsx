@@ -9,6 +9,14 @@ import { db } from "@/db";
 import { activities, healthMetrics } from "@/db/schema";
 import { fmtDate, fmtKm, fmtPace } from "@/lib/format";
 import { buildInsights, runPerformanceSummary, weightSummary } from "@/lib/insights";
+import {
+  buildRecoverySummary,
+  dayDifference,
+  isUsableRecoveryValue,
+  recoveryTrend,
+  type RecoveryMetricKey,
+  type RecoverySignal,
+} from "@/lib/recovery";
 
 export const dynamic = "force-dynamic";
 
@@ -31,27 +39,18 @@ function Icon({ name }: { name: IconName }) {
   );
 }
 
-function average(values: Array<number | null | undefined>) {
-  const valid = values.filter((value): value is number => value != null);
-  return valid.length ? valid.reduce((sum, value) => sum + value, 0) / valid.length : null;
-}
-
-function clamp(value: number, min = 0, max = 100) {
-  return Math.min(max, Math.max(min, value));
-}
-
-function dayDifference(later: string, earlier: string) {
-  return Math.max(0, Math.floor(
-    (new Date(`${later}T12:00:00Z`).getTime() - new Date(`${earlier}T12:00:00Z`).getTime()) /
-      (24 * 60 * 60 * 1000),
-  ));
-}
-
 function changeLabel(current: number | null, baseline: number | null, unit: string) {
   if (current == null || baseline == null || baseline === 0) return "Nog geen persoonlijke basislijn";
   const change = ((current - baseline) / baseline) * 100;
   if (Math.abs(change) < 1) return `Gelijk aan je basislijn (${baseline.toFixed(unit === "u" ? 1 : 0)} ${unit})`;
   return `${Math.abs(change).toFixed(0)}% ${change > 0 ? "boven" : "onder"} je basislijn`;
+}
+
+function recencyLabel(signal: RecoverySignal | null) {
+  if (!signal) return "Nog geen geldige meting";
+  if (signal.ageDays === 0) return "Vandaag gemeten";
+  if (signal.ageDays === 1) return "Gisteren gemeten";
+  return `Laatste geldige meting ${fmtDate(signal.date)}`;
 }
 
 export default async function Home() {
@@ -67,24 +66,17 @@ export default async function Home() {
   const sortedMetrics = [...metrics].sort((a, b) => a.date.localeCompare(b.date));
   const latestHealth = sortedMetrics.at(-1);
   const now = new Date();
-  const baselineMetrics = sortedMetrics.slice(-15, -1);
+  const today = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Europe/Amsterdam",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(now);
   const lastHealthDate = latestHealth?.date;
-  const metricTrend = (key: "hrvMs" | "restingHeartRate") =>
-    sortedMetrics.map((metric) => ({ date: metric.date, value: metric[key] }));
 
   const weight = weightSummary(metrics);
   const perf = runPerformanceSummary(runs, metrics);
   const insights = buildInsights(runs, metrics, now);
-  const hrv = latestHealth?.hrvMs ?? null;
-  const restingHeartRate = latestHealth?.restingHeartRate ?? null;
-  const cardioRecovery = latestHealth?.cardioRecovery1m ?? null;
-  const walkingHeartRate = latestHealth?.walkingHeartRateAverage ?? null;
-  const hrvBaseline = average(baselineMetrics.map((metric) => metric.hrvMs));
-  const heartRateBaseline = average(baselineMetrics.map((metric) => metric.restingHeartRate));
-  const cardioRecoveryBaseline = average(baselineMetrics.map((metric) => metric.cardioRecovery1m));
-  const walkingHeartRateBaseline = average(baselineMetrics.map((metric) => metric.walkingHeartRateAverage));
-
-  const today = now.toISOString().slice(0, 10);
   const healthAgeDays = lastHealthDate ? dayDifference(today, lastHealthDate) : null;
   const healthIsFresh = healthAgeDays != null && healthAgeDays <= 2;
 
@@ -95,27 +87,30 @@ export default async function Home() {
   const weeklyKm = recentWeek.reduce((sum, run) => sum + (run.distanceM ?? 0), 0) / 1000;
   const previousWeeklyKm = previousWeek.reduce((sum, run) => sum + (run.distanceM ?? 0), 0) / 1000;
   const loadChange = previousWeeklyKm > 0 ? ((weeklyKm - previousWeeklyKm) / previousWeeklyKm) * 100 : null;
-
-  const readinessParts: number[] = [];
-  if (hrv != null) readinessParts.push(hrvBaseline ? clamp(75 + ((hrv - hrvBaseline) / hrvBaseline) * 100, 35, 100) : clamp((hrv / 60) * 90, 35, 100));
-  if (restingHeartRate != null && heartRateBaseline != null) readinessParts.push(clamp(75 + ((heartRateBaseline - restingHeartRate) / heartRateBaseline) * 180, 35, 100));
-  if (cardioRecovery != null && cardioRecoveryBaseline != null) readinessParts.push(clamp(75 + ((cardioRecovery - cardioRecoveryBaseline) / cardioRecoveryBaseline) * 100, 35, 100));
-  if (walkingHeartRate != null && walkingHeartRateBaseline != null) readinessParts.push(clamp(75 + ((walkingHeartRateBaseline - walkingHeartRate) / walkingHeartRateBaseline) * 140, 35, 100));
-  if (runs.length > 0) readinessParts.push(loadChange != null && loadChange > 45 ? 48 : loadChange != null && loadChange > 25 ? 64 : 82);
-  const rawReadiness = readinessParts.length ? Math.round(average(readinessParts)!) : null;
-  const readiness = healthIsFresh && rawReadiness != null
-    ? readinessParts.length < 2 ? Math.min(rawReadiness, 70) : rawReadiness
+  const trainingLoadScore = runs.length > 0
+    ? loadChange != null && loadChange > 45 ? 48 : loadChange != null && loadChange > 25 ? 64 : 82
     : null;
+  const recovery = buildRecoverySummary(metrics, today, trainingLoadScore);
+  const { score: readiness, signals, confidence, freshCount } = recovery;
+  const hrv = signals.hrvMs?.value ?? null;
+  const restingHeartRate = signals.restingHeartRate?.value ?? null;
+  const hrvBaseline = signals.hrvMs?.baseline ?? null;
+  const heartRateBaseline = signals.restingHeartRate?.baseline ?? null;
+  const metricTrend = (key: "hrvMs" | "restingHeartRate") => recoveryTrend(metrics, key);
 
-  const recommendation = !healthIsFresh
-    ? { label: "Rustige duurloop", detail: "25–40 min · comfortabel", coach: "Je Health-data is niet actueel genoeg voor intensief advies. Kies beheerst totdat de synchronisatie weer bij is." }
-    : readiness == null
-      ? { label: "Vrij bewegen", detail: "20–30 min · comfortabel", coach: "Deel HRV en rusthartslag om je training persoonlijk af te stemmen." }
+  const recommendation = readiness == null
+    ? { label: "Kies vandaag rustig", detail: "20–40 min · comfortabel", coach: "Je herstel is nog niet betrouwbaar te bepalen. Train op gevoel en vermijd een maximale prikkel." }
     : readiness >= 78
-      ? { label: "Tempo run", detail: "35–45 min · RPE 7/10", coach: "Je herstel geeft ruimte voor kwaliteit. Houd de snelle blokken beheerst." }
+      ? { label: "Tempo run", detail: "35–45 min · RPE 7/10", coach: "Je actuele herstelsignalen geven ruimte voor kwaliteit. Houd de snelle blokken beheerst." }
       : readiness >= 58
-        ? { label: "Rustige duurloop", detail: "30–45 min · zone 2", coach: "Je basis is stabiel. Bouw conditie op zonder extra herstelvraag." }
-        : { label: "Hersteltraining", detail: "20–30 min · zeer rustig", coach: "Vandaag win je meer met herstel dan met intensiteit. Laat het tempo los." };
+        ? { label: "Rustige duurloop", detail: "30–45 min · zone 2", coach: "Je herstel oogt stabiel. Bouw conditie op zonder extra herstelvraag." }
+        : { label: "Hersteltraining", detail: "20–30 min · zeer rustig", coach: "Je actuele signalen vragen om herstel. Laat tempo en afstand vandaag los." };
+  const stateTitle = readiness == null
+    ? "Herstel nog niet compleet"
+    : readiness >= 78 ? "Sterk hersteld" : readiness >= 58 ? "Stabiele basis" : "Herstel eerst";
+  const stateDetail = readiness == null
+    ? `${freshCount} van 4 herstelsignalen zijn actueel; voor een persoonlijke score zijn er minimaal 2 met een eigen basislijn nodig.`
+    : `${recovery.scoredSignalCount} actuele herstelsignalen en je trainingsbelasting bepalen dit advies.`;
 
   const loadDetail = loadChange == null
     ? `${recentWeek.length} training${recentWeek.length === 1 ? "" : "en"} deze week`
@@ -134,6 +129,10 @@ export default async function Home() {
   const coverage = coverageDefinitions.map((definition) => {
     const values = metrics.flatMap((metric) => {
       const value = metric[definition.key];
+      const recoveryKeys: RecoveryMetricKey[] = ["hrvMs", "restingHeartRate", "cardioRecovery1m", "walkingHeartRateAverage"];
+      if (recoveryKeys.includes(definition.key as RecoveryMetricKey)) {
+        return isUsableRecoveryValue(definition.key as RecoveryMetricKey, value) ? [value!] : [];
+      }
       return value == null ? [] : [value];
     });
     const usableCount = definition.key === "steps"
@@ -170,78 +169,64 @@ export default async function Home() {
           </section>
         ) : (
           <>
-            <header className="welcome-row">
+            <header className="today-header">
               <div>
-                <p className="eyebrow">Vandaag · jouw coachupdate</p>
-                <h1>Klaar voor je volgende <span>stap?</span></h1>
-                <p>Herstel, belasting en prestaties komen samen in één helder advies.</p>
+                <p className="eyebrow">Vandaag · {fmtDate(today)}</p>
+                <h1>{stateTitle}</h1>
+                <p>{recommendation.coach}</p>
               </div>
               <div className="header-actions">
-                <span className="sync-pill"><span className="sync-dot" /> Health {lastHealthDate ? `bijgewerkt ${fmtDate(lastHealthDate)}` : "nog niet gekoppeld"}</span>
-                <Link href="/runs" className="outline-button">Alle runs <Icon name="arrow" /></Link>
+                <span className={`sync-pill ${freshCount < 2 ? "partial" : ""}`}><span className="sync-dot" /> {freshCount} van 4 herstelsignalen actueel</span>
               </div>
             </header>
 
             <section className="hero-grid" aria-label="Dagvorm en trainingsadvies">
+              <article className="today-card">
+                <div className="card-topline"><span><Icon name="bolt" /> Dit kun je vandaag doen</span><span>{confidence === "onvoldoende" ? "Voorzichtig advies" : `${confidence} betrouwbaar`}</span></div>
+                <div className="workout-badge"><Icon name="run" /></div>
+                <div>
+                  <h2>{recommendation.label}</h2>
+                  <p>{recommendation.detail}</p>
+                  <p className="today-reason">{recommendation.coach}</p>
+                </div>
+                <a href="#onderbouwing">Waarom dit advies? <Icon name="arrow" /></a>
+              </article>
+
               <article className="readiness-card">
-                <div className="card-topline"><span><Icon name="pulse" /> Dagvorm</span><span className="live-pill">Persoonlijk</span></div>
+                <div className="card-topline"><span><Icon name="pulse" /> Jouw toestand</span><span className="live-pill">Betrouwbaarheid: {confidence}</span></div>
                 <div className="readiness-content">
                   <div className="score-ring" style={{ "--score": `${readiness ?? 0}%` } as CSSProperties}>
                     <div><strong>{readiness ?? "–"}</strong><span>/ 100</span></div>
                   </div>
                   <div className="readiness-copy">
                     <span className={`readiness-label ${readiness != null && readiness >= 78 ? "great" : ""}`}>
-                      {!healthIsFresh ? "Data niet actueel" : readiness == null ? "Meer data nodig" : readiness >= 78 ? "Sterk hersteld" : readiness >= 58 ? "Stabiele basis" : "Herstel eerst"}
+                      {stateTitle}
                     </span>
-                    <h2>{recommendation.coach}</h2>
-                    <p>Gebaseerd op HRV, rusthartslag en trainingsbelasting. Verouderde gegevens leveren bewust geen score op.</p>
+                    <h2>{readiness == null ? "Nog geen betrouwbare dagvorm" : `Dagvorm ${readiness} van 100`}</h2>
+                    <p>{stateDetail}</p>
+                    <div className="signal-summary">
+                      <span>HRV <strong>{hrv != null ? `${Math.round(hrv)} ms` : "–"}</strong><small>{recencyLabel(signals.hrvMs)}</small></span>
+                      <span>Rusthartslag <strong>{restingHeartRate != null ? `${Math.round(restingHeartRate)} bpm` : "–"}</strong><small>{recencyLabel(signals.restingHeartRate)}</small></span>
+                    </div>
                   </div>
                 </div>
               </article>
-
-              <article className="today-card">
-                <div className="card-topline"><span><Icon name="bolt" /> Advies voor vandaag</span></div>
-                <div className="workout-badge"><Icon name="run" /></div>
-                <div>
-                  <span className="eyebrow">Aanbevolen training</span>
-                  <h2>{recommendation.label}</h2>
-                  <p>{recommendation.detail}</p>
-                </div>
-                <Link href="/runs">Bekijk je trainingshistorie <Icon name="arrow" /></Link>
-              </article>
             </section>
 
-            <section className="metric-grid" aria-label="Belangrijkste gezondheidswaarden">
-              <StatTile label="HRV" value={hrv != null ? `${Math.round(hrv)} ms` : "–"} delta={hrv != null ? changeLabel(hrv, hrvBaseline, "ms") : "Nog geen meting"} deltaIsGood={hrv != null && hrv >= (hrvBaseline ?? hrv)} trend={metricTrend("hrvMs")} trendColor="var(--series-aqua)" icon="pulse" tone="mint" />
-              <StatTile label="Rusthartslag" value={restingHeartRate != null ? `${Math.round(restingHeartRate)} bpm` : "–"} delta={restingHeartRate != null ? changeLabel(restingHeartRate, heartRateBaseline, "bpm") : "Nog geen meting"} deltaIsGood={restingHeartRate != null && restingHeartRate <= (heartRateBaseline ?? restingHeartRate)} trend={metricTrend("restingHeartRate")} trendColor="var(--series-violet)" icon="pulse" tone="violet" />
+            <section id="onderbouwing" className="metric-grid" aria-label="Onderbouwing van het advies">
+              <StatTile label="HRV" value={hrv != null ? `${Math.round(hrv)} ms` : "–"} delta={hrv != null && signals.hrvMs?.fresh ? changeLabel(hrv, hrvBaseline, "ms") : recencyLabel(signals.hrvMs)} deltaIsGood={hrv != null && signals.hrvMs?.fresh && hrv >= (hrvBaseline ?? hrv)} trend={metricTrend("hrvMs")} trendColor="var(--series-aqua)" icon="pulse" tone="mint" />
+              <StatTile label="Rusthartslag" value={restingHeartRate != null ? `${Math.round(restingHeartRate)} bpm` : "–"} delta={restingHeartRate != null && signals.restingHeartRate?.fresh ? changeLabel(restingHeartRate, heartRateBaseline, "bpm") : recencyLabel(signals.restingHeartRate)} deltaIsGood={restingHeartRate != null && signals.restingHeartRate?.fresh && restingHeartRate <= (heartRateBaseline ?? restingHeartRate)} trend={metricTrend("restingHeartRate")} trendColor="var(--series-violet)" icon="pulse" tone="violet" />
               <StatTile label="Weekbelasting" value={`${weeklyKm.toFixed(1)} km`} delta={loadDetail} deltaIsGood={loadChange == null || loadChange <= 25} icon="run" tone="orange" />
               <StatTile label="VO₂ max" value={perf.vo2Trend.at(-1)?.value?.toFixed(1) ?? "–"} delta="Aerobe conditie" deltaIsGood={perf.vo2Trend.length > 1 && (perf.vo2Trend.at(-1)?.value ?? 0) >= (perf.vo2Trend[0]?.value ?? 0)} trend={perf.vo2Trend} trendColor="var(--series-blue)" icon="trend" tone="blue" />
             </section>
 
-            <section className="correlation-panel">
-              <div className="section-heading correlation-heading">
-                <div><span className="eyebrow">De verbanden in één oogopslag</span><h2>Wat stuurt je prestatie vandaag?</h2></div>
-                <span className="context-pill">Persoonlijke basislijn · 14 dagen</span>
-              </div>
-              <div className="correlation-flow">
-                <article className="signal-card signal-mint"><span className="signal-icon"><Icon name="pulse" /></span><div><small>Herstelbron 1</small><strong>{hrv != null ? `${Math.round(hrv)} ms HRV` : "HRV ontbreekt"}</strong><p>{hrv != null ? changeLabel(hrv, hrvBaseline, "ms") : "Koppel Apple Health"}</p></div></article>
-                <span className="flow-plus">+</span>
-                <article className="signal-card signal-violet"><span className="signal-icon"><Icon name="pulse" /></span><div><small>Herstelbron 2</small><strong>{restingHeartRate != null ? `${Math.round(restingHeartRate)} bpm` : "Rusthartslag ontbreekt"}</strong><p>{restingHeartRate != null ? changeLabel(restingHeartRate, heartRateBaseline, "bpm") : "Koppel Apple Health"}</p></div></article>
-                <span className="flow-plus">+</span>
-                <article className="signal-card signal-orange"><span className="signal-icon"><Icon name="run" /></span><div><small>Trainingsprikkel</small><strong>{weeklyKm.toFixed(1)} km</strong><p>{loadDetail}</p></div></article>
-                <span className="flow-arrow"><Icon name="arrow" /></span>
-                <article className="outcome-card"><small>Coachuitkomst</small><div className="outcome-score">{readiness ?? "–"}<span>/100</span></div><strong>{recommendation.label}</strong></article>
-              </div>
-              <p className="correlation-note"><Icon name="trend" /> Dit is een coachingsindicatie, geen medische score. Je eigen trend weegt zwaarder dan een algemene norm.</p>
-            </section>
-
-            <section className="data-coverage-panel" aria-labelledby="data-coverage-title">
-              <div className="section-heading">
-                <div><span className="eyebrow">Apple Health-import</span><h2 id="data-coverage-title">Welke signalen komen binnen?</h2></div>
+            <details className="data-coverage-panel">
+              <summary>
+                <span><span className="eyebrow">Gegevensstatus</span><strong>Bekijk welke Apple Health-signalen binnenkomen</strong></span>
                 <span className={`context-pill ${healthIsFresh ? "" : "stale"}`}>
                   {lastHealthDate ? `Laatste dag ${fmtDate(lastHealthDate)}` : "Nog geen Health-data"}
                 </span>
-              </div>
+              </summary>
               <div className="coverage-grid">
                 {coverage.map((item) => {
                   const ratio = metrics.length ? item.usableCount / metrics.length : 0;
@@ -255,7 +240,7 @@ export default async function Home() {
                 })}
               </div>
               <p className="coverage-help">Slaap is bewust uitgesloten. Cardioherstel en wandelhartslag zijn de nuttigste ontbrekende imports; stappen en actieve energie dienen alleen als context zolang de dagdekking nog wisselt.</p>
-            </section>
+            </details>
 
             <section className="content-grid">
               <div className="main-column">
@@ -265,7 +250,7 @@ export default async function Home() {
                   <TrendChart title="Tempo per run" subtitle="Lager is sneller" points={perf.paceTrend} color="var(--series-orange)" unit="pace" reversed />
                 </div>
                 <div className="section-heading compact"><div><span className="eyebrow">Coachanalyse</span><h2>Dit valt op in jouw data</h2></div></div>
-                <div className="insights-list">{insights.map((insight, index) => <InsightCard key={insight.id} insight={insight} index={index + 1} />)}</div>
+                <div className="insights-list">{insights.slice(0, 3).map((insight, index) => <InsightCard key={insight.id} insight={insight} index={index + 1} />)}</div>
               </div>
 
               <aside className="recent-panel">

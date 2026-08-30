@@ -1,4 +1,5 @@
 import type { activities, healthMetrics } from "@/db/schema";
+import { isUsableRecoveryValue } from "./recovery.ts";
 
 type Activity = typeof activities.$inferSelect;
 type HealthMetric = typeof healthMetrics.$inferSelect;
@@ -140,32 +141,36 @@ export function buildInsights(
   const sortedRuns = [...runs].sort((a, b) => a.startDate.getTime() - b.startDate.getTime());
   const sortedMetrics = [...metrics].sort((a, b) => a.date.localeCompare(b.date));
 
-  const latestMetric = sortedMetrics.at(-1);
-  if (latestMetric) {
-    const ageDays = Math.max(0, Math.floor((nowMs - dateMs(latestMetric.date)) / DAY_MS));
+  const recoveryRows = sortedMetrics.filter(
+    (metric) => isUsableRecoveryValue("hrvMs", metric.hrvMs) || isUsableRecoveryValue("restingHeartRate", metric.restingHeartRate),
+  );
+  const latestRecoveryMetric = recoveryRows.at(-1);
+  const latestRecoveryAgeDays = latestRecoveryMetric
+    ? Math.max(0, Math.floor((nowMs - dateMs(latestRecoveryMetric.date)) / DAY_MS))
+    : null;
+  if (latestRecoveryMetric) {
+    const ageDays = latestRecoveryAgeDays!;
     if (ageDays > 2) {
       insights.push({
         id: "health-sync-stale",
         status: "warning",
         title: "Apple Health loopt achter",
-        text: `De laatste Health-dag is ${latestMetric.date} (${ageDays} dagen geleden). Een actuele herstelconclusie zou daardoor schijnprecisie zijn.`,
+        text: `De laatste geldige herstelmeting is ${latestRecoveryMetric.date} (${ageDays} dagen geleden). Een actuele herstelconclusie zou daardoor schijnprecisie zijn.`,
         recommendation: "Controleer de persoonlijke Apple Opdrachten-automatisering en voer de opdracht één keer handmatig uit.",
         confidence: "hoog",
       });
     }
   }
 
-  const recoveryRows = sortedMetrics.filter(
-    (metric) => metric.hrvMs != null || metric.restingHeartRate != null,
-  );
   const recentRecovery = recoveryRows.slice(-3);
   const recoveryBaseline = recoveryRows.slice(-17, -3);
-  const recentHrv = avg(recentRecovery.flatMap((metric) => metric.hrvMs == null ? [] : [metric.hrvMs]));
-  const baselineHrv = avg(recoveryBaseline.flatMap((metric) => metric.hrvMs == null ? [] : [metric.hrvMs]));
-  const recentRhr = avg(recentRecovery.flatMap((metric) => metric.restingHeartRate == null ? [] : [metric.restingHeartRate]));
-  const baselineRhr = avg(recoveryBaseline.flatMap((metric) => metric.restingHeartRate == null ? [] : [metric.restingHeartRate]));
+  const recentHrv = avg(recentRecovery.flatMap((metric) => isUsableRecoveryValue("hrvMs", metric.hrvMs) ? [metric.hrvMs!] : []));
+  const baselineHrv = avg(recoveryBaseline.flatMap((metric) => isUsableRecoveryValue("hrvMs", metric.hrvMs) ? [metric.hrvMs!] : []));
+  const recentRhr = avg(recentRecovery.flatMap((metric) => isUsableRecoveryValue("restingHeartRate", metric.restingHeartRate) ? [metric.restingHeartRate!] : []));
+  const baselineRhr = avg(recoveryBaseline.flatMap((metric) => isUsableRecoveryValue("restingHeartRate", metric.restingHeartRate) ? [metric.restingHeartRate!] : []));
 
   if (
+    latestRecoveryAgeDays != null && latestRecoveryAgeDays <= 2 &&
     recentRecovery.length >= 2 &&
     recoveryBaseline.length >= 5 &&
     recentHrv != null && baselineHrv != null &&

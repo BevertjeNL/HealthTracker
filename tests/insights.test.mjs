@@ -24,6 +24,22 @@ test("flags stale Health data and does not depend on sleep", () => {
   assert.equal(insights.some((insight) => insight.id.includes("sleep")), false);
 });
 
+test("treats a recent zero HRV row as invalid instead of fresh recovery data", () => {
+  const metrics = [
+    { date: "2026-08-20", hrvMs: 40, restingHeartRate: 60 },
+    { date: "2026-08-21", hrvMs: 41, restingHeartRate: 61 },
+    { date: "2026-08-22", hrvMs: 39, restingHeartRate: 60 },
+    { date: "2026-08-23", hrvMs: 42, restingHeartRate: 59 },
+    { date: "2026-08-24", hrvMs: 40, restingHeartRate: 60 },
+    { date: "2026-08-26", hrvMs: 38, restingHeartRate: 67 },
+    { date: "2026-08-29", hrvMs: 0, restingHeartRate: null },
+  ];
+  const insights = buildInsights([], metrics, new Date("2026-08-30T12:00:00Z"));
+
+  assert.equal(insights[0].id, "health-sync-stale");
+  assert.equal(insights.some((insight) => insight.id === "recovery-baseline"), false);
+});
+
 test("warns when seven-day running volume rises more than thirty percent", () => {
   const insights = buildInsights(
     [run(2, 8), run(5, 7), run(9, 5), run(12, 5)],
