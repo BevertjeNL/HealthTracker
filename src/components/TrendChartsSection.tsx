@@ -38,23 +38,6 @@ export function TrendChartsSection({
   pacePoints: Point[];
   today: string;
 }) {
-  const [rangeIndex, setRangeIndex] = useState(5);
-  const selectedRange = RANGE_OPTIONS[rangeIndex];
-  const cutoff = useMemo(
-    () => shiftDate(today, -(selectedRange.days - 1)),
-    [selectedRange.days, today],
-  );
-  const visibleWeight = useMemo(
-    () => weightPoints.filter((point) => point.date.slice(0, 10) >= cutoff && point.date.slice(0, 10) <= today),
-    [cutoff, today, weightPoints],
-  );
-  const visiblePace = useMemo(
-    () => pacePoints.filter((point) => point.date.slice(0, 10) >= cutoff && point.date.slice(0, 10) <= today),
-    [cutoff, pacePoints, today],
-  );
-  const visibleWeightCount = visibleWeight.filter((point) => point.value != null).length;
-  const visiblePaceCount = visiblePace.filter((point) => point.value != null).length;
-
   return (
     <section className="trend-section" aria-labelledby="trend-section-title">
       <div className="section-heading chart-range-heading">
@@ -62,40 +45,108 @@ export function TrendChartsSection({
           <span className="eyebrow">Ontdek het patroon</span>
           <h2 id="trend-section-title">Gezondheid × prestatie</h2>
         </div>
-        <span className="context-pill">Laatste {selectedRange.label}</span>
+        <span className="context-pill">Per grafiek instelbaar</span>
       </div>
-
-      <div className="chart-range-control">
-        <div className="chart-range-copy">
-          <label htmlFor="chart-range">Kies het zichtbare bereik</label>
-          <output htmlFor="chart-range">
-            {formatRangeDate(cutoff)} – {formatRangeDate(today)}
-          </output>
-        </div>
-        <input
-          id="chart-range"
-          type="range"
-          min="0"
-          max={RANGE_OPTIONS.length - 1}
-          step="1"
-          value={rangeIndex}
-          onChange={(event) => setRangeIndex(Number(event.target.value))}
-          aria-valuetext={selectedRange.label}
-        />
-        <div className="chart-range-ends" aria-hidden="true">
-          <span>14 dagen</span>
-          <span>2 jaar</span>
-        </div>
-        <p className="chart-range-status" aria-live="polite">
-          <span>Gewicht: <strong>{visibleWeightCount} metingen</strong></span>
-          <span>Tempo: <strong>{visiblePaceCount} runs</strong></span>
-        </p>
-      </div>
-
       <div className="chart-grid">
-        <TrendChart title="Gewicht" subtitle="7-daags gemiddelde" points={visibleWeight} color="var(--series-blue)" unit="kg" />
-        <TrendChart title="Tempo per run" subtitle="Lager is sneller" points={visiblePace} color="var(--series-orange)" unit="pace" reversed />
+        <AdjustableTrendChart
+          id="weight-range"
+          title="Gewicht"
+          subtitle="7-daags gemiddelde"
+          points={weightPoints}
+          today={today}
+          color="var(--series-blue)"
+          unit="kg"
+          defaultRangeIndex={3}
+          countLabel="metingen"
+        />
+        <AdjustableTrendChart
+          id="pace-range"
+          title="Tempo per run"
+          subtitle="Lager is sneller"
+          points={pacePoints}
+          today={today}
+          color="var(--series-orange)"
+          unit="pace"
+          defaultRangeIndex={5}
+          countLabel="runs"
+          reversed
+        />
       </div>
     </section>
+  );
+}
+
+function AdjustableTrendChart({
+  id,
+  title,
+  subtitle,
+  points,
+  today,
+  color,
+  unit,
+  defaultRangeIndex,
+  countLabel,
+  reversed = false,
+}: {
+  id: string;
+  title: string;
+  subtitle: string;
+  points: Point[];
+  today: string;
+  color: string;
+  unit: "kg" | "pace";
+  defaultRangeIndex: number;
+  countLabel: string;
+  reversed?: boolean;
+}) {
+  const [rangeIndex, setRangeIndex] = useState(defaultRangeIndex);
+  const selectedRange = RANGE_OPTIONS[rangeIndex];
+  const cutoff = useMemo(
+    () => shiftDate(today, -(selectedRange.days - 1)),
+    [selectedRange.days, today],
+  );
+  const visiblePoints = useMemo(
+    () => points.filter((point) => point.date.slice(0, 10) >= cutoff && point.date.slice(0, 10) <= today),
+    [cutoff, points, today],
+  );
+  const visibleCount = visiblePoints.filter((point) => point.value != null).length;
+
+  const controls = (
+    <div className="chart-card-range">
+      <div className="chart-range-copy">
+        <label htmlFor={id}>Bereik: <strong>{selectedRange.label}</strong></label>
+        <output htmlFor={id}>{formatRangeDate(cutoff)} – {formatRangeDate(today)}</output>
+      </div>
+      <input
+        id={id}
+        type="range"
+        min="0"
+        max={RANGE_OPTIONS.length - 1}
+        step="1"
+        value={rangeIndex}
+        onChange={(event) => setRangeIndex(Number(event.target.value))}
+        aria-label={`Zichtbaar bereik voor ${title}`}
+        aria-valuetext={selectedRange.label}
+      />
+      <div className="chart-range-ends" aria-hidden="true">
+        <span>14 dagen</span>
+        <span>2 jaar</span>
+      </div>
+      <p className="chart-card-range-count" aria-live="polite">
+        {visibleCount} {countLabel} zichtbaar
+      </p>
+    </div>
+  );
+
+  return (
+    <TrendChart
+      title={title}
+      subtitle={subtitle}
+      points={visiblePoints}
+      color={color}
+      unit={unit}
+      reversed={reversed}
+      controls={controls}
+    />
   );
 }

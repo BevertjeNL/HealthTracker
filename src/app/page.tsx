@@ -8,7 +8,7 @@ import { AppLogo } from "@/components/AppLogo";
 import { db } from "@/db";
 import { activities, healthMetrics } from "@/db/schema";
 import { fmtDate, fmtKm, fmtPace } from "@/lib/format";
-import { buildInsights, runPerformanceSummary, weightSummary } from "@/lib/insights";
+import { buildInsights, buildTrainingAdvice, runPerformanceSummary, weightSummary } from "@/lib/insights";
 import {
   buildRecoverySummary,
   dayDifference,
@@ -98,13 +98,7 @@ export default async function Home() {
   const heartRateBaseline = signals.restingHeartRate?.baseline ?? null;
   const metricTrend = (key: "hrvMs" | "restingHeartRate") => recoveryTrend(metrics, key);
 
-  const recommendation = readiness == null
-    ? { label: "Kies vandaag rustig", detail: "20–40 min · comfortabel", coach: "Je herstel is nog niet betrouwbaar te bepalen. Train op gevoel en vermijd een maximale prikkel." }
-    : readiness >= 78
-      ? { label: "Tempo run", detail: "35–45 min · RPE 7/10", coach: "Je actuele herstelsignalen geven ruimte voor kwaliteit. Houd de snelle blokken beheerst." }
-      : readiness >= 58
-        ? { label: "Rustige duurloop", detail: "30–45 min · zone 2", coach: "Je herstel oogt stabiel. Bouw conditie op zonder extra herstelvraag." }
-        : { label: "Hersteltraining", detail: "20–30 min · zeer rustig", coach: "Je actuele signalen vragen om herstel. Laat tempo en afstand vandaag los." };
+  const recommendation = buildTrainingAdvice(runs, readiness, loadChange, now);
   const stateTitle = readiness == null
     ? "Herstel nog niet compleet"
     : readiness >= 78 ? "Sterk hersteld" : readiness >= 58 ? "Stabiele basis" : "Herstel eerst";
@@ -188,6 +182,7 @@ export default async function Home() {
                   <h2>{recommendation.label}</h2>
                   <p>{recommendation.detail}</p>
                   <p className="today-reason">{recommendation.coach}</p>
+                  <p className="training-rhythm">{recommendation.rhythm}</p>
                 </div>
                 <a href="#onderbouwing">Waarom dit advies? <Icon name="arrow" /></a>
               </article>
@@ -234,12 +229,12 @@ export default async function Home() {
                   return (
                     <article key={item.key} className={`coverage-item ${state}`}>
                       <span className="coverage-dot" aria-hidden />
-                      <div><strong>{item.label}</strong><small>{item.count}/{metrics.length} ontvangen{item.usableCount < item.count ? ` · ${item.usableCount} bruikbaar` : ""} · {item.priority}</small></div>
+                      <div><strong>{item.label}</strong><small>{item.count}/{metrics.length} dagen met waarde{item.usableCount < item.count ? ` · ${item.usableCount} bruikbaar` : ""} · {item.priority}</small></div>
                     </article>
                   );
                 })}
               </div>
-              <p className="coverage-help">Slaap is bewust uitgesloten. Cardioherstel en wandelhartslag zijn de nuttigste ontbrekende imports; stappen en actieve energie dienen alleen als context zolang de dagdekking nog wisselt.</p>
+              <p className="coverage-help">De opdracht is ingericht voor alle acht signalen. Een dag zonder waarde betekent dat Apple Health voor die datum geen geldige meting had; het betekent niet automatisch dat de koppeling ontbreekt. Stappen en actieve energie blijven contextsignalen.</p>
             </details>
 
             <section className="content-grid">

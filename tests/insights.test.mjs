@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { buildInsights } from "../src/lib/insights.ts";
+import { buildInsights, buildTrainingAdvice } from "../src/lib/insights.ts";
 
 function run(daysAgo, distanceKm, pace = 6, heartRate = 145) {
   const now = new Date("2026-08-27T12:00:00Z");
@@ -63,4 +63,28 @@ test("reports improved aerobic efficiency over comparable run blocks", () => {
 
   assert.ok(efficiency);
   assert.equal(efficiency.status, "good");
+});
+
+test("recommends no second run when the athlete already ran today", () => {
+  const advice = buildTrainingAdvice(
+    [run(0, 16, 5.8, 150), run(3, 10), run(7, 12), run(14, 18)],
+    null,
+    40,
+    new Date("2026-08-27T12:00:00Z"),
+  );
+
+  assert.match(advice.label, /niet nogmaals lopen/i);
+  assert.match(advice.rhythm, /loopdagen per week/i);
+});
+
+test("treats a day between normal run days as intentional rest", () => {
+  const advice = buildTrainingAdvice(
+    [run(1, 6), run(4, 7), run(7, 6), run(10, 7), run(13, 6)],
+    70,
+    5,
+    new Date("2026-08-27T12:00:00Z"),
+  );
+
+  assert.match(advice.label, /geen looptraining nodig/i);
+  assert.match(advice.coach, /overslaan normaal/i);
 });
