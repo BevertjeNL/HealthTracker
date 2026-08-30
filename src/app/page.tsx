@@ -2,7 +2,7 @@ import type { CSSProperties, ReactNode } from "react";
 import Link from "next/link";
 import { desc, gte, sql } from "drizzle-orm";
 import { InsightCard } from "@/components/InsightCard";
-import { StatTile } from "@/components/StatTile";
+import { HealthOverviewTile } from "@/components/HealthOverviewTile";
 import { TrendChartsSection } from "@/components/TrendChartsSection";
 import { AppLogo } from "@/components/AppLogo";
 import { db } from "@/db";
@@ -37,13 +37,6 @@ function Icon({ name }: { name: IconName }) {
       {paths[name]}
     </svg>
   );
-}
-
-function changeLabel(current: number | null, baseline: number | null, unit: string) {
-  if (current == null || baseline == null || baseline === 0) return "Nog geen persoonlijke basislijn";
-  const change = ((current - baseline) / baseline) * 100;
-  if (Math.abs(change) < 1) return `Gelijk aan je basislijn (${baseline.toFixed(unit === "u" ? 1 : 0)} ${unit})`;
-  return `${Math.abs(change).toFixed(0)}% ${change > 0 ? "boven" : "onder"} je basislijn`;
 }
 
 function recencyLabel(signal: RecoverySignal | null) {
@@ -97,6 +90,27 @@ export default async function Home() {
   const hrvBaseline = signals.hrvMs?.baseline ?? null;
   const heartRateBaseline = signals.restingHeartRate?.baseline ?? null;
   const metricTrend = (key: "hrvMs" | "restingHeartRate") => recoveryTrend(metrics, key);
+  const latestSteps = [...sortedMetrics].reverse().find((metric) => metric.steps != null)?.steps ?? null;
+  const latestActiveEnergy = [...sortedMetrics].reverse().find((metric) => metric.activeEnergyKcal != null)?.activeEnergyKcal ?? null;
+  const latestVo2 = perf.vo2Trend.at(-1)?.value ?? null;
+  const hrvChange = hrv != null && hrvBaseline != null && hrvBaseline !== 0
+    ? ((hrv - hrvBaseline) / hrvBaseline) * 100
+    : null;
+  const restingHeartRateChange = restingHeartRate != null && heartRateBaseline != null && heartRateBaseline !== 0
+    ? ((restingHeartRate - heartRateBaseline) / heartRateBaseline) * 100
+    : null;
+  const hrvContext = hrvChange == null
+    ? "Je persoonlijke basislijn wordt nog opgebouwd"
+    : Math.abs(hrvChange) < 5
+      ? "Rond je persoonlijke basislijn"
+      : `${Math.abs(hrvChange).toFixed(0)}% ${hrvChange > 0 ? "boven" : "onder"} je basislijn`;
+  const hrvInterpretation = hrvChange == null
+    ? "Vergelijk HRV pas na meerdere vergelijkbare metingen. Eén losse waarde zegt weinig."
+    : hrvChange <= -10 && (restingHeartRateChange ?? 0) >= 3
+      ? "HRV staat lager en je rusthartslag hoger dan normaal. Dat ondersteunt vandaag een rustige keuze."
+      : hrvChange >= 8 && (restingHeartRateChange ?? 0) <= 1
+        ? "HRV staat gunstig ten opzichte van je eigen patroon. Gebruik dat als steun, niet als verplichting om hard te trainen."
+        : "Je HRV beweegt binnen je gebruikelijke band. Laat loopgevoel en rusthartslag de doorslag geven.";
 
   const recommendation = buildTrainingAdvice(runs, readiness, loadChange, now);
   const stateTitle = readiness == null
@@ -208,11 +222,85 @@ export default async function Home() {
               </article>
             </section>
 
-            <section id="onderbouwing" className="metric-grid" aria-label="Onderbouwing van het advies">
-              <StatTile label="HRV" value={hrv != null ? `${Math.round(hrv)} ms` : "–"} delta={hrv != null && signals.hrvMs?.fresh ? changeLabel(hrv, hrvBaseline, "ms") : recencyLabel(signals.hrvMs)} deltaIsGood={hrv != null && signals.hrvMs?.fresh && hrv >= (hrvBaseline ?? hrv)} trend={metricTrend("hrvMs")} trendColor="var(--series-aqua)" icon="pulse" tone="mint" />
-              <StatTile label="Rusthartslag" value={restingHeartRate != null ? `${Math.round(restingHeartRate)} bpm` : "–"} delta={restingHeartRate != null && signals.restingHeartRate?.fresh ? changeLabel(restingHeartRate, heartRateBaseline, "bpm") : recencyLabel(signals.restingHeartRate)} deltaIsGood={restingHeartRate != null && signals.restingHeartRate?.fresh && restingHeartRate <= (heartRateBaseline ?? restingHeartRate)} trend={metricTrend("restingHeartRate")} trendColor="var(--series-violet)" icon="pulse" tone="violet" />
-              <StatTile label="Weekbelasting" value={`${weeklyKm.toFixed(1)} km`} delta={loadDetail} deltaIsGood={loadChange == null || loadChange <= 25} icon="run" tone="orange" />
-              <StatTile label="VO₂ max" value={perf.vo2Trend.at(-1)?.value?.toFixed(1) ?? "–"} delta="Aerobe conditie" deltaIsGood={perf.vo2Trend.length > 1 && (perf.vo2Trend.at(-1)?.value ?? 0) >= (perf.vo2Trend[0]?.value ?? 0)} trend={perf.vo2Trend} trendColor="var(--series-blue)" icon="trend" tone="blue" />
+            <section id="onderbouwing" aria-labelledby="health-overview-title">
+              <div className="section-heading health-overview-heading">
+                <div><span className="eyebrow">Gezondheid in context</span><h2 id="health-overview-title">Vier trends die samen iets zeggen</h2></div>
+                <span className="context-pill">Jouw basislijn, niet een algemene norm</span>
+              </div>
+              <div className="metric-grid health-overview-grid">
+                <HealthOverviewTile
+                  title="HRV & herstel"
+                  symbol="≈"
+                  tone="mint"
+                  value={hrv != null ? `${Math.round(hrv)} ms` : "–"}
+                  valueLabel="hartslagvariabiliteit"
+                  context={signals.hrvMs?.fresh ? hrvContext : recencyLabel(signals.hrvMs)}
+                  contextIsGood={hrvChange != null && hrvChange >= 0}
+                  supporting={[
+                    { label: "Eigen basislijn", value: hrvBaseline != null ? `${Math.round(hrvBaseline)} ms` : "Opbouwend" },
+                    { label: "Rusthartslag", value: restingHeartRate != null ? `${Math.round(restingHeartRate)} bpm` : "–" },
+                  ]}
+                  trend={metricTrend("hrvMs")}
+                  trendColor="var(--series-aqua)"
+                />
+                <HealthOverviewTile
+                  title="Hartconditie"
+                  symbol="♥"
+                  tone="violet"
+                  value={latestVo2 != null ? latestVo2.toFixed(1) : "–"}
+                  valueLabel="VO₂-max · ml/kg/min"
+                  context={perf.vo2Trend.length >= 2 ? "Ontwikkeling van je aerobe capaciteit" : "Nog weinig conditiemetingen"}
+                  contextIsGood={perf.vo2Trend.length >= 2 && (latestVo2 ?? 0) >= (perf.vo2Trend[0]?.value ?? 0)}
+                  supporting={[
+                    { label: "Cardioherstel", value: signals.cardioRecovery1m ? `${Math.round(signals.cardioRecovery1m.value)} bpm` : "–" },
+                    { label: "Wandelhartslag", value: signals.walkingHeartRateAverage ? `${Math.round(signals.walkingHeartRateAverage.value)} bpm` : "–" },
+                  ]}
+                  trend={perf.vo2Trend}
+                  trendColor="var(--series-violet)"
+                />
+                <HealthOverviewTile
+                  title="Loopbelasting"
+                  symbol="↗"
+                  tone="orange"
+                  value={`${weeklyKm.toFixed(1)} km`}
+                  valueLabel="laatste 7 dagen"
+                  context={loadDetail}
+                  contextIsGood={loadChange == null || loadChange <= 25}
+                  supporting={[
+                    { label: "Loopdagen", value: String(recentWeek.length) },
+                    { label: "Gem. tempo", value: perf.recentAvgPace != null ? fmtPace(perf.recentAvgPace) : "–" },
+                  ]}
+                  trend={perf.paceTrend}
+                  trendColor="var(--series-orange)"
+                />
+                <HealthOverviewTile
+                  title="Beweging & lichaam"
+                  symbol="●"
+                  tone="blue"
+                  value={latestSteps != null ? Math.round(latestSteps).toLocaleString("nl-NL") : "–"}
+                  valueLabel="stappen op laatste Health-dag"
+                  context={weight.deltaKg != null ? `${Math.abs(weight.deltaKg).toFixed(1)} kg ${weight.deltaKg <= 0 ? "lager" : "hoger"} in je meetperiode` : "Gewichtstrend wordt opgebouwd"}
+                  supporting={[
+                    { label: "Actieve energie", value: latestActiveEnergy != null ? `${Math.round(latestActiveEnergy)} kcal` : "–" },
+                    { label: "Gewicht", value: weight.current != null ? `${weight.current.toFixed(1)} kg` : "–" },
+                  ]}
+                  trend={weight.trend}
+                  trendColor="var(--series-blue)"
+                />
+              </div>
+              <aside className="hrv-explainer" aria-label="Uitleg over HRV">
+                <span className="hrv-explainer-symbol" aria-hidden>≈</span>
+                <div>
+                  <span className="eyebrow">HRV betekent hartslagvariabiliteit</span>
+                  <h3>Niet hoe snel je hart klopt, maar hoeveel de tijd tussen hartslagen varieert</h3>
+                  <p>Apple drukt dit uit in milliseconden. Een hoger getal is niet automatisch beter: vergelijk vooral met je eigen basislijn, onder vergelijkbare omstandigheden. {hrvInterpretation}</p>
+                </div>
+                <div className="hrv-reading-guide">
+                  <span><i className="guide-up" />Boven basislijn<small>vaak gunstig herstel</small></span>
+                  <span><i className="guide-steady" />Rond basislijn<small>normale variatie</small></span>
+                  <span><i className="guide-down" />Duidelijk lager<small>combineer met rustpols en gevoel</small></span>
+                </div>
+              </aside>
             </section>
 
             <details className="data-coverage-panel">
