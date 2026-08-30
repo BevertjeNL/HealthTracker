@@ -33,6 +33,13 @@ test("normalizes both Health Auto Export weight metric names", () => {
   assert.equal(normalizeHealthMetricValue("weight_body_mass", "kg", 70), 70);
 });
 
+test("normalizes Apple fractional percentage metrics", () => {
+  assert.equal(normalizeHealthMetricValue("oxygen_saturation", "%", 0.975), 97.5);
+  assert.equal(normalizeHealthMetricValue("oxygen_saturation", undefined, 0.98), 98);
+  assert.equal(normalizeHealthMetricValue("walking_steadiness", "%", 0.91), 91);
+  assert.equal(normalizeHealthMetricValue("oxygen_saturation", "%", 98), 98);
+});
+
 test("parses a flat Apple Shortcuts daily payload", () => {
   const parsed = parseHealthPayload({
     source: "apple-shortcuts",
@@ -93,4 +100,26 @@ test("keeps Health Auto Export aggregation compatible", () => {
   assert.equal(parsed.rows[0].date, "2026-08-26");
   assert.equal(parsed.rows[0].values.hrvMs, 45);
   assert.ok(Math.abs(parsed.rows[0].values.activeEnergyKcal - 100) < 0.001);
+});
+
+test("parses long-term mobility and running metrics", () => {
+  const parsed = parseHealthPayload({
+    data: {
+      metrics: [
+        { name: "oxygen_saturation", units: "%", data: [{ date: "2026-08-26", qty: 0.98 }] },
+        { name: "exercise_minutes", units: "min", data: [
+          { date: "2026-08-26 08:00:00 +0200", qty: 12 },
+          { date: "2026-08-26 18:00:00 +0200", qty: 18 },
+        ] },
+        { name: "running_power", units: "W", data: [
+          { date: "2026-08-26 08:00:00 +0200", qty: 250 },
+          { date: "2026-08-26 08:05:00 +0200", qty: 270 },
+        ] },
+      ],
+    },
+  });
+
+  assert.equal(parsed.rows[0].values.oxygenSaturationPct, 98);
+  assert.equal(parsed.rows[0].values.exerciseMinutes, 30);
+  assert.equal(parsed.rows[0].values.runningPowerW, 260);
 });

@@ -36,12 +36,30 @@ Apple Opdrachten stuurt dagelijks een POST-verzoek naar `/api/health/ingest`. De
 | `step_count` | Dagelijkse activiteit en datadekking | Som |
 | `active_energy` | Actieve energie in kcal | Som |
 | `weight_&_body_mass` / `weight_body_mass` | Gewicht in kg en gewichtstrend | Laatste meting |
+| `oxygen_saturation` / `respiratory_rate` | Persoonlijke ademhalings- en zuurstoftrend | Gemiddelde |
+| `exercise_minutes` / `daylight_minutes` | Dagelijkse beweeg- en herstelcontext | Som |
+| `walking_speed` / `walking_steadiness` | Functionele mobiliteit | Gemiddelde |
+| `six_minute_walk_distance` | Zesminutenwandeltest | Laatste meting |
+| `running_power` | Loopvermogen | Gemiddelde |
+| `running_stride_length` | Paslengte | Gemiddelde |
+| `running_vertical_oscillation` | Verticale beweging tijdens lopen | Gemiddelde |
+| `running_ground_contact_time` | Grondcontacttijd tijdens lopen | Gemiddelde |
 
 Eenheden worden waar nodig genormaliseerd: kJ naar kcal en lb/lbs naar kg. Het endpoint retourneert alleen de namen van ontvangen, geïmporteerde en genegeerde metrics; er worden geen gezondheidswaarden gelogd.
 
 ### Bewust niet geïmporteerd
 
-Slaapdata wordt momenteel bewust overgeslagen omdat de aangesloten export geen bruikbare slaapgegevens levert. `sleep_hours` en `sleep_score` bestaan nog als ongebruikte legacy-kolommen in het databaseschema, maar de ingest-route accepteert of vult ze niet en de analyse trekt er geen conclusies uit.
+Slaapdata wordt momenteel bewust overgeslagen omdat de Apple-export vooral verouderde `InBed`-registraties bevat en na maart 2025 geen dekking meer heeft. Bloeddruk wordt niet automatisch geïnterpreteerd omdat de historie daarvoor te schaars is. `sleep_hours` en `sleep_score` bestaan nog als ongebruikte legacy-kolommen in het databaseschema, maar de ingest-route accepteert of vult ze niet en de analyse trekt er geen conclusies uit.
+
+### Volledige Apple Health-export terugvullen
+
+Een handmatige Apple Health-export kan rechtstreeks worden teruggevuld zonder een betaalde tussenapp:
+
+```bash
+node --env-file=.env.local scripts/import-apple-health-export.mjs /pad/naar/export.zip
+```
+
+Het script leest alleen de hierboven genoemde langetermijnsignalen, maakt dagsamenvattingen en vult bestaande kalenderdagen aan zonder andere waarden te wissen.
 
 ### Aanbevolen Apple Health-selectie
 

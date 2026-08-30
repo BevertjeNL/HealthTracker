@@ -21,6 +21,30 @@ import {
 export const dynamic = "force-dynamic";
 
 type IconName = "arrow" | "bolt" | "pulse" | "run" | "scale" | "trend";
+type HealthMetric = typeof healthMetrics.$inferSelect;
+
+type LongTermMetricKey =
+  | "oxygenSaturationPct"
+  | "respiratoryRate"
+  | "exerciseMinutes"
+  | "daylightMinutes"
+  | "walkingSpeedKmh"
+  | "walkingSteadinessPct"
+  | "sixMinuteWalkDistanceM"
+  | "runningPowerW"
+  | "runningStrideLengthM"
+  | "runningVerticalOscillationCm"
+  | "runningGroundContactTimeMs";
+
+function healthSeries(metrics: HealthMetric[], key: LongTermMetricKey) {
+  return metrics
+    .flatMap((metric) => metric[key] == null ? [] : [{ date: metric.date, value: metric[key] }])
+    .sort((a, b) => a.date.localeCompare(b.date));
+}
+
+function latestValue(metrics: HealthMetric[], key: LongTermMetricKey) {
+  return healthSeries(metrics, key).at(-1)?.value ?? null;
+}
 
 function Icon({ name }: { name: IconName }) {
   const paths: Record<IconName, ReactNode> = {
@@ -47,8 +71,8 @@ function recencyLabel(signal: RecoverySignal | null) {
 }
 
 export default async function Home() {
-  const historyStart = sql<Date>`CURRENT_TIMESTAMP - INTERVAL '730 days'`;
-  const historyStartDate = sql<string>`CURRENT_DATE - 730`;
+  const historyStart = sql<Date>`CURRENT_TIMESTAMP - INTERVAL '1100 days'`;
+  const historyStartDate = sql<string>`CURRENT_DATE - 1100`;
   const [runs, metrics] = await Promise.all([
     db.select().from(activities).where(gte(activities.startDate, historyStart)).orderBy(desc(activities.startDate)),
     db.select().from(healthMetrics).where(gte(healthMetrics.date, historyStartDate)),
@@ -93,6 +117,21 @@ export default async function Home() {
   const latestSteps = [...sortedMetrics].reverse().find((metric) => metric.steps != null)?.steps ?? null;
   const latestActiveEnergy = [...sortedMetrics].reverse().find((metric) => metric.activeEnergyKcal != null)?.activeEnergyKcal ?? null;
   const latestVo2 = perf.vo2Trend.at(-1)?.value ?? null;
+  const oxygenTrend = healthSeries(metrics, "oxygenSaturationPct");
+  const runningPowerTrend = healthSeries(metrics, "runningPowerW");
+  const exerciseTrend = healthSeries(metrics, "exerciseMinutes");
+  const walkingSteadinessTrend = healthSeries(metrics, "walkingSteadinessPct");
+  const latestOxygen = latestValue(metrics, "oxygenSaturationPct");
+  const latestRespiratoryRate = latestValue(metrics, "respiratoryRate");
+  const latestExerciseMinutes = latestValue(metrics, "exerciseMinutes");
+  const latestDaylightMinutes = latestValue(metrics, "daylightMinutes");
+  const latestWalkingSpeed = latestValue(metrics, "walkingSpeedKmh");
+  const latestWalkingSteadiness = latestValue(metrics, "walkingSteadinessPct");
+  const latestSixMinuteWalk = latestValue(metrics, "sixMinuteWalkDistanceM");
+  const latestRunningPower = latestValue(metrics, "runningPowerW");
+  const latestStrideLength = latestValue(metrics, "runningStrideLengthM");
+  const latestVerticalOscillation = latestValue(metrics, "runningVerticalOscillationCm");
+  const latestGroundContact = latestValue(metrics, "runningGroundContactTimeMs");
   const hrvChange = hrv != null && hrvBaseline != null && hrvBaseline !== 0
     ? ((hrv - hrvBaseline) / hrvBaseline) * 100
     : null;
@@ -133,6 +172,12 @@ export default async function Home() {
     { label: "Stappen", key: "steps", priority: "Context" },
     { label: "Actieve energie", key: "activeEnergyKcal", priority: "Context" },
     { label: "Gewicht", key: "weightKg", priority: "Optioneel" },
+    { label: "Zuurstofsaturatie", key: "oxygenSaturationPct", priority: "Welzijn" },
+    { label: "Ademfrequentie", key: "respiratoryRate", priority: "Context" },
+    { label: "Trainingsminuten", key: "exerciseMinutes", priority: "Belasting" },
+    { label: "Daglicht", key: "daylightMinutes", priority: "Herstelcontext" },
+    { label: "Wandelsnelheid", key: "walkingSpeedKmh", priority: "Mobiliteit" },
+    { label: "Loopvermogen", key: "runningPowerW", priority: "Looptechniek" },
   ] as const;
   const coverage = coverageDefinitions.map((definition) => {
     const values = metrics.flatMap((metric) => {
@@ -303,6 +348,72 @@ export default async function Home() {
               </aside>
             </section>
 
+            <section aria-labelledby="long-term-title">
+              <div className="section-heading health-overview-heading">
+                <div><span className="eyebrow">Historie uit Apple Health</span><h2 id="long-term-title">Je langetermijnprofiel</h2></div>
+                <span className="context-pill">Persoonlijke trends · geen medische diagnose</span>
+              </div>
+              <div className="metric-grid health-overview-grid">
+                <HealthOverviewTile
+                  title="Ademhaling & zuurstof"
+                  symbol="○"
+                  tone="mint"
+                  value={latestOxygen != null ? `${latestOxygen.toFixed(1)}%` : "–"}
+                  valueLabel="laatste zuurstofsaturatie"
+                  context={oxygenTrend.length >= 14 ? `Persoonlijke trend op basis van ${oxygenTrend.length} meetdagen` : "Nog te weinig meetdagen voor een stabiele trend"}
+                  supporting={[
+                    { label: "Ademfrequentie", value: latestRespiratoryRate != null ? `${latestRespiratoryRate.toFixed(1)}/min` : "–" },
+                    { label: "Meetdagen", value: String(oxygenTrend.length) },
+                  ]}
+                  trend={oxygenTrend}
+                  trendColor="var(--series-aqua)"
+                />
+                <HealthOverviewTile
+                  title="Looptechniek"
+                  symbol="↟"
+                  tone="orange"
+                  value={latestRunningPower != null ? `${Math.round(latestRunningPower)} W` : "–"}
+                  valueLabel="gemiddeld vermogen op laatste loopdag"
+                  context={runningPowerTrend.length >= 8 ? "Vergelijk dit alleen tussen runs met vergelijkbaar tempo en terrein" : "Loopdynamiek wordt opgebouwd"}
+                  supporting={[
+                    { label: "Paslengte", value: latestStrideLength != null ? `${latestStrideLength.toFixed(2)} m` : "–" },
+                    { label: "Grondcontact", value: latestGroundContact != null ? `${Math.round(latestGroundContact)} ms` : "–" },
+                  ]}
+                  trend={runningPowerTrend}
+                  trendColor="var(--series-orange)"
+                />
+                <HealthOverviewTile
+                  title="Dagelijkse activiteit"
+                  symbol="☀"
+                  tone="blue"
+                  value={latestExerciseMinutes != null ? `${Math.round(latestExerciseMinutes)} min` : "–"}
+                  valueLabel="trainingsminuten op laatste meetdag"
+                  context="Toont je totale beweegprikkel naast je looptrainingen"
+                  supporting={[
+                    { label: "Tijd in daglicht", value: latestDaylightMinutes != null ? `${Math.round(latestDaylightMinutes)} min` : "–" },
+                    { label: "Wandelsnelheid", value: latestWalkingSpeed != null ? `${latestWalkingSpeed.toFixed(1)} km/u` : "–" },
+                  ]}
+                  trend={exerciseTrend}
+                  trendColor="var(--series-blue)"
+                />
+                <HealthOverviewTile
+                  title="Mobiliteit"
+                  symbol="◇"
+                  tone="violet"
+                  value={latestWalkingSteadiness != null ? `${latestWalkingSteadiness.toFixed(1)}%` : "–"}
+                  valueLabel="laatste wandelstabiliteit"
+                  context="Ondersteunende trend voor balans en functionele mobiliteit"
+                  supporting={[
+                    { label: "6-minutenwandeling", value: latestSixMinuteWalk != null ? `${Math.round(latestSixMinuteWalk)} m` : "–" },
+                    { label: "Verticale oscillatie", value: latestVerticalOscillation != null ? `${latestVerticalOscillation.toFixed(1)} cm` : "–" },
+                  ]}
+                  trend={walkingSteadinessTrend}
+                  trendColor="var(--series-violet)"
+                />
+              </div>
+              <p className="long-term-note">Slaapdata zijn bewust niet in je actuele hersteladvies gebruikt: de export bevat vooral ‘in bed’-registraties en stopt in maart 2025. Bloeddruk is met 16 metingen te schaars voor betrouwbare automatische coaching.</p>
+            </section>
+
             <details className="data-coverage-panel">
               <summary>
                 <span><span className="eyebrow">Gegevensstatus</span><strong>Bekijk welke Apple Health-signalen binnenkomen</strong></span>
@@ -322,14 +433,14 @@ export default async function Home() {
                   );
                 })}
               </div>
-              <p className="coverage-help">De opdracht is ingericht voor alle acht signalen. Een dag zonder waarde betekent dat Apple Health voor die datum geen geldige meting had; het betekent niet automatisch dat de koppeling ontbreekt. Stappen en actieve energie blijven contextsignalen.</p>
+              <p className="coverage-help">De historische export vult ook signalen aan die niet dagelijks door je opdracht worden verstuurd. Een dag zonder waarde betekent dat Apple Health voor die datum geen geldige meting had; het betekent niet automatisch dat de koppeling ontbreekt. Zuurstof en mobiliteit zijn contextsignalen, geen diagnose.</p>
             </details>
 
             <section className="content-grid">
               <div className="main-column">
                 <TrendChartsSection weightPoints={weight.trend} pacePoints={perf.paceTrend} today={today} />
                 <div className="section-heading compact"><div><span className="eyebrow">Coachanalyse</span><h2>Dit valt op in jouw data</h2></div></div>
-                <div className="insights-list">{insights.slice(0, 3).map((insight, index) => <InsightCard key={insight.id} insight={insight} index={index + 1} />)}</div>
+                <div className="insights-list">{insights.slice(0, 4).map((insight, index) => <InsightCard key={insight.id} insight={insight} index={index + 1} />)}</div>
               </div>
 
               <aside className="recent-panel">

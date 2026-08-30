@@ -313,6 +313,28 @@ export function buildInsights(
     });
   }
 
+  const runningDynamics = sortedMetrics.filter(
+    (metric) => metric.runningPowerW != null && metric.runningGroundContactTimeMs != null,
+  );
+  if (runningDynamics.length >= 8) {
+    const prior = runningDynamics.slice(-8, -4);
+    const recent = runningDynamics.slice(-4);
+    const priorPower = avg(prior.map((metric) => metric.runningPowerW!))!;
+    const recentPower = avg(recent.map((metric) => metric.runningPowerW!))!;
+    const priorGroundContact = avg(prior.map((metric) => metric.runningGroundContactTimeMs!))!;
+    const recentGroundContact = avg(recent.map((metric) => metric.runningGroundContactTimeMs!))!;
+    const powerChange = percentChange(recentPower, priorPower);
+    const contactChange = percentChange(recentGroundContact, priorGroundContact);
+    insights.push({
+      id: "running-dynamics",
+      status: "neutral",
+      title: "Je loopdynamiek is nu historisch vergelijkbaar",
+      text: `In je laatste 4 gemeten loopdagen was het gemiddelde vermogen ${Math.abs(powerChange).toFixed(0)}% ${powerChange >= 0 ? "hoger" : "lager"} en de grondcontacttijd ${Math.abs(contactChange).toFixed(0)}% ${contactChange >= 0 ? "langer" : "korter"} dan in de 4 ervoor.`,
+      recommendation: "Lees dit samen met tempo, route en trainingssoort. Meer vermogen of korter grondcontact is niet los daarvan automatisch beter.",
+      confidence: "middel",
+    });
+  }
+
   const trendSignals = [
     {
       id: "cardio-recovery-trend",

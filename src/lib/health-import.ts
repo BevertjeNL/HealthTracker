@@ -7,6 +7,17 @@ export type HealthMetricValues = {
   steps: number | null;
   activeEnergyKcal: number | null;
   weightKg: number | null;
+  oxygenSaturationPct: number | null;
+  respiratoryRate: number | null;
+  exerciseMinutes: number | null;
+  daylightMinutes: number | null;
+  walkingSpeedKmh: number | null;
+  walkingSteadinessPct: number | null;
+  sixMinuteWalkDistanceM: number | null;
+  runningPowerW: number | null;
+  runningStrideLengthM: number | null;
+  runningVerticalOscillationCm: number | null;
+  runningGroundContactTimeMs: number | null;
 };
 
 type Column = keyof HealthMetricValues;
@@ -23,6 +34,17 @@ export const HEALTH_METRIC_MAP: Record<string, { column: Column; aggregation: Ag
   active_energy: { column: "activeEnergyKcal", aggregation: "sum" },
   weight_body_mass: { column: "weightKg", aggregation: "last" },
   "weight_&_body_mass": { column: "weightKg", aggregation: "last" },
+  oxygen_saturation: { column: "oxygenSaturationPct", aggregation: "avg" },
+  respiratory_rate: { column: "respiratoryRate", aggregation: "avg" },
+  exercise_minutes: { column: "exerciseMinutes", aggregation: "sum" },
+  daylight_minutes: { column: "daylightMinutes", aggregation: "sum" },
+  walking_speed: { column: "walkingSpeedKmh", aggregation: "avg" },
+  walking_steadiness: { column: "walkingSteadinessPct", aggregation: "avg" },
+  six_minute_walk_distance: { column: "sixMinuteWalkDistanceM", aggregation: "last" },
+  running_power: { column: "runningPowerW", aggregation: "avg" },
+  running_stride_length: { column: "runningStrideLengthM", aggregation: "avg" },
+  running_vertical_oscillation: { column: "runningVerticalOscillationCm", aggregation: "avg" },
+  running_ground_contact_time: { column: "runningGroundContactTimeMs", aggregation: "avg" },
 };
 
 export const RECOMMENDED_HEALTH_METRICS = [
@@ -74,7 +96,7 @@ function finiteNumber(value: unknown) {
   if (typeof value === "number") return Number.isFinite(value) ? value : null;
   if (typeof value !== "string") return null;
   const normalized = value.trim().replace(",", ".");
-  const match = normalized.match(/^(-?\d+(?:\.\d+)?)(?:\s*(?:ms|bpm|kcal|kg|ml\/kg\/min|count))?$/i);
+  const match = normalized.match(/^(-?\d+(?:\.\d+)?)(?:\s*(?:ms|bpm|kcal|kg|ml\/kg\/min|count|%|min|km\/h|m|w|cm|ademhalingen\/min))?$/i);
   if (!match) return null;
   const parsed = Number(match[1]);
   return Number.isFinite(parsed) ? parsed : null;
@@ -91,6 +113,17 @@ const VALID_METRIC_RANGES: Record<string, { min: number; max: number }> = {
   active_energy: { min: 0, max: 10_000 },
   weight_body_mass: { min: 20, max: 400 },
   "weight_&_body_mass": { min: 20, max: 400 },
+  oxygen_saturation: { min: 70, max: 100 },
+  respiratory_rate: { min: 4, max: 60 },
+  exercise_minutes: { min: 0, max: 1_440 },
+  daylight_minutes: { min: 0, max: 1_440 },
+  walking_speed: { min: 0.5, max: 15 },
+  walking_steadiness: { min: 0, max: 100 },
+  six_minute_walk_distance: { min: 10, max: 2_000 },
+  running_power: { min: 20, max: 1_500 },
+  running_stride_length: { min: 0.2, max: 3 },
+  running_vertical_oscillation: { min: 2, max: 25 },
+  running_ground_contact_time: { min: 80, max: 700 },
 };
 
 export function isValidHealthMetricValue(metricName: string, value: number) {
@@ -112,6 +145,13 @@ export function normalizeHealthMetricValue(
     (normalizedUnits === "lb" || normalizedUnits === "lbs")
   ) {
     return value * 0.45359237;
+  }
+  if (
+    (metricName === "oxygen_saturation" || metricName === "walking_steadiness") &&
+    (normalizedUnits === "%" || normalizedUnits == null) &&
+    value <= 1
+  ) {
+    return value * 100;
   }
   return value;
 }
@@ -146,8 +186,10 @@ function parseShortcutPayload(payload: Record<string, unknown>): ParsedHealthPay
 
   for (const metricName of lists.importedMetrics) {
     const value = finiteNumber(metricFields[metricName]);
-    if (value === null || !isValidHealthMetricValue(metricName, value)) continue;
-    values[HEALTH_METRIC_MAP[metricName].column] = value;
+    if (value === null) continue;
+    const normalizedValue = normalizeHealthMetricValue(metricName, undefined, value);
+    if (!isValidHealthMetricValue(metricName, normalizedValue)) continue;
+    values[HEALTH_METRIC_MAP[metricName].column] = normalizedValue;
   }
 
   return {
