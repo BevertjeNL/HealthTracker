@@ -1,6 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
+import { buildChartTicks, chartSpanDays, formatChartTick, summarizeChartPoints } from "@/lib/chart-range";
 
 import {
   CartesianGrid,
@@ -15,10 +16,6 @@ import {
 
 type Point = { date: string; value: number | null };
 type Unit = "kg" | "pace" | "bpm" | "ms" | "hours" | "number";
-
-function fmtDateShort(d: string) {
-  return new Date(`${d.slice(0, 10)}T12:00:00Z`).toLocaleDateString("nl-NL", { day: "numeric", month: "short" });
-}
 
 function fmtDateLong(d: string) {
   return new Date(`${d.slice(0, 10)}T12:00:00Z`).toLocaleDateString("nl-NL", { weekday: "short", day: "numeric", month: "long", year: "numeric" });
@@ -73,9 +70,13 @@ export function TrendChart({
     .filter((point) => point.value != null)
     .map((point) => ({ ...point, timestamp: dateTimestamp(point.date) }));
   const values = data.map((point) => point.value).filter((value): value is number => value != null);
-  const average = values.length >= 3 ? values.reduce((sum, value) => sum + value, 0) / values.length : null;
-  const latest = values.at(-1);
-  const first = values[0];
+  const summary = summarizeChartPoints(points);
+  const average = values.length >= 3 ? summary.average : null;
+  const latest = summary.latest;
+  const first = summary.first;
+  const resolvedDateDomain: [string, string] = dateDomain ?? [data[0]?.date ?? "1970-01-01", data.at(-1)?.date ?? "1970-01-02"];
+  const spanDays = chartSpanDays(resolvedDateDomain);
+  const xTicks = buildChartTicks(resolvedDateDomain);
 
   let domain: [number, number] | undefined;
   if (values.length > 0) {
@@ -100,12 +101,19 @@ export function TrendChart({
           <div className="text-right">
             <p className="text-lg font-semibold tabular-nums" style={{ color: "var(--text-primary)" }}>{formatter.value(latest)}</p>
             <p className="text-xs" style={{ color: "var(--text-muted)" }}>
-              laatste · {first != null ? `${latest - first > 0 ? "+" : ""}${formatter.value(latest - first)}` : ""}
+              laatste · bereik {first != null ? `${latest - first > 0 ? "+" : ""}${formatter.value(latest - first)}` : ""}
             </p>
           </div>
         )}
       </div>
       {controls}
+      {values.length >= 3 && (
+        <div className="chart-stat-strip" aria-label={`Samenvatting van ${title} binnen het gekozen bereik`}>
+          <span><small>Gemiddeld</small><strong>{formatter.value(summary.average!)}</strong></span>
+          <span><small>{reversed ? "Snelste" : "Laagste"}</small><strong>{formatter.value(summary.minimum!)}</strong></span>
+          <span><small>{reversed ? "Langzaamste" : "Hoogste"}</small><strong>{formatter.value(summary.maximum!)}</strong></span>
+        </div>
+      )}
       {values.length < 3 ? (
         <div className="flex h-56 items-center justify-center rounded-xl" style={{ background: "var(--surface-2)" }}>
           <p className="max-w-56 text-center text-sm" style={{ color: "var(--text-muted)" }}>
@@ -122,9 +130,10 @@ export function TrendChart({
                 type="number"
                 scale="time"
                 domain={dateDomain ? dateDomain.map(dateTimestamp) : ["dataMin", "dataMax"]}
+                ticks={xTicks}
                 allowDataOverflow
                 minTickGap={34}
-                tickFormatter={(value) => fmtDateShort(new Date(Number(value)).toISOString().slice(0, 10))}
+                tickFormatter={(value) => formatChartTick(Number(value), spanDays)}
                 tick={{ fontSize: 11, fill: "var(--text-muted)" }}
                 axisLine={{ stroke: "var(--axis)" }}
                 tickLine={false}

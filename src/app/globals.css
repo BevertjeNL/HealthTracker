@@ -237,6 +237,10 @@ a:focus-visible, button:focus-visible { outline: 3px solid rgba(255, 101, 69, .3
 .chart-card-range input[type="range"]:focus-visible { outline: 3px solid rgba(23, 104, 75, .22); outline-offset: 2px; border-radius: 999px; }
 .chart-range-ends { margin-top: -2px; display: flex; justify-content: space-between; color: var(--text-muted); font-size: 8px; }
 .chart-card-range-count { margin: 5px 0 0; color: var(--text-muted); font-size: 9px; }
+.chart-stat-strip { margin: -4px 0 11px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.chart-stat-strip span { min-width: 0; padding: 8px 9px; display: flex; flex-direction: column; border: 1px solid rgba(18, 35, 29, .07); border-radius: 10px; background: rgba(246, 249, 245, .72); }
+.chart-stat-strip small { color: var(--text-muted); font-size: 7px; text-transform: uppercase; letter-spacing: .07em; }
+.chart-stat-strip strong { margin-top: 2px; overflow: hidden; color: var(--text-primary); font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
 .chart-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .chart-grid > article { border-radius: 20px !important; border-color: rgba(18, 35, 29, .07) !important; box-shadow: 0 9px 30px rgba(27, 55, 44, .045); }
 .insights-list { display: grid; gap: 9px; }
