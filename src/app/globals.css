@@ -155,6 +155,9 @@ a:focus-visible, button:focus-visible { outline: 3px solid rgba(255, 101, 69, .3
 .overview-primary > div { min-width: 0; display: flex; flex-direction: column; }
 .overview-primary strong { color: var(--text-primary); font-size: clamp(1.55rem, 2.4vw, 1.95rem); line-height: 1; letter-spacing: -.055em; }
 .overview-primary small { margin-top: 5px; color: var(--text-muted); font-size: 8px; line-height: 1.3; }
+.overview-mini-trend { flex: 0 0 112px; display: grid; justify-items: end; gap: 1px; }
+.overview-mini-trend span { margin-top: 3px; color: var(--text-muted); font-size: 7px; font-weight: 650; }
+.overview-mini-trend strong { color: var(--text-secondary); font-size: 8px; font-weight: 740; letter-spacing: 0; }
 .overview-context { min-height: 30px; margin: 10px 0 12px; color: var(--text-secondary); font-size: 9px; font-weight: 650; line-height: 1.45; }
 .overview-context.positive { color: var(--delta-good); }
 .overview-supporting { margin-top: auto; padding-top: 11px; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; border-top: 1px solid var(--border); }

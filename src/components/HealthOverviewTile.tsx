@@ -18,6 +18,8 @@ export function HealthOverviewTile({
   supporting,
   trend,
   trendColor,
+  trendPeriod,
+  trendChange,
 }: {
   title: string;
   symbol: string;
@@ -29,6 +31,8 @@ export function HealthOverviewTile({
   supporting: SupportingMetric[];
   trend?: Point[];
   trendColor: string;
+  trendPeriod?: string;
+  trendChange?: string;
 }) {
   return (
     <article className={`health-overview-tile overview-${tone}`}>
@@ -46,7 +50,17 @@ export function HealthOverviewTile({
           <small>{valueLabel}</small>
         </div>
         {trend && trend.filter((point) => point.value != null).length >= 2 && (
-          <Sparkline points={trend.slice(-14)} color={trendColor} width={105} height={40} />
+          <div className="overview-mini-trend">
+            <Sparkline
+              points={trend}
+              color={trendColor}
+              width={112}
+              height={42}
+              label={`${title}: ${trendPeriod ?? "recente trend"}${trendChange ? `, ${trendChange}` : ""}`}
+            />
+            <span>{trendPeriod ?? "Recente trend"}</span>
+            {trendChange && <strong>{trendChange}</strong>}
+          </div>
         )}
       </div>
 

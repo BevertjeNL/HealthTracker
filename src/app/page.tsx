@@ -9,6 +9,7 @@ import { db } from "@/db";
 import { activities, healthMetrics } from "@/db/schema";
 import { fmtDate, fmtKm, fmtPace } from "@/lib/format";
 import { buildInsights, buildTrainingAdvice, runPerformanceSummary, weightSummary } from "@/lib/insights";
+import { buildMiniTrend, type MiniTrendSeries } from "@/lib/mini-trend";
 import {
   buildRecoverySummary,
   dayDifference,
@@ -44,6 +45,14 @@ function healthSeries(metrics: HealthMetric[], key: LongTermMetricKey) {
 
 function latestValue(metrics: HealthMetric[], key: LongTermMetricKey) {
   return healthSeries(metrics, key).at(-1)?.value ?? null;
+}
+
+function miniChange(series: MiniTrendSeries, unit: string, decimals = 0) {
+  if (series.change == null || series.points.length < 2) return "Nog onvoldoende metingen";
+  const threshold = decimals > 0 ? 0.05 : 0.5;
+  if (Math.abs(series.change) < threshold) return "Vrijwel stabiel";
+  const value = Math.abs(series.change).toFixed(decimals);
+  return `${series.change > 0 ? "+" : "−"}${value} ${unit}`.trim();
 }
 
 function Icon({ name }: { name: IconName }) {
@@ -121,6 +130,24 @@ export default async function Home() {
   const runningPowerTrend = healthSeries(metrics, "runningPowerW");
   const exerciseTrend = healthSeries(metrics, "exerciseMinutes");
   const walkingSteadinessTrend = healthSeries(metrics, "walkingSteadinessPct");
+  const stepTrend = sortedMetrics.flatMap((metric) => metric.steps == null ? [] : [{ date: metric.date, value: metric.steps }]);
+  const runLoadPoints = runs.map((run) => ({
+    date: new Intl.DateTimeFormat("en-CA", {
+      timeZone: "Europe/Amsterdam",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    }).format(run.startDate),
+    value: (run.distanceM ?? 0) / 1000,
+  }));
+  const hrvMini = buildMiniTrend(metricTrend("hrvMs"), { endDate: today, windowDays: 42, bucketDays: 7 });
+  const vo2Mini = buildMiniTrend(perf.vo2Trend, { endDate: today, windowDays: 180 });
+  const loadMini = buildMiniTrend(runLoadPoints, { endDate: today, windowDays: 56, bucketDays: 7, aggregation: "sum", includeEmptyBuckets: true });
+  const stepsMini = buildMiniTrend(stepTrend, { endDate: today, windowDays: 42, bucketDays: 7 });
+  const oxygenMini = buildMiniTrend(oxygenTrend, { endDate: today, windowDays: 30, bucketDays: 3 });
+  const runningPowerMini = buildMiniTrend(runningPowerTrend, { endDate: today, windowDays: 90 });
+  const exerciseMini = buildMiniTrend(exerciseTrend, { endDate: today, windowDays: 42, bucketDays: 7 });
+  const steadinessMini = buildMiniTrend(walkingSteadinessTrend, { endDate: today, windowDays: 180 });
   const latestOxygen = latestValue(metrics, "oxygenSaturationPct");
   const latestRespiratoryRate = latestValue(metrics, "respiratoryRate");
   const latestExerciseMinutes = latestValue(metrics, "exerciseMinutes");
@@ -285,8 +312,10 @@ export default async function Home() {
                     { label: "Eigen basislijn", value: hrvBaseline != null ? `${Math.round(hrvBaseline)} ms` : "Opbouwend" },
                     { label: "Rusthartslag", value: restingHeartRate != null ? `${Math.round(restingHeartRate)} bpm` : "–" },
                   ]}
-                  trend={metricTrend("hrvMs")}
+                  trend={hrvMini.points}
                   trendColor="var(--series-aqua)"
+                  trendPeriod="6 weken · weekgem."
+                  trendChange={miniChange(hrvMini, "ms")}
                 />
                 <HealthOverviewTile
                   title="Hartconditie"
@@ -300,8 +329,10 @@ export default async function Home() {
                     { label: "Cardioherstel", value: signals.cardioRecovery1m ? `${Math.round(signals.cardioRecovery1m.value)} bpm` : "–" },
                     { label: "Wandelhartslag", value: signals.walkingHeartRateAverage ? `${Math.round(signals.walkingHeartRateAverage.value)} bpm` : "–" },
                   ]}
-                  trend={perf.vo2Trend}
+                  trend={vo2Mini.points}
                   trendColor="var(--series-violet)"
+                  trendPeriod="6 maanden · metingen"
+                  trendChange={miniChange(vo2Mini, "", 1)}
                 />
                 <HealthOverviewTile
                   title="Loopbelasting"
@@ -315,8 +346,10 @@ export default async function Home() {
                     { label: "Loopdagen", value: String(recentWeek.length) },
                     { label: "Gem. tempo", value: perf.recentAvgPace != null ? fmtPace(perf.recentAvgPace) : "–" },
                   ]}
-                  trend={perf.paceTrend}
+                  trend={loadMini.points}
                   trendColor="var(--series-orange)"
+                  trendPeriod="8 weken · weekafstand"
+                  trendChange={miniChange(loadMini, "km", 1)}
                 />
                 <HealthOverviewTile
                   title="Beweging & lichaam"
@@ -324,13 +357,15 @@ export default async function Home() {
                   tone="blue"
                   value={latestSteps != null ? Math.round(latestSteps).toLocaleString("nl-NL") : "–"}
                   valueLabel="stappen op laatste Health-dag"
-                  context={weight.deltaKg != null ? `${Math.abs(weight.deltaKg).toFixed(1)} kg ${weight.deltaKg <= 0 ? "lager" : "hoger"} in je meetperiode` : "Gewichtstrend wordt opgebouwd"}
+                  context={stepsMini.latest != null ? `Recent weekgemiddelde ${Math.round(stepsMini.latest).toLocaleString("nl-NL")} stappen per dag` : "Bewegingstrend wordt opgebouwd"}
                   supporting={[
                     { label: "Actieve energie", value: latestActiveEnergy != null ? `${Math.round(latestActiveEnergy)} kcal` : "–" },
                     { label: "Gewicht", value: weight.current != null ? `${weight.current.toFixed(1)} kg` : "–" },
                   ]}
-                  trend={weight.trend}
+                  trend={stepsMini.points}
                   trendColor="var(--series-blue)"
+                  trendPeriod="6 weken · weekgem."
+                  trendChange={miniChange(stepsMini, "stappen")}
                 />
               </div>
               <aside className="hrv-explainer" aria-label="Uitleg over HRV">
@@ -365,8 +400,10 @@ export default async function Home() {
                     { label: "Ademfrequentie", value: latestRespiratoryRate != null ? `${latestRespiratoryRate.toFixed(1)}/min` : "–" },
                     { label: "Meetdagen", value: String(oxygenTrend.length) },
                   ]}
-                  trend={oxygenTrend}
+                  trend={oxygenMini.points}
                   trendColor="var(--series-aqua)"
+                  trendPeriod="30 dagen · 3-daags gem."
+                  trendChange={miniChange(oxygenMini, "%", 1)}
                 />
                 <HealthOverviewTile
                   title="Looptechniek"
@@ -379,8 +416,10 @@ export default async function Home() {
                     { label: "Paslengte", value: latestStrideLength != null ? `${latestStrideLength.toFixed(2)} m` : "–" },
                     { label: "Grondcontact", value: latestGroundContact != null ? `${Math.round(latestGroundContact)} ms` : "–" },
                   ]}
-                  trend={runningPowerTrend}
+                  trend={runningPowerMini.points}
                   trendColor="var(--series-orange)"
+                  trendPeriod="3 maanden · loopdagen"
+                  trendChange={miniChange(runningPowerMini, "W")}
                 />
                 <HealthOverviewTile
                   title="Dagelijkse activiteit"
@@ -393,8 +432,10 @@ export default async function Home() {
                     { label: "Tijd in daglicht", value: latestDaylightMinutes != null ? `${Math.round(latestDaylightMinutes)} min` : "–" },
                     { label: "Wandelsnelheid", value: latestWalkingSpeed != null ? `${latestWalkingSpeed.toFixed(1)} km/u` : "–" },
                   ]}
-                  trend={exerciseTrend}
+                  trend={exerciseMini.points}
                   trendColor="var(--series-blue)"
+                  trendPeriod="6 weken · weekgem."
+                  trendChange={miniChange(exerciseMini, "min")}
                 />
                 <HealthOverviewTile
                   title="Mobiliteit"
@@ -407,8 +448,10 @@ export default async function Home() {
                     { label: "6-minutenwandeling", value: latestSixMinuteWalk != null ? `${Math.round(latestSixMinuteWalk)} m` : "–" },
                     { label: "Verticale oscillatie", value: latestVerticalOscillation != null ? `${latestVerticalOscillation.toFixed(1)} cm` : "–" },
                   ]}
-                  trend={walkingSteadinessTrend}
+                  trend={steadinessMini.points}
                   trendColor="var(--series-violet)"
+                  trendPeriod="6 maanden · metingen"
+                  trendChange={miniChange(steadinessMini, "%", 1)}
                 />
               </div>
               <p className="long-term-note">Slaapdata zijn bewust niet in je actuele hersteladvies gebruikt: de export bevat vooral ‘in bed’-registraties en stopt in maart 2025. Bloeddruk is met 16 metingen te schaars voor betrouwbare automatische coaching.</p>
