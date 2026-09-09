@@ -15,10 +15,12 @@ Beide app-URL's horen naar dezelfde actuele productie-deployment te wijzen. De a
 - **Pulse-branding als app-identiteit** — logo in de app, favicon voor browsertabbladen, Apple touch-icon, Safari pinned-tab-icon en PWA-iconen/manifest.
 - **Afgeschermde single-user toegang** — wachtwoordlogin met een ondertekende HttpOnly-sessiecookie.
 - **Strava-koppeling** — OAuth met `state`-controle, volledige synchronisatie en dagelijkse cronjob.
-- **Persoonlijk inzichtendashboard** — actuele datadekking, gewicht, VO2max, tempo, trainingsbelasting, herstel en recente runs.
+- **Persoonlijk coachdashboard** — combineert herstel, trainingsbelasting en loopritme tot een begrijpelijk advies voor vóór, tijdens en na een training.
 - **Uitgebreide conclusies** — vergelijkt recente HRV en rusthartslag met de eigen basislijn, signaleert verouderde Health-data en beoordeelt trainingsvolume, frequentie, aerobe efficiëntie en gewichtsverloop.
 - **Concrete aanbevelingen** — geeft terughoudend trainingsadvies met zichtbaar betrouwbaarheidsniveau en minimale steekproefgroottes.
-- **Runs-overzicht en detailpagina's** — bereikfilters, trendgrafieken, totalen en alle beschikbare Strava-metrics per activiteit.
+- **Vrij instelbare trainingsanalyse** — filter op periode, trainingstype en afstand; groepeer per dag, week, maand of jaar; kies zelf afstand, tempo, snelheid, tijd, hartslag, hoogte, cadans en aantallen.
+- **Kilometer- en deelanalyse** — haal gedetailleerde Strava-splits per activiteit op en analyseer een vrije selectie, eerste helft, tweede helft of middenstuk.
+- **Halve-marathonpad** — vertaalt recente frequentie, loopomvang en langste duurloop naar een passende trainingsfase en voorbeeldweek.
 
 De inzichten zijn observationeel en persoonlijk; ze zijn geen diagnose of vervanging voor medisch advies.
 
@@ -190,7 +192,7 @@ Controleer daarna GitHub Actions, de Vercel-deployment, de publieke URL, de `mai
 
 ## Bekende beperkingen en vervolgwerk
 
-- De persoonlijke Apple-automatisering moet dagelijks blijven draaien; het dashboard waarschuwt wanneer de laatste Health-dag ouder dan twee dagen is.
+- De persoonlijke Apple-automatisering moet dagelijks blijven draaien; het dashboard verwacht iedere ochtend gegevens van gisteren en toont anders een knop om de synchronisatie opnieuw te starten.
 - De Health-import heeft synthetische regressietests voor zowel Apple Opdrachten als het compatibele Health Auto Export-formaat; echte gezondheidswaarden worden niet als fixtures bewaard.
 - Databasewijzigingen gebruiken nog directe `db:push`; versieerbare migraties en een geteste herstelprocedure ontbreken.
 - Cardio Recovery en Walking Heart Rate Average leveren pas conclusies nadat voldoende nieuwe metingen zijn verzameld.

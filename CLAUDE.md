@@ -33,14 +33,17 @@ src/app/login/*                         Single-user login/logout actions and UI
 src/app/api/strava/auth/route.ts        GET → redirects to Strava OAuth consent
 src/app/api/strava/callback/route.ts    GET → validates OAuth state, exchanges code, saves tokens
 src/app/api/strava/sync/route.ts        GET/POST, requires Authorization: Bearer $CRON_SECRET → syncs runs
+src/app/api/strava/activity/[id]/route.ts Authenticated on-demand fetch of detailed Strava kilometer splits
 src/app/api/health/ingest/route.ts      GET metric contract + protected POST ingest for Apple Shortcuts and legacy Health Auto Export payloads; upserts health_metrics
 src/app/layout.tsx                      Pulse metadata, favicon/Apple/Safari/PWA integration and authenticated shell
 src/app/manifest.ts                     PWA manifest and installable app icons
-src/app/page.tsx                        Insight dashboard over the latest 90 days
-src/app/runs/page.tsx                   Range filters, stat cards, trend charts and runs table
+src/app/page.tsx                        Personal coaching dashboard with daily advice and half-marathon progression
+src/app/runs/page.tsx                   Interactive training analysis workspace with period/type/distance filters
 src/app/runs/actions.ts                 Authenticated manual Strava sync Server Action
-src/app/runs/[id]/page.tsx              Single-run detail page
+src/app/runs/[id]/page.tsx              Single-run before/during/after analysis with Health context and split analysis
 src/components/AppLogo.tsx              Shared Pulse wordmark used throughout the UI
+src/components/TrainingExplorer.tsx     Client-side selectable Strava statistics, filters, aggregation and charts
+src/components/SplitAnalyzer.tsx        Client-side selection and analysis of detailed kilometer splits
 src/components/*                        Charts, stat/insight cards and sync/logout controls
 public/icons/*                          SVG, PNG and maskable PWA icons
 public/favicon.ico                      Multi-size browser favicon
@@ -51,6 +54,7 @@ tests/security.test.mjs                 Shared-secret fail-closed regression tes
 tests/health-import.test.mjs            Health unit-normalization regression tests
 docs/apple-shortcuts.md                 iPhone setup guide for the subscription-free Apple Shortcuts Health sync
 tests/insights.test.mjs                 Insight thresholds, staleness and recommendations
+tests/half-marathon.test.mjs            Personal half-marathon phase and progression regression tests
 vercel.json                             Daily cron hitting /api/strava/sync (05:00 UTC)
 drizzle.config.ts                       Points at src/db/schema.ts, reads DATABASE_URL
 ```
