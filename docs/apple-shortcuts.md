@@ -78,6 +78,8 @@ Een volledige body heeft deze vorm; de getallen hieronder zijn uitsluitend een v
 5. Open in Opdrachten het tabblad **Automatisering** en maak een persoonlijke automatisering voor iedere ochtend, nadat de iPhone normaal gesproken is ontgrendeld.
 6. Kies `Voer onmiddellijk uit` en laat de automatisering `Pulse Health-sync` starten.
 
+De website kan Apple Health niet rechtstreeks uitlezen: iOS staat alleen apps en Opdrachten toe om de Health-database te benaderen. Plan de automatisering daarom op een moment waarop de iPhone normaal ontgrendeld is en de Apple Watch al heeft kunnen synchroniseren. Als de laatste Health-dag in Pulse achterloopt, gebruik dan **Gegevens bijwerken** in het dashboard op de iPhone. Pulse controleert Strava, opent `Pulse Health-sync` en leest bij terugkeer de nieuw ontvangen dag opnieuw in.
+
 Bij `401 Unauthorized` klopt de geheime header niet. Bij `upserted:0` waren alle meegestuurde metriekvelden leeg of ongeldig. De respons noemt wel veldnamen, maar geeft nooit gezondheidswaarden terug.
 
 ## 5. Bestaande gewichtshistorie eenmalig aanvullen

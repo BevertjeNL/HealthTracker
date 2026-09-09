@@ -269,7 +269,7 @@ export function buildInsights(
     : null;
   if (latestRecoveryMetric) {
     const ageDays = latestRecoveryAgeDays!;
-    if (ageDays > 2) {
+    if (ageDays > 1) {
       insights.push({
         id: "health-sync-stale",
         status: "warning",
@@ -289,7 +289,7 @@ export function buildInsights(
   const baselineRhr = avg(recoveryBaseline.flatMap((metric) => isUsableRecoveryValue("restingHeartRate", metric.restingHeartRate) ? [metric.restingHeartRate!] : []));
 
   if (
-    latestRecoveryAgeDays != null && latestRecoveryAgeDays <= 2 &&
+    latestRecoveryAgeDays != null && latestRecoveryAgeDays <= 1 &&
     recentRecovery.length >= 2 &&
     recoveryBaseline.length >= 5 &&
     recentHrv != null && baselineHrv != null &&

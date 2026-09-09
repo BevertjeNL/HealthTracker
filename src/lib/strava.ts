@@ -66,3 +66,13 @@ export async function getValidAccessToken(): Promise<string> {
   await saveTokens(row.athleteId, fresh);
   return fresh.access_token;
 }
+
+export async function getDetailedActivity(stravaId: string) {
+  const accessToken = await getValidAccessToken();
+  const response = await fetch(`https://www.strava.com/api/v3/activities/${encodeURIComponent(stravaId)}`, {
+    headers: { Authorization: `Bearer ${accessToken}` },
+    cache: "no-store",
+  });
+  if (!response.ok) throw new Error(`Strava activity detail failed with status ${response.status}`);
+  return await response.json() as Record<string, unknown>;
+}

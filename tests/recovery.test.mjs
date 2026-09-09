@@ -21,6 +21,17 @@ test("uses the latest valid value for each metric independently", () => {
   assert.equal(latestRecoverySignal(rows, "restingHeartRate", "2026-08-30")?.value, 67);
 });
 
+test("marks the day before yesterday as stale when a daily Health sync was expected", () => {
+  const signal = latestRecoverySignal(
+    [{ date: "2026-08-28", hrvMs: 42 }],
+    "hrvMs",
+    "2026-08-30",
+  );
+
+  assert.equal(signal?.ageDays, 2);
+  assert.equal(signal?.fresh, false);
+});
+
 test("does not manufacture a readiness score from incomplete recovery data", () => {
   const rows = [
     { date: "2026-08-20", hrvMs: 40, restingHeartRate: 60 },

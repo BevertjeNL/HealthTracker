@@ -71,7 +71,7 @@ export function latestRecoverySignal(
     value: current[key]!,
     date: current.date,
     ageDays,
-    fresh: ageDays <= 2,
+    fresh: ageDays <= 1,
     baseline,
     baselineCount: baselineValues.length,
   };
