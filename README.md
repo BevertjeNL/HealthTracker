@@ -21,7 +21,7 @@ Beide app-URL's horen naar dezelfde actuele productie-deployment te wijzen. De a
 - **Concrete aanbevelingen** — geeft terughoudend trainingsadvies met zichtbaar betrouwbaarheidsniveau en minimale steekproefgroottes.
 - **Vrij instelbare trainingsanalyse (`/runs`)** — filter op periode, trainingstype en afstand; groepeer per dag, week, maand of jaar; kies zelf afstand, tempo, snelheid, tijd, hartslag, hoogte, cadans en aantallen.
 - **Losse training (`/runs/[id]`)** — vóór/tijdens/na-analyse met Health-context van die dag.
-- **Kilometer- en deelanalyse** — haal gedetailleerde Strava-splits per activiteit op (knop in de splitanalyse op de trainingspagina) en analyseer een vrije selectie, eerste helft, tweede helft of middenstuk.
+- **Kilometer- en deelanalyse** — haal gedetailleerde Strava-splits per activiteit op (knop in de splitanalyse op de trainingspagina) en analyseer een vrije selectie, eerste helft, tweede helft of middenstuk. Opgehaalde splits blijven bewaard bij latere Strava-syncs.
 - **Halve-marathonpad** — vertaalt recente frequentie, loopomvang en langste duurloop naar een passende trainingsfase en voorbeeldweek.
 
 De inzichten zijn observationeel en persoonlijk; ze zijn geen diagnose of vervanging voor medisch advies.
@@ -214,7 +214,6 @@ Controleer daarna GitHub Actions, de Vercel-deployment, de publieke URL, de `mai
 - Databasewijzigingen gebruiken nog directe `db:push`; versieerbare migraties en een geteste herstelprocedure ontbreken.
 - Cardio Recovery en Walking Heart Rate Average leveren pas conclusies nadat voldoende nieuwe metingen zijn verzameld.
 - De aanbevelingen zijn regelgebaseerd; er is nog geen LLM-gegenereerde coachinglaag.
-- Opgehaalde kilometersplits worden bij de volgende Strava-sync overschreven door de samenvattingsdata en moeten dan opnieuw worden opgehaald.
 - De elf uitgebreide Health-metrics worden opgeslagen maar sinds het nieuwe dashboard (#18/#19) nergens getoond.
 - Enkele oudere componenten (`HealthOverviewTile`, `StatTile`, `Sparkline`, `InsightCard`, `RunTrendsChart`) zijn niet meer in gebruik.
 
