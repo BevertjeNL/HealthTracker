@@ -1,6 +1,7 @@
 import { notInArray } from "drizzle-orm";
 import { db } from "@/db";
 import { activities } from "@/db/schema";
+import { preserveDetailedRaw } from "@/lib/activity-raw";
 import { getValidAccessToken } from "@/lib/strava";
 
 type StravaActivity = {
@@ -72,7 +73,11 @@ export async function syncStravaRuns(): Promise<{ synced: number; deleted: numbe
     await db
       .insert(activities)
       .values(values)
-      .onConflictDoUpdate({ target: activities.stravaId, set: values });
+      .onConflictDoUpdate({
+        target: activities.stravaId,
+        // Keep detailed splits fetched via /api/strava/activity/[id] (Gotcha 10).
+        set: { ...values, raw: preserveDetailedRaw(activities.raw) },
+      });
     upserted++;
   }
 
