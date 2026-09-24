@@ -10,21 +10,26 @@ Read the Next.js 16 docs relevant to what you're about to touch, resolved from `
 
 ## Architecture (current, keep this section in sync with the repo)
 
-- **Next.js 16** (App Router, TypeScript, Tailwind v4) on **Vercel**.
+- **Next.js 16.3.3** (App Router, React 19.2, TypeScript, Tailwind v4) on **Vercel**. Server Components render the dashboard with `export const dynamic = "force-dynamic"`; interactivity lives in `"use client"` components.
 - **Neon Postgres**, accessed via `@neondatabase/serverless` HTTP driver + **Drizzle ORM** (`drizzle-orm/neon-http`) — one-shot HTTP queries, not a pooled/long-lived connection. No transactions spanning multiple round trips.
-- **Recharts** for trend charts.
+- **Recharts** for trend charts; `jose` for session signing.
 - Single-user app: password login with a signed stateless session cookie; no accounts or multi-tenant concerns.
+- UI language is Dutch (nl-NL); product name in the UI is **Pulse**. Most page styling is hand-written CSS classes in `src/app/globals.css` (`coach-*`, `goal-*`, `proof-grid` …), not Tailwind utilities.
 
 Files:
 
 ```
-src/db/schema.ts                        Drizzle schema: strava_tokens, activities, health_metrics
+src/db/schema.ts                        Drizzle schema: strava_tokens, activities, health_metrics (unique indexes on athlete_id, strava_id, date)
 src/db/index.ts                         Neon client
-src/lib/strava.ts                       Strava OAuth token exchange/refresh + storage
-src/lib/sync.ts                         Full-history Strava run sync and reconciliation
+src/lib/strava.ts                       Strava OAuth token exchange/refresh + storage; getDetailedActivity() for per-run detail
+src/lib/sync.ts                         Full-history Strava run sync and reconciliation (upserts runs, deletes runs no longer on Strava)
 src/lib/format.ts                       Shared date/pace/duration/km formatters (nl-NL locale)
-src/lib/health-import.ts                Apple Shortcuts/Health Auto Export payload parsing, daily aggregation and unit normalization
-src/lib/insights.ts                     Rule-based summaries and observation generation
+src/lib/health-import.ts                Apple Shortcuts/Health Auto Export payload parsing, HEALTH_METRIC_MAP, plausibility ranges, daily aggregation and unit normalization
+src/lib/insights.ts                     Rule-based weight/run-performance summaries, buildTrainingAdvice() and buildInsights()
+src/lib/recovery.ts                     Readiness/recovery score from HRV, resting HR, cardio recovery and walking HR vs. personal baseline (min. 5 baseline samples, freshness check)
+src/lib/half-marathon.ts                buildHalfMarathonPlan(): phase, progress towards 21.1 km, adjustments and example week from the last 28/42 days of runs
+src/lib/chart-range.ts                  Range-adaptive chart ticks/labels and point summaries for TrendChart
+src/lib/mini-trend.ts                   Calendar-window sparkline series (only used by the currently unused HealthOverviewTile)
 src/lib/security.ts                     Constant-time secret comparison and Bearer parsing
 src/lib/session.ts                      Session signing/verification and password check
 src/lib/session-server.ts               Cookie-backed server-side session check
@@ -33,31 +38,44 @@ src/app/login/*                         Single-user login/logout actions and UI
 src/app/api/strava/auth/route.ts        GET → redirects to Strava OAuth consent
 src/app/api/strava/callback/route.ts    GET → validates OAuth state, exchanges code, saves tokens
 src/app/api/strava/sync/route.ts        GET/POST, requires Authorization: Bearer $CRON_SECRET → syncs runs
-src/app/api/strava/activity/[id]/route.ts Authenticated on-demand fetch of detailed Strava kilometer splits
+src/app/api/strava/activity/[id]/route.ts POST, session-protected: fetches Strava activity detail and overwrites activities.raw (source of splits_metric)
 src/app/api/health/ingest/route.ts      GET metric contract + protected POST ingest for Apple Shortcuts and legacy Health Auto Export payloads; upserts health_metrics
-src/app/layout.tsx                      Pulse metadata, favicon/Apple/Safari/PWA integration and authenticated shell
+src/app/layout.tsx                      Pulse metadata (noindex), favicon/Apple/Safari/PWA integration and authenticated shell
 src/app/manifest.ts                     PWA manifest and installable app icons
-src/app/page.tsx                        Personal coaching dashboard with daily advice and half-marathon progression
+src/app/globals.css                     Tailwind import plus the hand-written Pulse/coach design system
+src/app/page.tsx                        Dashboard "Jouw coach": today's advice + readiness signals, half-marathon goal panel, trend charts, last 4 runs, data-refresh control
 src/app/runs/page.tsx                   Interactive training analysis workspace with period/type/distance filters
-src/app/runs/actions.ts                 Authenticated manual Strava sync Server Action
+src/app/runs/actions.ts                 Authenticated manual Strava sync Server Action (syncRunsAction)
 src/app/runs/[id]/page.tsx              Single-run before/during/after analysis with Health context and split analysis
 src/components/AppLogo.tsx              Shared Pulse wordmark used throughout the UI
+src/components/DataRefreshButton.tsx    Dashboard refresh: on iPhone/iPad opens the "Pulse Health-sync" Shortcut (shortcuts:// URL), then re-syncs Strava on return; elsewhere Strava sync only
+src/components/TrendChartsSection.tsx   Dashboard trend charts (weight, pace, …) with range selector; uses TrendChart
+src/components/TrendChart.tsx           Recharts line chart with range-adaptive axes (chart-range.ts)
 src/components/TrainingExplorer.tsx     Client-side selectable Strava statistics, filters, aggregation and charts
 src/components/SplitAnalyzer.tsx        Client-side selection and analysis of detailed kilometer splits
-src/components/*                        Charts, stat/insight cards and sync/logout controls
+src/components/SyncButton.tsx           Manual Strava sync on /runs
+src/components/LogoutButton.tsx         Logout control in the layout
+src/components/{HealthOverviewTile,StatTile,Sparkline,InsightCard,RunTrendsChart}.tsx
+                                        Currently NOT imported by any page (left over from the pre-#18 dashboard). Reuse or delete deliberately.
+scripts/import-apple-health-export.mjs  One-off backfill from an Apple Health export.zip; only fills the 11 extended metric columns (oxygen … ground contact time) with COALESCE, never core metrics
 public/icons/*                          SVG, PNG and maskable PWA icons
 public/favicon.ico                      Multi-size browser favicon
 public/apple-touch-icon.png             Apple home-screen/bookmark icon
 public/safari-pinned-tab.svg            Safari pinned-tab mask icon
-.github/workflows/quality.yml           Audit, lint, typecheck, tests and build in CI
-tests/security.test.mjs                 Shared-secret fail-closed regression tests
-tests/health-import.test.mjs            Health unit-normalization regression tests
+.github/workflows/quality.yml           Audit, lint, typecheck, tests and build in CI (Node 24, dummy env vars)
 docs/apple-shortcuts.md                 iPhone setup guide for the subscription-free Apple Shortcuts Health sync
+tests/security.test.mjs                 Shared-secret fail-closed regression tests
+tests/health-import.test.mjs            Health payload parsing and unit-normalization regression tests
 tests/insights.test.mjs                 Insight thresholds, staleness and recommendations
+tests/recovery.test.mjs                 Recovery baseline/freshness/score regression tests
 tests/half-marathon.test.mjs            Personal half-marathon phase and progression regression tests
+tests/chart-range.test.mjs              Chart tick/label regression tests
+tests/mini-trend.test.mjs               Mini-trend windowing regression tests
 vercel.json                             Daily cron hitting /api/strava/sync (05:00 UTC)
 drizzle.config.ts                       Points at src/db/schema.ts, reads DATABASE_URL
 ```
+
+Tests are plain `node --test` `.mjs` files that import the TypeScript sources directly (Node 24 type stripping); keep new pure logic in `src/lib/*` so it stays testable this way.
 
 When you add a file that a future agent would need to know about to orient itself (new route, new table, new page), update this list in the same change. An out-of-date file list is worse than none — don't let this section rot again.
 
@@ -65,9 +83,10 @@ When you add a file that a future agent would need to know about to orient itsel
 
 - `activities.start_date` is stored `timestamptz` — always in UTC as returned by Strava. Convert to local time (`Europe/Amsterdam`, via `src/lib/format.ts`) only at render time, never at write time.
 - `health_metrics.date` is a plain `date` (no timezone) representing a **calendar day reported by the iPhone source**. Apple Shortcuts sends an explicit local `yyyy-MM-dd` string; Health Auto Export supplies its device-local date. Do not reinterpret either through a timezone conversion — treat the string as already being the correct local day and only use string comparison, not local/UTC date arithmetic that could shift it across a day boundary.
-- Cumulative metrics (steps and active energy) are **summed** per calendar day. Resting HR, HRV, one-minute cardio recovery and walking heart-rate average are **averaged**. VO2 max and weight take the **last** chronological value. This mapping lives in `HEALTH_METRIC_MAP` in `src/lib/health-import.ts` — if you add a metric, decide its aggregation deliberately and document it there, don't default to "last" out of laziness.
+- Cumulative metrics (steps, active energy, exercise minutes, daylight minutes) are **summed** per calendar day. Resting HR, HRV, one-minute cardio recovery, walking heart-rate average, oxygen saturation, respiratory rate, walking speed/steadiness and the running-form metrics (power, stride length, vertical oscillation, ground contact time) are **averaged**. VO2 max, weight and six-minute-walk distance take the **last** chronological value. Values outside the plausibility ranges in `health-import.ts` are rejected. This mapping lives in `HEALTH_METRIC_MAP` in `src/lib/health-import.ts` — if you add a metric, decide its aggregation deliberately and document it there, don't default to "last" out of laziness.
 - Apple Shortcuts sends already aggregated daily values in kcal/kg and the other documented canonical units. Legacy Health Auto Export samples are aggregated server-side; `active_energy` is normalized from kJ to kcal and weight from lb/lbs to kg in `src/lib/health-import.ts`. New units need explicit tests before import.
 - Sleep is intentionally not accepted, imported or analyzed because the connected export does not provide usable sleep data. `sleep_hours` and `sleep_score` are legacy nullable columns only; do not re-enable them without confirming that reliable source data exists and adding fixtures/tests.
+- `activities.raw` holds the Strava JSON for a run. `syncStravaRuns()` overwrites it with the *summary* activity on every sync; `/api/strava/activity/[id]` overwrites it with the *detailed* activity (which contains `splits_metric`). See Gotcha 10.
 - All distances in the DB are meters; pace is precomputed at ingest as `avg_pace_min_per_km`. Don't re-derive pace from raw Strava fields in the UI layer — use the stored column so there's one source of truth.
 
 ## Minimum sample size for insights
@@ -166,6 +185,9 @@ npm run db:studio     # Drizzle Studio GUI against the live DB
 7. **If ingest silently produces zero rows**, inspect the payload's *shape* (metric names present, point counts, date range) — never its values, see Security rules — before assuming the DB or auth is broken.
 8. **Vercel aliases can become stale.** The production deployment and `git-main` alias have diverged before. Compare deployment IDs after each merge and explicitly repair the alias before calling the work live.
 9. **Sleep is intentionally skipped.** Do not add sleep to Apple Shortcuts or Health Auto Export instructions or insights merely because nullable legacy columns still exist.
+10. **Detailed splits don't survive a sync.** The daily cron / manual sync upserts `raw: <summary activity>` for every run, which replaces detail previously fetched via `/api/strava/activity/[id]`. Kilometer splits therefore disappear after the next sync and must be fetched again. Fixing this means not overwriting `raw` when it already contains `splits_metric` (or storing detail separately) — that is a data-handling change, so treat it with the usual care.
+11. **The iPhone refresh flow depends on the Shortcut name.** `DataRefreshButton` opens `shortcuts://run-shortcut?name=Pulse%20Health-sync`; renaming the Shortcut on the phone breaks the button silently.
+12. **Local branches can be stale.** PRs are squash-merged; always branch from a fresh `origin/main`, not from an old `codex/*` or `claude/*` branch.
 
 ## Not built yet (known gaps)
 
@@ -174,3 +196,6 @@ npm run db:studio     # Drizzle Studio GUI against the live DB
 - Database changes still use direct `db:push`; versioned migrations and a tested restore procedure remain future work.
 - `health_metrics.sleep_hours`, `.sleep_score` and `.raw` are legacy columns and are not populated.
 - Cardio recovery and walking heart-rate insights remain unavailable until enough daily samples have accumulated.
+- The 11 extended Health metrics (oxygen saturation … ground contact time) are stored and partly used by `buildInsights()`, but `buildInsights()` is not rendered on any page since the dashboard redesign (#18/#19).
+- Unused components/helpers listed above (`HealthOverviewTile`, `StatTile`, `Sparkline`, `InsightCard`, `RunTrendsChart`, `mini-trend.ts`) are dead code until reused.
+- Kilometer splits are lost on each Strava sync (Gotcha 10).
