@@ -15,11 +15,13 @@ Beide app-URL's horen naar dezelfde actuele productie-deployment te wijzen. De a
 - **Pulse-branding als app-identiteit** — logo in de app, favicon voor browsertabbladen, Apple touch-icon, Safari pinned-tab-icon en PWA-iconen/manifest.
 - **Afgeschermde single-user toegang** — wachtwoordlogin met een ondertekende HttpOnly-sessiecookie.
 - **Strava-koppeling** — OAuth met `state`-controle, volledige synchronisatie en dagelijkse cronjob.
-- **Persoonlijk coachdashboard** — combineert herstel, trainingsbelasting en loopritme tot een begrijpelijk advies voor vóór, tijdens en na een training.
-- **Uitgebreide conclusies** — vergelijkt recente HRV en rusthartslag met de eigen basislijn, signaleert verouderde Health-data en beoordeelt trainingsvolume, frequentie, aerobe efficiëntie en gewichtsverloop.
+- **Persoonlijk coachdashboard (`/`)** — opent direct met eigen data: advies voor vandaag met herstelsignalen (HRV, rusthartslag, VO2max), het halve-marathondoel met voortgang, trendgrafieken met instelbaar bereik en de laatste vier trainingen. Algemene uitlegblokken zijn bewust verwijderd (#19).
+- **Gegevens verversen** — op iPhone/iPad opent de knop de Apple-opdracht `Pulse Health-sync` en synchroniseert daarna Strava; op andere apparaten alleen Strava. Is de Health-data ouder dan gisteren, dan vraagt de knop om bijwerken.
+- **Herstelscore** — vergelijkt recente HRV, rusthartslag, hartslagherstel en wandelhartslag met de eigen basislijn (minimaal 5 metingen) en signaleert verouderde Health-data.
 - **Concrete aanbevelingen** — geeft terughoudend trainingsadvies met zichtbaar betrouwbaarheidsniveau en minimale steekproefgroottes.
-- **Vrij instelbare trainingsanalyse** — filter op periode, trainingstype en afstand; groepeer per dag, week, maand of jaar; kies zelf afstand, tempo, snelheid, tijd, hartslag, hoogte, cadans en aantallen.
-- **Kilometer- en deelanalyse** — haal gedetailleerde Strava-splits per activiteit op en analyseer een vrije selectie, eerste helft, tweede helft of middenstuk.
+- **Vrij instelbare trainingsanalyse (`/runs`)** — filter op periode, trainingstype en afstand; groepeer per dag, week, maand of jaar; kies zelf afstand, tempo, snelheid, tijd, hartslag, hoogte, cadans en aantallen.
+- **Losse training (`/runs/[id]`)** — vóór/tijdens/na-analyse met Health-context van die dag.
+- **Kilometer- en deelanalyse** — haal gedetailleerde Strava-splits per activiteit op (knop in de splitanalyse op de trainingspagina) en analyseer een vrije selectie, eerste helft, tweede helft of middenstuk.
 - **Halve-marathonpad** — vertaalt recente frequentie, loopomvang en langste duurloop naar een passende trainingsfase en voorbeeldweek.
 
 De inzichten zijn observationeel en persoonlijk; ze zijn geen diagnose of vervanging voor medisch advies.
@@ -61,7 +63,7 @@ Een handmatige Apple Health-export kan rechtstreeks worden teruggevuld zonder ee
 node --env-file=.env.local scripts/import-apple-health-export.mjs /pad/naar/export.zip
 ```
 
-Het script leest alleen de hierboven genoemde langetermijnsignalen, maakt dagsamenvattingen en vult bestaande kalenderdagen aan zonder andere waarden te wissen.
+Het script leest alleen de elf uitgebreide signalen (zuurstofsaturatie, ademhalingsfrequentie, beweeg- en daglichtminuten, wandelsnelheid/-stabiliteit, zesminutenwandeltest, loopvermogen, paslengte, verticale oscillatie en grondcontacttijd), maakt dagsamenvattingen en vult bestaande kalenderdagen aan zonder andere waarden te wissen (`COALESCE`). HRV, rusthartslag, stappen, gewicht e.d. worden door dit script **niet** teruggevuld; gewichtshistorie kan eenmalig via een aparte Apple-opdracht worden aangevuld (zie `docs/apple-shortcuts.md`, stap 5). Het script print alleen aantallen, geen waarden.
 
 ### Aanbevolen Apple Health-selectie
 
@@ -82,13 +84,14 @@ Ontbrekende metrics blokkeren de import niet. De app toont de werkelijke dekking
 
 | Onderdeel | Keuze |
 |---|---|
-| Framework | Next.js 16.3.1, App Router, React 19, TypeScript, Tailwind CSS v4 |
+| Framework | Next.js 16.3.3, App Router, React 19.2, TypeScript, Tailwind CSS v4 |
 | Hosting | Vercel, automatisch vanaf GitHub |
 | Database | Neon serverless Postgres |
 | ORM | Drizzle ORM met Neon HTTP-driver |
 | Grafieken | Recharts |
 | Databronnen | Strava API en Apple Opdrachten (Health Auto Export blijft compatibel) |
-| CI | GitHub Actions: audit, lint, typecheck, tests en productiebuild |
+| Sessies | `jose` (ondertekende HttpOnly-cookie, 7 dagen) |
+| CI | GitHub Actions (Node 24): audit, lint, typecheck, tests en productiebuild |
 
 ```text
 Strava ──OAuth/REST──► Next.js API ──► Neon Postgres
@@ -96,6 +99,20 @@ Strava ──OAuth/REST──► Next.js API ──► Neon Postgres
 Apple Opdrachten ──POST──┘                  ▼
                                       Pulse-dashboard
 ```
+
+## Projectstructuur in het kort
+
+| Pad | Inhoud |
+|---|---|
+| `src/app/page.tsx` | Coachdashboard |
+| `src/app/runs/` | Trainingsanalyse, losse training en handmatige sync-actie |
+| `src/app/api/` | Strava OAuth/sync/activity-detail en Health-ingest |
+| `src/lib/` | Pure logica: import, herstel, inzichten, halve-marathonplan, grafiekbereik, sessies, security |
+| `src/components/` | UI-componenten (enkele oudere componenten zijn momenteel ongebruikt, zie CLAUDE.md) |
+| `scripts/` | Eenmalige backfill uit een Apple Health-export |
+| `tests/` | `node --test`-regressietests op `src/lib` |
+
+De volledige, actuele bestandslijst met verantwoordelijkheden staat in [CLAUDE.md](CLAUDE.md).
 
 ## Setup
 
@@ -197,6 +214,22 @@ Controleer daarna GitHub Actions, de Vercel-deployment, de publieke URL, de `mai
 - Databasewijzigingen gebruiken nog directe `db:push`; versieerbare migraties en een geteste herstelprocedure ontbreken.
 - Cardio Recovery en Walking Heart Rate Average leveren pas conclusies nadat voldoende nieuwe metingen zijn verzameld.
 - De aanbevelingen zijn regelgebaseerd; er is nog geen LLM-gegenereerde coachinglaag.
+- Opgehaalde kilometersplits worden bij de volgende Strava-sync overschreven door de samenvattingsdata en moeten dan opnieuw worden opgehaald.
+- De elf uitgebreide Health-metrics worden opgeslagen maar sinds het nieuwe dashboard (#18/#19) nergens getoond.
+- Enkele oudere componenten (`HealthOverviewTile`, `StatTile`, `Sparkline`, `InsightCard`, `RunTrendsChart`) zijn niet meer in gebruik.
+
+## Versiegeschiedenis (samengevat)
+
+| PR | Wijziging |
+|---|---|
+| #19 | Dashboard teruggebracht tot persoonlijke data; algemene uitlegsecties verwijderd, grotere tekst voor iPad |
+| #18 | Persoonlijk coachdashboard, halve-marathonpad, trainingsanalyse (`/runs`) en kilometersplits |
+| #17 | Mini-trends op het dashboard tonen alleen recente, betekenisvolle data |
+| #16 | Trendgrafieken schalen mee met het gekozen bereik |
+| #15 | Lange Apple Health-historie importeren en analyseren (uitgebreide metrics + backfill-script) |
+| #14 | Grafieken kunnen de volledige historie tonen |
+
+Oudere wijzigingen: zie `git log` en de gesloten pull requests op GitHub.
 
 ## Privacy en beveiliging
 
