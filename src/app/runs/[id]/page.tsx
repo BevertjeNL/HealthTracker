@@ -2,10 +2,12 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { and, eq, gte, lte } from "drizzle-orm";
 import { AppLogo } from "@/components/AppLogo";
+import { RunCoach } from "@/components/RunCoach";
 import { SplitAnalyzer, type RunSplit } from "@/components/SplitAnalyzer";
 import { db } from "@/db";
 import { activities, healthMetrics } from "@/db/schema";
 import { fmtDate, fmtDuration, fmtKm, fmtPace } from "@/lib/format";
+import { analyzePacing, classifyRun, compareToSimilar, distanceBand, KIND_LABEL, lapsAreDistinct, parseKmSplits, parseLaps, toAnalysisRun } from "@/lib/run-analysis";
 
 export const dynamic = "force-dynamic";
 const localDate = (date: Date) => new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Amsterdam", year: "numeric", month: "2-digit", day: "2-digit" }).format(date);
@@ -17,6 +19,16 @@ export default async function RunDetailPage({ params }: { params: Promise<{ id: 
   const { id } = await params;
   const [run] = await db.select().from(activities).where(eq(activities.id, Number(id))).limit(1);
   if (!run) notFound();
+  const analysisRun = toAnalysisRun(run);
+  const kind = classifyRun(analysisRun);
+  const allRuns = (await db.select().from(activities)).map(toAnalysisRun);
+  const maxHrObserved = allRuns.reduce((max, item) => Math.max(max, item.maxHr ?? 0), 0) || null;
+  const kmUnits = parseKmSplits(analysisRun.raw);
+  const lapUnits = parseLaps(analysisRun.raw);
+  const kmAnalysis = analyzePacing(kmUnits, kind, { maxHrObserved, unitName: "kilometer" });
+  const lapAnalysis = lapsAreDistinct(lapUnits, kmUnits) ? analyzePacing(lapUnits, kind, { maxHrObserved, unitName: "ronde" }) : null;
+  const comparisonToSimilar = compareToSimilar(analysisRun, allRuns);
+  const band = distanceBand(run.distanceM ?? 0);
   const runDate = localDate(run.startDate);
   const healthWindow = await db.select().from(healthMetrics).where(and(gte(healthMetrics.date, shiftDate(runDate, -21)), lte(healthMetrics.date, shiftDate(runDate, 2))));
   const baselineRows = healthWindow.filter((metric) => metric.date < runDate);
@@ -37,13 +49,14 @@ export default async function RunDetailPage({ params }: { params: Promise<{ id: 
 
   return (
     <div className="coach-shell min-h-screen px-4 pb-16 sm:px-7"><main className="coach-main run-analysis-shell">
-      <nav className="coach-nav" aria-label="Hoofdnavigatie"><Link href="/" className="brand-mark"><AppLogo /></Link><div className="coach-nav-links"><Link href="/">Overzicht</Link><Link href="/runs" className="active">Trainingen</Link><Link href="/#doel">Doel 21,1 km</Link></div></nav>
-      <header className="run-analysis-header"><Link href="/runs">← Alle trainingen</Link><span className="eyebrow">Training uitgelegd · {fmtDate(run.startDate)}</span><h1>{run.name || "Hardlooptraining"}</h1><p>{fmtKm(run.distanceM)} in {fmtDuration(run.movingTimeS)} · gemiddeld {fmtPace(run.avgPaceMinPerKm)}</p></header>
+      <nav className="coach-nav" aria-label="Hoofdnavigatie"><Link href="/" className="brand-mark"><AppLogo /></Link><div className="coach-nav-links"><Link href="/">Overzicht</Link><Link href="/runs" className="active">Analyse</Link><Link href="/#doel">Doel 21,1 km</Link></div></nav>
+      <header className="run-analysis-header"><Link href="/runs">← Alle trainingen</Link><span className="eyebrow">{KIND_LABEL[kind]}{kind === "race" && band ? ` · ${band.label}` : ""} · {fmtDate(run.startDate)}</span><h1>{run.name || "Hardlooptraining"}</h1><p>{fmtKm(run.distanceM)} in {fmtDuration(run.movingTimeS)} · gemiddeld {fmtPace(run.avgPaceMinPerKm)}</p></header>
       <section className="run-story-grid" aria-label="Analyse voor, tijdens en na deze training">
         <article className="run-story-card"><span>01 · Voor</span><h2>Je startpunt</h2><p>De Health-meting rond deze dag helpt beoordelen met hoeveel herstelreserve je begon.</p><dl><div><dt>HRV</dt><dd>{runDayHealth?.hrvMs ? `${Math.round(runDayHealth.hrvMs)} ms` : "–"}</dd></div><div><dt>Rusthartslag</dt><dd>{runDayHealth?.restingHeartRate ? `${Math.round(runDayHealth.restingHeartRate)} bpm` : "–"}</dd></div><div><dt>Interpretatie</dt><dd>{runDayHealth ? "Lees deze waarden ten opzichte van je eigen basislijn, niet als losse norm." : "Geen Health-meting op deze trainingsdag."}</dd></div></dl></article>
         <article className="run-story-card featured"><span>02 · Tijdens</span><h2>Wat de run je kostte</h2><p>Strava beschrijft de prestatie; hartslag en inspanningsscore geven context over de belasting.</p><dl><div><dt>Tempo</dt><dd>{fmtPace(run.avgPaceMinPerKm)}</dd></div><div><dt>Hartslag</dt><dd>{run.avgHeartRate ? `${Math.round(run.avgHeartRate)} bpm gem. · ${Math.round(run.maxHeartRate ?? run.avgHeartRate)} max` : "Niet gemeten"}</dd></div><div><dt>Betekenis</dt><dd>{effortLabel}{run.elevationGainM ? ` · ${Math.round(run.elevationGainM)} hoogtemeters telden mee` : ""}</dd></div></dl></article>
         <article className="run-story-card"><span>03 · Na</span><h2>Hoe je lichaam reageerde</h2><p>De eerstvolgende Health-dag laat zien of herstelwaarden terugveren of tijdelijk onder druk staan.</p><dl><div><dt>HRV na afloop</dt><dd>{postHealth?.hrvMs ? `${Math.round(postHealth.hrvMs)} ms · ${afterHrvText}` : "Niet beschikbaar"}</dd></div><div><dt>Rusthartslag na afloop</dt><dd>{postHealth?.restingHeartRate ? `${Math.round(postHealth.restingHeartRate)} bpm · ${afterRhrText}` : "Niet beschikbaar"}</dd></div><div><dt>Volgende stap</dt><dd>{postHealth ? "Zijn beide signalen ongunstig én voel je vermoeidheid? Maak de volgende training rustig." : "Kijk naar gevoel en je volgende actuele Health-meting."}</dd></div></dl></article>
       </section>
+      <RunCoach kind={kind} km={kmAnalysis} laps={lapAnalysis} comparison={comparisonToSimilar} />
       <SplitAnalyzer activityId={run.id} splits={splits} />
       <section className="run-facts"><div><span className="eyebrow">Strava-details</span><h2>De cijfers, met betekenis</h2></div><div className="run-fact-grid"><span><small>Afstand</small><strong>{fmtKm(run.distanceM)}</strong><em>omvang</em></span><span><small>Tempo</small><strong>{fmtPace(run.avgPaceMinPerKm)}</strong><em>snelheid</em></span><span><small>Hartslag</small><strong>{run.avgHeartRate ? `${Math.round(run.avgHeartRate)} bpm` : "–"}</strong><em>interne belasting</em></span><span><small>Cadans</small><strong>{run.avgCadence ? `${Math.round(run.avgCadence * 2)} spm` : "–"}</strong><em>pasfrequentie</em></span><span><small>Hoogte</small><strong>{run.elevationGainM ? `${Math.round(run.elevationGainM)} m` : "–"}</strong><em>routezwaarte</em></span><span><small>Inspanning</small><strong>{run.sufferScore ? Math.round(run.sufferScore) : "–"}</strong><em>Strava-score</em></span></div></section>
       <div className="run-analysis-actions"><Link href="/">Bekijk je advies voor vandaag</Link><a href={`https://www.strava.com/activities/${run.stravaId}`} target="_blank" rel="noopener noreferrer">Open originele activiteit op Strava ↗</a></div>
