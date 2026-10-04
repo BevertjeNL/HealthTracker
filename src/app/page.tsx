@@ -76,7 +76,7 @@ export default async function Home() {
       <main className="coach-main">
         <nav className="coach-nav" aria-label="Hoofdnavigatie">
           <Link href="/" className="brand-mark" aria-label="Pulse overzicht"><AppLogo /></Link>
-          <div className="coach-nav-links"><Link href="/" className="active">Overzicht</Link><Link href="/runs">Trainingen</Link></div>
+          <div className="coach-nav-links"><Link href="/" className="active">Overzicht</Link><Link href="/runs">Analyse</Link></div>
           <Link href="/runs" className="coach-avatar" aria-label="Bekijk trainingen">IK</Link>
         </nav>
 

@@ -40,6 +40,8 @@ export const activities = pgTable(
     avgPaceMinPerKm: real("avg_pace_min_per_km"),
     avgCadence: real("avg_cadence"),
     sufferScore: real("suffer_score"),
+    // Manual correction of the race/training classification: "race" or "not_race". Never touched by the Strava sync.
+    kindOverride: text("kind_override"),
     raw: jsonb("raw"),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   },
