@@ -29,7 +29,7 @@ src/lib/health-import.ts                Apple Shortcuts/Health Auto Export paylo
 src/lib/insights.ts                     Rule-based weight/run-performance summaries, buildTrainingAdvice() and buildInsights()
 src/lib/recovery.ts                     Readiness/recovery score from HRV, resting HR, cardio recovery and walking HR vs. personal baseline (min. 5 baseline samples, freshness check)
 src/lib/half-marathon.ts                buildHalfMarathonPlan(): phase, progress towards 21.1 km, adjustments and example week from the last 28/42 days of runs
-src/lib/run-analysis.ts                 Pure run analysis: classifyRun() (race/long/interval/easy), km-split and lap parsing, analyzePacing() (pattern, start/fade, HR drift, per-unit notes, advice), compareToSimilar(), buildRunAnalysis() (insights, training-vs-race, Riegel predictions, style profile), findRaceCandidates() (unmarked likely races), buildEventAnalysis() (per-distance race history with PR, preparation, taper, advice). Min. 3 samples per aggregate
+src/lib/run-analysis.ts                 Pure run analysis: classifyRun() (race/long/interval/easy), km-split and lap parsing, analyzePacing() (pattern, start/fade, HR drift, per-unit notes, advice), compareToSimilar(), buildRunAnalysis() (insights, training-vs-race, Riegel predictions, style profile), findRaceCandidates() (unmarked likely races), buildEventAnalysis() (per-distance race history with PR, preparation, taper, advice), buildRunDigest() (a verdict + advice for every run, from splits or from similar earlier runs). Min. 3 samples per aggregate
 src/lib/chart-range.ts                  Range-adaptive chart ticks/labels and point summaries for TrendChart
 src/lib/mini-trend.ts                   Calendar-window sparkline series (only used by the currently unused HealthOverviewTile)
 src/lib/security.ts                     Constant-time secret comparison and Bearer parsing
@@ -56,6 +56,7 @@ src/components/TrendChart.tsx           Recharts line chart with range-adaptive 
 src/components/TrainingExplorer.tsx     Client-side selectable Strava statistics, filters, aggregation and charts
 src/components/SplitAnalyzer.tsx        Client-side selection and analysis of detailed kilometer splits
 src/components/RunCoach.tsx             Client-side per-kilometer/per-lap pacing coach (verdict, advice, chart, table) on the run page
+src/components/RunDigest.tsx            Filterable list of every Strava run with verdict and advice (/runs)
 src/components/RaceMarker.tsx           Mark a run as race / not a race (race candidates on /runs, toggle on the run page)
 src/components/EventsAnalysis.tsx       Per-distance race overview: tabs, pace-over-time chart, preparation table and advice
 src/components/SplitsBackfill.tsx      Loads missing Strava splits for recent runs one by one via POST /api/strava/activity/[id] (max 10 per click)

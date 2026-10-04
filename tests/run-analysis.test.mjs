@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { analyzePacing, buildRunAnalysis, classifyRun, compareToSimilar, distanceBand, findRaceCandidates, buildEventAnalysis, lapsAreDistinct, parseKmSplits, parseLaps } from "../src/lib/run-analysis.ts";
+import { analyzePacing, buildRunAnalysis, classifyRun, compareToSimilar, distanceBand, findRaceCandidates, buildEventAnalysis, buildRunDigest, lapsAreDistinct, parseKmSplits, parseLaps } from "../src/lib/run-analysis.ts";
 
 const now = new Date("2026-10-01T12:00:00Z");
 const day = 86_400_000;
@@ -150,4 +150,27 @@ test("analyses every event per distance with PR, preparation and trend advice", 
 test("events with fewer than three races per distance get no trend", () => {
   const groups = buildEventAnalysis([run(1, 30, 10, 5, { workoutType: 1 }), run(2, 60, 10, 5.2, { workoutType: 1 })]);
   assert.match(groups[0].advice[0].title, /te weinig/i);
+});
+
+test("gives every entry a verdict, from splits or from similar runs", () => {
+  const splitsRun = run(1, 2, 5, 5.5, { raw: { splits_metric: [270, 285, 290, 295, 300].map((t, i) => ({ split: i + 1, distance: 1000, moving_time: t })) } });
+  const old = [10, 20, 30, 40].map((d, i) => run(10 + i, d, 5, 6, { avgHr: 150, maxHr: 185 }));
+  const efficient = run(2, 1, 5, 5.6, { avgHr: 142, maxHr: 185 });
+  const hard = run(3, 3, 5, 6, { avgHr: 172, maxHr: 185 });
+  const rows = buildRunDigest([splitsRun, efficient, hard, ...old]);
+  assert.equal(rows.length, 7);
+  assert.equal(rows[0].id, 2, "newest first");
+  const byId = Object.fromEntries(rows.map((r) => [r.id, r]));
+  assert.equal(byId[1].verdict, "Langzamer geworden");
+  assert.match(byId[1].detail, /te snelle start/);
+  assert.equal(byId[3].verdict, "Te hard voor rustig");
+  assert.equal(byId[2].verdict, "Efficiënter dan normaal");
+  assert.match(byId[10].verdict, /Te weinig|Op je niveau/);
+});
+
+test("marks the fastest race on a distance as PR only with at least two races", () => {
+  const solo = buildRunDigest([run(1, 5, 10, 5, { workoutType: 1 })]);
+  assert.notEqual(solo[0].verdict, "Snelste wedstrijd op deze afstand");
+  const rows = buildRunDigest([run(1, 5, 10, 5, { workoutType: 1 }), run(2, 100, 10, 5.4, { workoutType: 1 })]);
+  assert.equal(rows.find((r) => r.id === 1).verdict, "Snelste wedstrijd op deze afstand");
 });

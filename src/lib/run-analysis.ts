@@ -674,3 +674,61 @@ export function buildEventAnalysis(runs: AnalysisRun[]): EventGroup[] {
     return { key, label: group.label, events: [...events].reverse(), prId: fastest?.id ?? null, advice };
   });
 }
+
+/* ---------- verdict for every Strava entry ---------- */
+
+export type DigestRow = {
+  id: number; name: string; date: Date; kind: RunKind; distanceKm: number; timeS: number; paceSec: number | null; avgHr: number | null; elevationM: number | null;
+  tone: Tone; verdict: string; detail: string; // verdict = short label, detail = one concrete sentence
+  paceVsSimilarSec: number | null; efficiencyVsSimilarPct: number | null; pattern: PacingPattern | null; hasSplits: boolean;
+};
+
+const efficiencyOf = (run: AnalysisRun) => (run.avgHr && run.avgHr > 90 && run.movingTimeS > 0 ? run.distanceM / (run.movingTimeS / 60) / run.avgHr : null);
+
+// One verdict per run. Uses kilometer splits when present, otherwise falls back to comparing summary data
+// (pace, heart rate, meters per heartbeat) with the athlete's earlier runs of the same kind and length.
+export function buildRunDigest(runs: AnalysisRun[]): DigestRow[] {
+  const sorted = [...runs].filter((run) => run.distanceM >= 500).sort((a, b) => b.startDate.getTime() - a.startDate.getTime());
+  const maxHrObserved = sorted.reduce((max, run) => Math.max(max, run.maxHr ?? 0), 0) || null;
+  const bestRaceByBand = new Map<string, number>();
+  for (const run of sorted) {
+    const band = distanceBand(run.distanceM);
+    if (band && classifyRun(run) === "race" && run.movingTimeS > 0) bestRaceByBand.set(band.key, Math.min(bestRaceByBand.get(band.key) ?? Infinity, run.movingTimeS));
+  }
+
+  return sorted.map((run) => {
+    const kind = classifyRun(run);
+    const pace = runPaceSec(run);
+    const comparison = compareToSimilar(run, sorted);
+    const similar = sorted.filter((other) => other.id !== run.id && other.startDate < run.startDate && classifyRun(other) === kind && Math.abs(other.distanceM - run.distanceM) / run.distanceM <= 0.25);
+    const efficiencies = similar.flatMap((other) => efficiencyOf(other) ?? []);
+    const ownEfficiency = efficiencyOf(run);
+    const efficiencyVsSimilarPct = ownEfficiency != null && efficiencies.length >= MIN_SAMPLES ? round(((ownEfficiency - median(efficiencies)!) / median(efficiencies)!) * 100, 1) : null;
+    const pacing = analyzePacing(parseKmSplits(run.raw), kind, { maxHrObserved });
+    const band = distanceBand(run.distanceM);
+    const base = { id: run.id, name: run.name, date: run.startDate, kind, distanceKm: run.distanceM / 1000, timeS: run.movingTimeS, paceSec: pace, avgHr: run.avgHr, elevationM: run.elevationM, paceVsSimilarSec: comparison?.paceDeltaSec ?? null, efficiencyVsSimilarPct, pattern: pacing?.pattern ?? null, hasSplits: pacing != null };
+
+    const pick = (tone: Tone, verdict: string, detail: string): DigestRow => ({ ...base, tone, verdict, detail });
+    const hardEasy = (kind === "easy" || kind === "long") && run.avgHr != null && maxHrObserved != null && run.avgHr / maxHrObserved >= 0.84;
+
+    if (kind === "race") {
+      if (band && run.movingTimeS > 0 && bestRaceByBand.get(band.key) === run.movingTimeS && sorted.filter((other) => classifyRun(other) === "race" && distanceBand(other.distanceM)?.key === band.key).length >= 2) return pick("good", "Snelste wedstrijd op deze afstand", `Je persoonlijk record op ${band.label}.`);
+      if (pacing?.pattern === "heavy-fade") return pick("watch", "Sterk vervallen", `Tweede helft ${Math.round(pacing.splitDiffSec)} s/km langzamer. Start rustiger.`);
+      if (pacing?.firstUnitDeltaSec != null && pacing.firstUnitDeltaSec <= -10) return pick("watch", "Te snel gestart", `Eerste kilometer ${Math.abs(Math.round(pacing.firstUnitDeltaSec))} s/km sneller dan de rest.`);
+      if (pacing?.pattern === "negative" || pacing?.pattern === "even") return pick("good", pacing.pattern === "negative" ? "Negatieve split" : "Gelijkmatig gelopen", "Goed ingedeelde wedstrijd.");
+      if (comparison?.paceDeltaSec != null && comparison.paceDeltaSec <= -3) return pick("good", "Sneller dan je vorige wedstrijden", `${Math.abs(Math.round(comparison.paceDeltaSec))} s/km onder je mediaan.`);
+      return pick("info", "Wedstrijd", pacing ? "Geen bijzonderheden in het tempoverloop." : "Haal de splits op voor de analyse per kilometer.");
+    }
+    if (kind === "interval") {
+      const fast = pacing?.pattern === "intervals" ? pacing.advice[0] : null;
+      return fast ? pick(fast.tone, fast.title, fast.detail) : pick("info", "Interval / tempo", pacing ? "Geen duidelijke blokken herkend." : "Haal de splits op voor de analyse per blok.");
+    }
+    if (hardEasy) return pick("watch", kind === "long" ? "Lange duur te hard" : "Te hard voor rustig", `Gemiddeld ${Math.round(run.avgHr!)} bpm is ${Math.round((run.avgHr! / maxHrObserved!) * 100)}% van je maximum. Loop 30–60 s/km langzamer.`);
+    if (pacing && (pacing.pattern === "heavy-fade" || pacing.pattern === "fade")) return pick("watch", "Langzamer geworden", `Tweede helft ${Math.round(pacing.splitDiffSec)} s/km langzamer${pacing.firstUnitDeltaSec != null && pacing.firstUnitDeltaSec <= -10 ? ", na een te snelle start" : ""}.`);
+    if (pacing?.firstUnitDeltaSec != null && pacing.firstUnitDeltaSec <= -10) return pick("watch", "Te snel gestart", `Eerste kilometer ${Math.abs(Math.round(pacing.firstUnitDeltaSec))} s/km sneller dan de rest.`);
+    if (efficiencyVsSimilarPct != null && efficiencyVsSimilarPct >= 3) return pick("good", "Efficiënter dan normaal", `${efficiencyVsSimilarPct}% meer meters per hartslag dan vergelijkbare runs.`);
+    if (efficiencyVsSimilarPct != null && efficiencyVsSimilarPct <= -4) return pick("watch", "Zwaarder dan normaal", `${Math.abs(efficiencyVsSimilarPct)}% minder meters per hartslag dan vergelijkbare runs. Controleer je herstel.`);
+    if (pacing && (pacing.pattern === "negative" || pacing.pattern === "even")) return pick("good", pacing.pattern === "negative" ? "Sterk opgebouwd" : "Gelijkmatig", "Je tempo bleef goed op koers.");
+    return pick("info", comparison ? "Op je niveau" : "Te weinig vergelijkingsmateriaal", comparison?.paceDeltaSec != null ? `${comparison.paceDeltaSec <= 0 ? "" : "+"}${Math.round(comparison.paceDeltaSec)} s/km ten opzichte van vergelijkbare runs.` : `Voor een oordeel zijn minimaal ${MIN_SAMPLES} vergelijkbare eerdere runs nodig.`);
+  });
+}

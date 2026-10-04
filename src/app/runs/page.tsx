@@ -2,6 +2,7 @@ import Link from "next/link";
 import { desc } from "drizzle-orm";
 import { AppLogo } from "@/components/AppLogo";
 import { EventsAnalysis } from "@/components/EventsAnalysis";
+import { RunDigest } from "@/components/RunDigest";
 import { RaceMarker } from "@/components/RaceMarker";
 import { SplitsBackfill } from "@/components/SplitsBackfill";
 import { SyncButton } from "@/components/SyncButton";
@@ -9,7 +10,7 @@ import { TrainingExplorer, type TrainingRun } from "@/components/TrainingExplore
 import { db } from "@/db";
 import { activities } from "@/db/schema";
 import { fmtDate } from "@/lib/format";
-import { buildEventAnalysis, buildRunAnalysis, findRaceCandidates, formatPaceSec, formatTime, MIN_SAMPLES, PATTERN_LABEL, toAnalysisRun, type StyleGroup } from "@/lib/run-analysis";
+import { buildEventAnalysis, buildRunDigest, buildRunAnalysis, findRaceCandidates, formatPaceSec, formatTime, MIN_SAMPLES, PATTERN_LABEL, toAnalysisRun, type StyleGroup } from "@/lib/run-analysis";
 
 export const dynamic = "force-dynamic";
 
@@ -32,6 +33,7 @@ export default async function RunsPage() {
   const analysisRuns = rows.map(toAnalysisRun);
   const analysis = buildRunAnalysis(analysisRuns, now);
   const candidates = findRaceCandidates(analysisRuns);
+  const digest = buildRunDigest(analysisRuns).map((row) => ({ id: row.id, name: row.name, date: row.date.toISOString(), kind: row.kind, distanceKm: row.distanceKm, timeS: row.timeS, paceSec: row.paceSec, avgHr: row.avgHr, tone: row.tone, verdict: row.verdict, detail: row.detail, paceVsSimilarSec: row.paceVsSimilarSec, efficiencyVsSimilarPct: row.efficiencyVsSimilarPct, hasSplits: row.hasSplits }));
   const eventGroups = buildEventAnalysis(analysisRuns).map((group) => ({ key: group.key, label: group.label, advice: group.advice, events: group.events.map((event) => ({ id: event.id, name: event.name, date: event.date.toISOString(), distanceKm: event.distanceKm, timeS: event.timeS, paceSec: event.paceSec, avgHr: event.avgHr, isPr: event.isPr, deltaPrevSec: event.deltaPrevSec, prepWeeklyKm: event.prepWeeklyKm, prepLongestKm: event.prepLongestKm, taperPct: event.taperPct, pattern: event.pattern, fadeSec: event.fadeSec })) }));
   const serialized: TrainingRun[] = rows.map((run) => {
     const raw = run.raw && typeof run.raw === "object" && !Array.isArray(run.raw) ? run.raw as Record<string, unknown> : {};
@@ -62,6 +64,8 @@ export default async function RunsPage() {
       {style && (style.race || style.training) ? <div className="an-style-grid"><StyleCard group={style.training} /><StyleCard group={style.race} /></div> : <p className="an-empty">Voor een stijlprofiel zijn minimaal {MIN_SAMPLES} runs met kilometergegevens nodig{style ? ` (nu ${style.analyzedRuns})` : ""}. Haal hieronder de splits van je recente runs op.</p>}
       <SplitsBackfill runs={coverage.missingRecent.map((run) => ({ id: run.id, name: run.name }))} />
     </section>
+
+    <section className="an-section" aria-labelledby="an-digest"><div className="training-section-title"><div><span className="eyebrow">Elke run beoordeeld</span><h2 id="an-digest">Al je Strava-runs met oordeel en advies</h2><p>Per run: wat opvalt ten opzichte van je eigen vergelijkbare runs. Met kilometergegevens ook je tempoverdeling.</p></div></div><RunDigest rows={digest} /></section>
 
     <section className="an-section" aria-labelledby="an-explore"><div className="training-section-title"><div><span className="eyebrow">Zelf verkennen</span><h2 id="an-explore">Filter, groepeer en vergelijk al je trainingen</h2></div></div></section>
     <TrainingExplorer runs={serialized} referenceNow={now.toISOString()} />
