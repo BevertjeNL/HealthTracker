@@ -10,7 +10,7 @@ Read the Next.js 16 docs relevant to what you're about to touch, resolved from `
 
 ## Architecture (current, keep this section in sync with the repo)
 
-- **Next.js 16.3.3** (App Router, React 19.2, TypeScript, Tailwind v4) on **Vercel**. Server Components render the dashboard with `export const dynamic = "force-dynamic"`; interactivity lives in `"use client"` components.
+- **Next.js 16.3.8** (App Router, React 19.2, TypeScript, Tailwind v4) on **Vercel**. Server Components render the dashboard with `export const dynamic = "force-dynamic"`; interactivity lives in `"use client"` components.
 - **Neon Postgres**, accessed via `@neondatabase/serverless` HTTP driver + **Drizzle ORM** (`drizzle-orm/neon-http`) — one-shot HTTP queries, not a pooled/long-lived connection. No transactions spanning multiple round trips.
 - **Recharts** for trend charts; `jose` for session signing.
 - Single-user app: password login with a signed stateless session cookie; no accounts or multi-tenant concerns.
