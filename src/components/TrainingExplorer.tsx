@@ -8,7 +8,7 @@ import { Bar, BarChart, CartesianGrid, Line, LineChart, ResponsiveContainer, Too
 export type TrainingRun = {
   id: number; name: string; date: string; distanceM: number | null; movingTimeS: number | null;
   pace: number | null; avgHr: number | null; elevationM: number | null; cadence: number | null;
-  sufferScore: number | null; workoutType: number | null;
+  sufferScore: number | null; workoutType: number | null; kindOverride: string | null;
 };
 
 type MetricKey = "km" | "pace" | "speed" | "time" | "hr" | "elevation" | "cadence" | "runs";
@@ -29,7 +29,7 @@ const metrics: Record<MetricKey, { label: string; short: string; additive: boole
 
 const pad = (value: number) => String(value).padStart(2, "0");
 function paceText(value: number | null) { if (value == null || !Number.isFinite(value)) return "–"; let min = Math.floor(value); let sec = Math.round((value - min) * 60); if (sec === 60) { min++; sec = 0; } return `${min}:${pad(sec)}`; }
-const runKind = (run: TrainingRun) => classifyRun({ name: run.name, workoutType: run.workoutType, distanceM: run.distanceM });
+const runKind = (run: TrainingRun) => classifyRun({ name: run.name, workoutType: run.workoutType, distanceM: run.distanceM, kindOverride: run.kindOverride });
 function distanceMatches(run: TrainingRun, filter: DistanceKey) { const km = (run.distanceM ?? 0) / 1000; if (filter === "short") return km < 5; if (filter === "five") return km >= 5 && km < 10; if (filter === "ten") return km >= 10 && km < 15; if (filter === "long") return km >= 15; return true; }
 function bucketKey(date: Date, group: GroupKey) {
   if (group === "year") return String(date.getFullYear());

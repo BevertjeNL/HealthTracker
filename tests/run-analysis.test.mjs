@@ -1,11 +1,11 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { analyzePacing, buildRunAnalysis, classifyRun, compareToSimilar, distanceBand, lapsAreDistinct, parseKmSplits, parseLaps } from "../src/lib/run-analysis.ts";
+import { analyzePacing, buildRunAnalysis, classifyRun, compareToSimilar, distanceBand, findRaceCandidates, buildEventAnalysis, lapsAreDistinct, parseKmSplits, parseLaps } from "../src/lib/run-analysis.ts";
 
 const now = new Date("2026-10-01T12:00:00Z");
 const day = 86_400_000;
 const unit = (index, paceSec, hr = null, elevM = 0, extra = {}) => ({ index, label: String(index), distanceM: 1000, timeS: paceSec, hr, elevM, gapSpeed: null, cadenceSpm: null, partial: false, ...extra });
-const run = (id, daysAgo, km, paceMin, extra = {}) => ({ id, name: "Run", startDate: new Date(now.getTime() - daysAgo * day), distanceM: km * 1000, movingTimeS: Math.round(km * paceMin * 60), paceMinPerKm: paceMin, avgHr: null, maxHr: null, elevationM: 0, cadenceSpm: null, sufferScore: null, workoutType: null, raw: {}, ...extra });
+const run = (id, daysAgo, km, paceMin, extra = {}) => ({ id, name: "Run", startDate: new Date(now.getTime() - daysAgo * day), distanceM: km * 1000, movingTimeS: Math.round(km * paceMin * 60), paceMinPerKm: paceMin, avgHr: null, maxHr: null, elevationM: 0, cadenceSpm: null, sufferScore: null, workoutType: null, kindOverride: null, raw: {}, ...extra });
 
 test("classifies race, long, interval and easy runs", () => {
   assert.equal(classifyRun({ name: "Ochtendloop", workoutType: 1, distanceM: 5000 }), "race");
@@ -109,4 +109,45 @@ test("measures a pacing style across runs with kilometre splits", () => {
   assert.equal(analysis.style.training.runs, 4);
   assert.ok(analysis.insights.some((item) => item.id === "style-fast-start"));
   assert.equal(analysis.coverage.withSplits, 4);
+});
+
+test("manual override beats Strava type and name in both directions", () => {
+  assert.equal(classifyRun({ name: "Ochtendloop", distanceM: 10000, kindOverride: "race" }), "race");
+  assert.equal(classifyRun({ name: "Stadsloop wedstrijd", workoutType: 1, distanceM: 10000, kindOverride: "not_race" }), "easy");
+});
+
+test("suggests unmarked races: standard distance, clearly faster and harder than neighbours", () => {
+  const neighbours = [3, 8, 14, 20, 26, 32].map((d, i) => run(10 + i, d + 20, 6, 6.5, { avgHr: 145 }));
+  const hidden = run(1, 20, 10, 5.1, { name: "Ochtendloop", avgHr: 178 });
+  const rejected = run(2, 21, 10, 5.0, { name: "Ochtendloop", avgHr: 178, kindOverride: "not_race" });
+  const candidates = findRaceCandidates([...neighbours, hidden, rejected]);
+  assert.deepEqual(candidates.map((c) => c.id), [1]);
+  assert.equal(candidates[0].band, "10 km");
+  assert.equal(findRaceCandidates([hidden, neighbours[0], neighbours[1]]).length, 0);
+});
+
+test("a confirmed race feeds the training-versus-race comparison", () => {
+  const easy = [3, 6, 10, 14, 20, 30].map((d, i) => run(10 + i, d, 6, 6.5));
+  const marked = run(1, 20, 10, 5.0, { name: "Ochtendloop", kindOverride: "race" });
+  assert.equal(buildRunAnalysis([...easy, marked], now).races.length, 1);
+});
+
+test("analyses every event per distance with PR, preparation and trend advice", () => {
+  const race = (id, daysAgo, paceMin) => run(id, daysAgo, 10, paceMin, { name: "Wedstrijd 10K", workoutType: 1 });
+  const make = (id, daysAgo, paceMin, km) => [race(id, daysAgo, paceMin), ...[4, 9, 14, 20, 27, 34].map((d, i) => run(id * 100 + i, daysAgo + d, km, 6))];
+  const runs = [...make(1, 400, 5.6, 5), ...make(2, 300, 5.5, 6), ...make(3, 200, 5.2, 10), ...make(4, 100, 5.0, 12), ...make(5, 10, 5.1, 12)];
+  const groups = buildEventAnalysis(runs);
+  assert.equal(groups.length, 1);
+  assert.equal(groups[0].label, "10 km");
+  assert.equal(groups[0].events.length, 5);
+  assert.equal(groups[0].events[0].id, 5, "newest first");
+  assert.equal(groups[0].prId, 4);
+  assert.ok(groups[0].events.find((e) => e.id === 4).isPr);
+  assert.ok(groups[0].events.find((e) => e.id === 3).deltaPrevSec < 0);
+  assert.ok(groups[0].advice.some((a) => /weekvolume/.test(a.title)));
+});
+
+test("events with fewer than three races per distance get no trend", () => {
+  const groups = buildEventAnalysis([run(1, 30, 10, 5, { workoutType: 1 }), run(2, 60, 10, 5.2, { workoutType: 1 })]);
+  assert.match(groups[0].advice[0].title, /te weinig/i);
 });

@@ -26,6 +26,7 @@ export type AnalysisRun = {
   cadenceSpm: number | null;
   sufferScore: number | null;
   workoutType: number | null;
+  kindOverride: string | null;
   raw: Record<string, unknown>;
 };
 
@@ -46,13 +47,15 @@ export function toAnalysisRun(row: Activity): AnalysisRun {
     cadenceSpm: row.avgCadence ? row.avgCadence * 2 : null, // Strava reports steps per leg
     sufferScore: row.sufferScore,
     workoutType: typeof raw.workout_type === "number" ? raw.workout_type : null,
+    kindOverride: row.kindOverride,
     raw,
   };
 }
 
 /* ---------- classification ---------- */
 
-type KindInput = { name?: string | null; workoutType?: number | null; distanceM?: number | null };
+export type KindOverride = "race" | "not_race";
+type KindInput = { name?: string | null; workoutType?: number | null; distanceM?: number | null; kindOverride?: string | null };
 
 const RACE_NAME = /wedstrijd|\brace\b|parkrun|marathon|\b(5|10)\s?k\b|\b(5|10)\s?km\s+(loop|run)\b|loop\s+\d+\s?km\s+wedstrijd/i;
 const NOT_RACE_NAME = /training|pace|tempo|rustig|herstel|easy|warming|cooling|simulat|voorbereiding/i;
@@ -60,8 +63,11 @@ const NOT_RACE_NAME = /training|pace|tempo|rustig|herstel|easy|warming|cooling|s
 // Strava workout_type for runs: 0 default, 1 race, 2 long run, 3 workout.
 export function classifyRun(run: KindInput): RunKind {
   const name = (run.name ?? "").toLowerCase();
-  if (run.workoutType === 1) return "race";
-  if (RACE_NAME.test(name) && !NOT_RACE_NAME.test(name)) return "race";
+  if (run.kindOverride === "race") return "race";
+  if (run.kindOverride !== "not_race") {
+    if (run.workoutType === 1) return "race";
+    if (RACE_NAME.test(name) && !NOT_RACE_NAME.test(name)) return "race";
+  }
   if (run.workoutType === 3 || /interval|tempo|fartlek|threshold|drempel|repetition|heuvel/.test(name)) return "interval";
   if (run.workoutType === 2 || /lange|long run|duurloop lang/.test(name) || (run.distanceM ?? 0) >= 14000) return "long";
   return "easy";
@@ -554,4 +560,117 @@ export function buildRunAnalysis(runs: AnalysisRun[], now = new Date()): RunAnal
   else headline = { tone: "info", title: "Je data is nog beperkt", body: "Blijf runs synchroniseren; voor trends heeft Pulse minimaal 3 runs per periode nodig." };
 
   return { headline, insights, kinds, races, trainingVsRace, predictions, style, coverage, form: { efficiencyChangePct, recentKm28, previousKm28, runsPerWeek } };
+}
+
+/* ---------- race candidates ---------- */
+
+export type RaceCandidate = { id: number; name: string; date: Date; band: string; distanceKm: number; timeS: number; paceSec: number; fasterThanNeighboursSec: number; reasons: string[] };
+
+// Suggests runs that probably were a race but are not marked as one: a standard race distance that was
+// clearly faster (and harder) than the athlete's other runs around that date. The athlete confirms or rejects.
+export function findRaceCandidates(runs: AnalysisRun[]): RaceCandidate[] {
+  const pool = runs.filter((run) => run.distanceM >= 3000 && run.movingTimeS > 0);
+  const candidates: RaceCandidate[] = [];
+  for (const run of runs) {
+    if (run.kindOverride || classifyRun(run) === "race") continue;
+    const band = distanceBand(run.distanceM);
+    const pace = runPaceSec(run);
+    if (!band || pace == null) continue;
+    const neighbours = pool.filter((other) => other.id !== run.id && Math.abs(other.startDate.getTime() - run.startDate.getTime()) <= 42 * DAY_MS && classifyRun(other) !== "race");
+    const neighbourPaces = neighbours.flatMap((other) => runPaceSec(other) ?? []);
+    if (neighbourPaces.length < MIN_SAMPLES) continue;
+    const faster = median(neighbourPaces)! - pace;
+    const reasons = [`${round(faster)} s/km sneller dan je andere runs in die 6 weken`];
+    const neighbourHr = neighbours.flatMap((other) => other.avgHr ?? []);
+    const hrHigher = run.avgHr != null && neighbourHr.length >= MIN_SAMPLES ? run.avgHr - median(neighbourHr)! : null;
+    if (hrHigher != null && hrHigher >= 5) reasons.push(`hartslag ${round(hrHigher)} bpm hoger dan normaal`);
+    const weekend = [0, 6].includes(run.startDate.getUTCDay());
+    if (weekend) reasons.push("in het weekend");
+    const strong = faster >= 40 || (faster >= 25 && hrHigher != null && hrHigher >= 5);
+    if (!strong) continue;
+    candidates.push({ id: run.id, name: run.name, date: run.startDate, band: band.label, distanceKm: run.distanceM / 1000, timeS: run.movingTimeS, paceSec: pace, fasterThanNeighboursSec: round(faster), reasons });
+  }
+  return candidates.sort((a, b) => b.fasterThanNeighboursSec - a.fasterThanNeighboursSec).slice(0, 8);
+}
+
+/* ---------- all events (races) ---------- */
+
+export type EventRow = {
+  id: number; name: string; date: Date; distanceKm: number; timeS: number; paceSec: number | null; avgHr: number | null;
+  isPr: boolean; deltaPrevSec: number | null; // pace vs previous event on the same distance, negative = faster
+  prepWeeklyKm: number | null; prepLongestKm: number | null; prepRuns: number; taperPct: number | null; // km in last 7 days as % of weekly average
+  pattern: PacingPattern | null; fadeSec: number | null; startDeltaSec: number | null;
+};
+export type EventGroup = { key: string; label: string; events: EventRow[]; prId: number | null; advice: Advice[] };
+
+const avg = (list: number[]) => mean(list);
+
+export function buildEventAnalysis(runs: AnalysisRun[]): EventGroup[] {
+  const sorted = [...runs].filter((run) => run.distanceM >= 500).sort((a, b) => a.startDate.getTime() - b.startDate.getTime());
+  const maxHrObserved = sorted.reduce((max, run) => Math.max(max, run.maxHr ?? 0), 0) || null;
+  const races = sorted.filter((run) => classifyRun(run) === "race");
+  const groups = new Map<string, { label: string; runs: AnalysisRun[] }>();
+  for (const race of races) {
+    const band = distanceBand(race.distanceM);
+    const key = band?.key ?? "other";
+    const entry = groups.get(key) ?? { label: band?.label ?? "Overige afstanden", runs: [] };
+    entry.runs.push(race);
+    groups.set(key, entry);
+  }
+
+  const order = ["5k", "10k", "10em", "half", "marathon", "other"];
+  return [...groups.entries()].sort(([a], [b]) => order.indexOf(a) - order.indexOf(b)).map(([key, group]) => {
+    const comparable = key !== "other";
+    const fastest = comparable ? group.runs.reduce((best, run) => (run.movingTimeS < best.movingTimeS ? run : best)) : null;
+    const events: EventRow[] = group.runs.map((run, position) => {
+      const start = run.startDate.getTime();
+      const prep = sorted.filter((other) => other.id !== run.id && other.startDate.getTime() < start && other.startDate.getTime() >= start - 42 * DAY_MS && classifyRun(other) !== "race");
+      const prepKm = prep.reduce((sum, other) => sum + other.distanceM, 0) / 1000;
+      const weekly = prep.length >= MIN_SAMPLES ? prepKm / 6 : null;
+      const lastWeekKm = prep.filter((other) => other.startDate.getTime() >= start - 7 * DAY_MS).reduce((sum, other) => sum + other.distanceM, 0) / 1000;
+      const pace = runPaceSec(run);
+      const previous = comparable && position > 0 ? runPaceSec(group.runs[position - 1]) : null;
+      const analysis = analyzePacing(parseKmSplits(run.raw), "race", { maxHrObserved });
+      return {
+        id: run.id, name: run.name, date: run.startDate, distanceKm: run.distanceM / 1000, timeS: run.movingTimeS, paceSec: pace, avgHr: run.avgHr,
+        isPr: fastest?.id === run.id, deltaPrevSec: pace != null && previous != null ? round(pace - previous, 1) : null,
+        prepWeeklyKm: weekly != null ? round(weekly, 1) : null, prepLongestKm: prep.length ? round(Math.max(...prep.map((other) => other.distanceM / 1000)), 1) : null, prepRuns: prep.length,
+        taperPct: weekly != null && weekly > 0 ? Math.round((lastWeekKm / weekly) * 100) : null,
+        pattern: analysis?.pattern ?? null, fadeSec: analysis ? Math.round(analysis.splitDiffSec) : null, startDeltaSec: analysis?.firstUnitDeltaSec != null ? Math.round(analysis.firstUnitDeltaSec) : null,
+      };
+    });
+
+    const advice: Advice[] = [];
+    if (comparable && events.length >= MIN_SAMPLES) {
+      const paces = events.flatMap((event) => event.paceSec ?? []);
+      const latest = events.at(-1)!;
+      const earlierMedian = median(events.slice(0, -1).flatMap((event) => event.paceSec ?? []));
+      if (latest.paceSec != null && earlierMedian != null && paces.length >= MIN_SAMPLES) {
+        const diff = latest.paceSec - earlierMedian;
+        if (diff <= -5) advice.push({ tone: "good", title: `Je laatste ${group.label} was ${Math.abs(Math.round(diff))} s/km sneller dan gebruikelijk`, detail: "Je ontwikkeling op deze afstand gaat de goede kant op. Kijk hieronder wat je in de voorbereiding anders deed en herhaal dat." });
+        else if (diff >= 5) advice.push({ tone: "watch", title: `Je laatste ${group.label} was ${Math.round(diff)} s/km langzamer dan gebruikelijk`, detail: "Vergelijk de voorbereiding met je snelste wedstrijd hieronder: weekvolume, lange loop en de laatste week voor de start." });
+        else advice.push({ tone: "info", title: `Je ${group.label}-tempo is stabiel`, detail: "Je laatste wedstrijd lag binnen 5 s/km van je gebruikelijke niveau. Voor een sprong vooruit heb je een andere prikkel nodig, zoals wekelijkse tempoblokken." });
+      }
+      const withPrep = events.filter((event) => event.prepWeeklyKm != null && event.paceSec != null);
+      if (withPrep.length >= 4) {
+        const byPace = [...withPrep].sort((a, b) => a.paceSec! - b.paceSec!);
+        const half = Math.floor(byPace.length / 2);
+        const fastKm = avg(byPace.slice(0, half).map((event) => event.prepWeeklyKm!))!;
+        const slowKm = avg(byPace.slice(-half).map((event) => event.prepWeeklyKm!))!;
+        if (fastKm - slowKm >= 3) advice.push({ tone: "action", title: "Je snelste wedstrijden volgden op meer weekvolume", detail: `Voor je snelste ${half} wedstrijden liep je gemiddeld ${Math.round(fastKm)} km per week, voor je langzaamste ${half} ${Math.round(slowKm)} km. Bouw zes weken voor de volgende wedstrijd op naar minstens ${Math.round(fastKm)} km per week.` });
+        else if (slowKm - fastKm >= 3) advice.push({ tone: "info", title: "Meer volume maakte je niet sneller", detail: `Je snelste wedstrijden volgden op ${Math.round(fastKm)} km per week, de langzaamste op ${Math.round(slowKm)}. Kwaliteit en frisheid lijken bij jou zwaarder te wegen dan kilometers.` });
+      }
+      const tapers = events.flatMap((event) => (event.taperPct != null ? [event.taperPct] : []));
+      if (latest.taperPct != null && latest.taperPct > 90 && tapers.length >= 1) advice.push({ tone: "watch", title: "Weinig afbouw in de laatste week", detail: `In de week voor je laatste ${group.label} liep je ${latest.taperPct}% van je normale weekvolume. Neem de laatste 7 dagen terug naar 50–70% en houd een paar korte, snelle stukjes.` });
+      const patterns = events.flatMap((event) => (event.fadeSec != null ? [event] : []));
+      if (patterns.length >= MIN_SAMPLES) {
+        const fade = avg(patterns.map((event) => event.fadeSec!))!;
+        if (fade >= 8) advice.push({ tone: "action", title: `Over ${patterns.length} wedstrijden verlies je ${Math.round(fade)} s/km in de tweede helft`, detail: "Dat is een patroon, geen uitzondering. Start de eerste kilometers 5–10 s/km rustiger en train lange tempoblokken op wedstrijdtempo." });
+        else if (fade <= 0) advice.push({ tone: "good", title: "Je verdeelt je wedstrijden goed", detail: `Gemiddeld ${Math.abs(Math.round(fade))} s/km sneller in de tweede helft over ${patterns.length} wedstrijden.` });
+      }
+    } else if (comparable) {
+      advice.push({ tone: "info", title: `Nog te weinig ${group.label}-wedstrijden voor een trend`, detail: `Voor een vergelijking zijn minimaal ${MIN_SAMPLES} wedstrijden op dezelfde afstand nodig (nu ${events.length}).` });
+    }
+    return { key, label: group.label, events: [...events].reverse(), prId: fastest?.id ?? null, advice };
+  });
 }

@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { and, eq, gte, lte } from "drizzle-orm";
 import { AppLogo } from "@/components/AppLogo";
+import { RaceMarker } from "@/components/RaceMarker";
 import { RunCoach } from "@/components/RunCoach";
 import { SplitAnalyzer, type RunSplit } from "@/components/SplitAnalyzer";
 import { db } from "@/db";
@@ -51,6 +52,7 @@ export default async function RunDetailPage({ params }: { params: Promise<{ id: 
     <div className="coach-shell min-h-screen px-4 pb-16 sm:px-7"><main className="coach-main run-analysis-shell">
       <nav className="coach-nav" aria-label="Hoofdnavigatie"><Link href="/" className="brand-mark"><AppLogo /></Link><div className="coach-nav-links"><Link href="/">Overzicht</Link><Link href="/runs" className="active">Analyse</Link><Link href="/#doel">Doel 21,1 km</Link></div></nav>
       <header className="run-analysis-header"><Link href="/runs">← Alle trainingen</Link><span className="eyebrow">{KIND_LABEL[kind]}{kind === "race" && band ? ` · ${band.label}` : ""} · {fmtDate(run.startDate)}</span><h1>{run.name || "Hardlooptraining"}</h1><p>{fmtKm(run.distanceM)} in {fmtDuration(run.movingTimeS)} · gemiddeld {fmtPace(run.avgPaceMinPerKm)}</p></header>
+      <RaceMarker runId={run.id} isRace={kind === "race"} override={run.kindOverride} />
       <section className="run-story-grid" aria-label="Analyse voor, tijdens en na deze training">
         <article className="run-story-card"><span>01 · Voor</span><h2>Je startpunt</h2><p>De Health-meting rond deze dag helpt beoordelen met hoeveel herstelreserve je begon.</p><dl><div><dt>HRV</dt><dd>{runDayHealth?.hrvMs ? `${Math.round(runDayHealth.hrvMs)} ms` : "–"}</dd></div><div><dt>Rusthartslag</dt><dd>{runDayHealth?.restingHeartRate ? `${Math.round(runDayHealth.restingHeartRate)} bpm` : "–"}</dd></div><div><dt>Interpretatie</dt><dd>{runDayHealth ? "Lees deze waarden ten opzichte van je eigen basislijn, niet als losse norm." : "Geen Health-meting op deze trainingsdag."}</dd></div></dl></article>
         <article className="run-story-card featured"><span>02 · Tijdens</span><h2>Wat de run je kostte</h2><p>Strava beschrijft de prestatie; hartslag en inspanningsscore geven context over de belasting.</p><dl><div><dt>Tempo</dt><dd>{fmtPace(run.avgPaceMinPerKm)}</dd></div><div><dt>Hartslag</dt><dd>{run.avgHeartRate ? `${Math.round(run.avgHeartRate)} bpm gem. · ${Math.round(run.maxHeartRate ?? run.avgHeartRate)} max` : "Niet gemeten"}</dd></div><div><dt>Betekenis</dt><dd>{effortLabel}{run.elevationGainM ? ` · ${Math.round(run.elevationGainM)} hoogtemeters telden mee` : ""}</dd></div></dl></article>

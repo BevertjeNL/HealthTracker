@@ -596,3 +596,12 @@ a:focus-visible, button:focus-visible { outline: 3px solid rgba(255, 101, 69, .3
   .an-race { grid-template-columns: 1fr 1fr; }
   .an-backfill, .an-coach-head { flex-direction: column; align-items: stretch; }
 }
+.an-marker { margin-top: 10px; padding: 10px 14px; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; border-radius: 14px; background: #f0f3ef; color: #274238; font-size: 12px; }
+.an-marker button { padding: 7px 11px; border: 0; border-radius: 10px; color: #fff; background: #183f32; font-size: 11px; font-weight: 700; cursor: pointer; }
+.an-marker button.ghost { color: #183f32; background: #e3e9e3; }.an-marker button:disabled { opacity: .6; cursor: wait; }
+.an-hint { margin: 4px 0 8px; color: #66776f; font-size: 12px; line-height: 1.5; }
+.an-race.candidate { grid-template-columns: 1.4fr auto auto 1.6fr auto; background: #fff4ef; }.an-race.candidate a { color: inherit; text-decoration: none; }
+@media (max-width: 760px) { .an-race.candidate { grid-template-columns: 1fr 1fr; } }
+.an-events { margin-top: 16px; }.an-events .an-advice-list { margin-top: 14px; }
+.an-pr { padding: 2px 6px; border-radius: 6px; color: #fff; background: #ef6545; font-size: 9px; font-weight: 800; letter-spacing: .06em; }
+.an-table td a { color: inherit; text-decoration: none; }

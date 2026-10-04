@@ -19,7 +19,7 @@ Read the Next.js 16 docs relevant to what you're about to touch, resolved from `
 Files:
 
 ```
-src/db/schema.ts                        Drizzle schema: strava_tokens, activities, health_metrics (unique indexes on athlete_id, strava_id, date)
+src/db/schema.ts                        Drizzle schema: strava_tokens, activities (incl. nullable kind_override: manual race/not_race choice, never written by sync), health_metrics (unique indexes on athlete_id, strava_id, date)
 src/db/index.ts                         Neon client
 src/lib/strava.ts                       Strava OAuth token exchange/refresh + storage; getDetailedActivity() for per-run detail
 src/lib/sync.ts                         Full-history Strava run sync and reconciliation (upserts runs, deletes runs no longer on Strava)
@@ -29,7 +29,7 @@ src/lib/health-import.ts                Apple Shortcuts/Health Auto Export paylo
 src/lib/insights.ts                     Rule-based weight/run-performance summaries, buildTrainingAdvice() and buildInsights()
 src/lib/recovery.ts                     Readiness/recovery score from HRV, resting HR, cardio recovery and walking HR vs. personal baseline (min. 5 baseline samples, freshness check)
 src/lib/half-marathon.ts                buildHalfMarathonPlan(): phase, progress towards 21.1 km, adjustments and example week from the last 28/42 days of runs
-src/lib/run-analysis.ts                 Pure run analysis: classifyRun() (race/long/interval/easy), km-split and lap parsing, analyzePacing() (pattern, start/fade, HR drift, per-unit notes, advice), compareToSimilar(), buildRunAnalysis() (insights, training-vs-race, Riegel predictions, style profile). Min. 3 samples per aggregate
+src/lib/run-analysis.ts                 Pure run analysis: classifyRun() (race/long/interval/easy), km-split and lap parsing, analyzePacing() (pattern, start/fade, HR drift, per-unit notes, advice), compareToSimilar(), buildRunAnalysis() (insights, training-vs-race, Riegel predictions, style profile), findRaceCandidates() (unmarked likely races), buildEventAnalysis() (per-distance race history with PR, preparation, taper, advice). Min. 3 samples per aggregate
 src/lib/chart-range.ts                  Range-adaptive chart ticks/labels and point summaries for TrendChart
 src/lib/mini-trend.ts                   Calendar-window sparkline series (only used by the currently unused HealthOverviewTile)
 src/lib/security.ts                     Constant-time secret comparison and Bearer parsing
@@ -47,7 +47,7 @@ src/app/manifest.ts                     PWA manifest and installable app icons
 src/app/globals.css                     Tailwind import plus the hand-written Pulse/coach design system
 src/app/page.tsx                        Dashboard "Jouw coach": today's advice + readiness signals, half-marathon goal panel, trend charts, last 4 runs, data-refresh control
 src/app/runs/page.tsx                   Run analysis page: headline verdict, prioritized insights with advice, training-vs-race comparison, race predictions, pacing-style profile, splits backfill, then TrainingExplorer
-src/app/runs/actions.ts                 Authenticated manual Strava sync Server Action (syncRunsAction)
+src/app/runs/actions.ts                 Authenticated Server Actions: manual Strava sync (syncRunsAction) and setRunKindAction (writes activities.kind_override)
 src/app/runs/[id]/page.tsx              Single-run analysis: kind (race/training), RunCoach per-km/per-lap coaching, comparison with similar runs, Health before/during/after, split range selector
 src/components/AppLogo.tsx              Shared Pulse wordmark used throughout the UI
 src/components/DataRefreshButton.tsx    Dashboard refresh: on iPhone/iPad opens the "Pulse Health-sync" Shortcut (shortcuts:// URL), then re-syncs Strava on return; elsewhere Strava sync only
@@ -56,6 +56,8 @@ src/components/TrendChart.tsx           Recharts line chart with range-adaptive 
 src/components/TrainingExplorer.tsx     Client-side selectable Strava statistics, filters, aggregation and charts
 src/components/SplitAnalyzer.tsx        Client-side selection and analysis of detailed kilometer splits
 src/components/RunCoach.tsx             Client-side per-kilometer/per-lap pacing coach (verdict, advice, chart, table) on the run page
+src/components/RaceMarker.tsx           Mark a run as race / not a race (race candidates on /runs, toggle on the run page)
+src/components/EventsAnalysis.tsx       Per-distance race overview: tabs, pace-over-time chart, preparation table and advice
 src/components/SplitsBackfill.tsx      Loads missing Strava splits for recent runs one by one via POST /api/strava/activity/[id] (max 10 per click)
 src/components/SyncButton.tsx           Manual Strava sync on /runs
 src/components/LogoutButton.tsx         Logout control in the layout
