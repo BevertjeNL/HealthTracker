@@ -87,7 +87,12 @@ export function buildPostRunCoach(run: Activity, allRuns: Activity[], health: He
   let nextStep = pairedSignals && adverseHrv && adverseRhr ? "Neem minstens één rustige dag. Loop pas weer stevig als je je hersteld voelt en de signalen normaliseren."
     : demanding ? "Maak je volgende loop rustig op gesprekstempo, of neem een rustdag als je benen nog zwaar voelen."
     : "Past een volgende loop in je normale ritme? Houd die comfortabel en voeg pas kwaliteit toe als je goed hersteld bent.";
-  if (pacing && (pacing.pattern === "fade" || pacing.pattern === "heavy-fade")) nextStep += " Start die volgende run bewust rustiger.";
+  if (!(pairedSignals && adverseHrv && adverseRhr) && pacing) {
+    if (pacing.pattern === "fade" || pacing.pattern === "heavy-fade") nextStep = `Loop de volgende keer ${demanding ? "30–40" : "25–35"} minuten op gesprekstempo. Begin de eerste 2 km circa 10–15 s/km rustiger dan vandaag; controleer halverwege of je tempo en ademhaling stabiel blijven.`;
+    else if (pacing.pattern === "negative" && !demanding) nextStep = "Je opbouw was beheerst. Herhaal een vergelijkbare rustige loop; voeg pas een snellere training toe als je herstel en weekbelasting dat toelaten.";
+    else if (pacing.pattern === "variable" && kind !== "interval") nextStep = "Kies voor je volgende rustige loop een vlakker parcours en houd het middenstuk op een gelijkmatig, comfortabel tempo. Vergelijk daarna tempo en hartslag per kilometer.";
+    else if (pacing.hrDriftPct != null && pacing.hrDriftPct >= 6 && kind !== "interval") nextStep = "Houd je volgende duurloop korter en rustig. Let erop of de hartslag in de tweede helft opnieuw oploopt bij vergelijkbaar tempo.";
+  }
   const healthAfterDate = [hrv.afterDate, restingHr.afterDate].filter((date): date is string => date != null).sort()[0] ?? null;
   return { kind, runDate, digest, pacing, comparison, hrv, restingHr, recoveryTitle, recoveryText, nextStep, evidence, healthAfterDate, hasHealthOnRunDay: hrv.onDay != null || restingHr.onDay != null };
 }

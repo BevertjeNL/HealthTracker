@@ -13,7 +13,7 @@ import type { PgColumn } from "drizzle-orm/pg-core";
 export function preserveDetailedRaw(rawColumn: PgColumn): SQL {
   return sql`CASE
     WHEN jsonb_typeof(${rawColumn}) = 'object'
-      AND ${rawColumn} ? 'splits_metric'
+      AND (${rawColumn} ? 'splits_metric' OR ${rawColumn}->>'_coach_detail_loaded' = 'true')
       AND jsonb_typeof(excluded.raw) = 'object'
     THEN ${rawColumn} || excluded.raw
     ELSE excluded.raw

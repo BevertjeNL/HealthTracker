@@ -135,6 +135,7 @@ export type PaceUnit = {
   elevM: number;
   gapSpeed: number | null; // grade adjusted speed in m/s, when Strava provides it
   cadenceSpm: number | null;
+  watts: number | null;
   partial: boolean;
 };
 
@@ -147,7 +148,7 @@ export function parseKmSplits(raw: Record<string, unknown>): PaceUnit[] {
     const time = num(split.moving_time);
     if (!distance || !time || distance <= 0 || time <= 0) return [];
     const index = num(split.split) ?? position + 1;
-    return [{ index, label: String(index), distanceM: distance, timeS: time, hr: num(split.average_heartrate), elevM: num(split.elevation_difference) ?? 0, gapSpeed: num(split.average_grade_adjusted_speed), cadenceSpm: null, partial: distance < 900 }];
+    return [{ index, label: String(index), distanceM: distance, timeS: time, hr: num(split.average_heartrate), elevM: num(split.elevation_difference) ?? 0, gapSpeed: num(split.average_grade_adjusted_speed), cadenceSpm: null, watts: null, partial: distance < 900 }];
   });
 }
 
@@ -158,7 +159,7 @@ export function parseLaps(raw: Record<string, unknown>): PaceUnit[] {
     if (!distance || !time || distance < 50 || time <= 0) return [];
     const index = num(lap.lap_index) ?? position + 1;
     const cadence = num(lap.average_cadence);
-    return [{ index, label: String(index), distanceM: distance, timeS: time, hr: num(lap.average_heartrate), elevM: num(lap.total_elevation_gain) ?? 0, gapSpeed: null, cadenceSpm: cadence ? cadence * 2 : null, partial: false }];
+    return [{ index, label: String(index), distanceM: distance, timeS: time, hr: num(lap.average_heartrate), elevM: num(lap.total_elevation_gain) ?? 0, gapSpeed: null, cadenceSpm: cadence ? cadence * 2 : null, watts: num(lap.average_watts), partial: false }];
   });
 }
 
@@ -181,7 +182,7 @@ export const PATTERN_LABEL: Record<PacingPattern, string> = {
   intervals: "Interval-opbouw",
 };
 
-export type UnitRow = { label: string; distanceM: number; paceSec: number; deltaSec: number | null; hr: number | null; elevM: number; cadenceSpm: number | null; note: string | null; tone: Tone };
+export type UnitRow = { label: string; distanceM: number; paceSec: number; gapPaceSec: number | null; deltaSec: number | null; hr: number | null; elevM: number; cadenceSpm: number | null; watts: number | null; note: string | null; tone: Tone };
 
 export type PacingAnalysis = {
   unitCount: number;
@@ -264,7 +265,7 @@ export function analyzePacing(units: PaceUnit[], kind: RunKind, context: Analysi
   // per-unit rows with a short coaching note
   const rows: UnitRow[] = units.map((unit) => {
     const paceSec = unit.timeS / (unit.distanceM / 1000);
-    if (unit.partial) return { label: unit.label, distanceM: unit.distanceM, paceSec, deltaSec: null, hr: unit.hr, elevM: unit.elevM, cadenceSpm: unit.cadenceSpm, note: null, tone: "info" as Tone };
+    if (unit.partial) return { label: unit.label, distanceM: unit.distanceM, paceSec, gapPaceSec: unit.gapSpeed ? 1000 / unit.gapSpeed : null, deltaSec: null, hr: unit.hr, elevM: unit.elevM, cadenceSpm: unit.cadenceSpm, watts: unit.watts, note: null, tone: "info" as Tone };
     const position = full.indexOf(unit);
     const effort = paces[position];
     const delta = effort - avgPaceSec;
@@ -282,7 +283,7 @@ export function analyzePacing(units: PaceUnit[], kind: RunKind, context: Analysi
     else if (delta >= 15) { note = lastThird ? "Vermoeid: inzakken in het laatste deel" : "Inzinking"; tone = "watch"; }
     else if (delta <= -10 && position === full.length - 1) { note = "Sterke afsluiting"; tone = "good"; }
     else if (Math.abs(delta) <= 4) { note = "Op koers"; tone = "good"; }
-    return { label: unit.label, distanceM: unit.distanceM, paceSec, deltaSec: round(delta, 1), hr: unit.hr, elevM: unit.elevM, cadenceSpm: unit.cadenceSpm, note, tone };
+    return { label: unit.label, distanceM: unit.distanceM, paceSec, gapPaceSec: unit.gapSpeed ? 1000 / unit.gapSpeed : null, deltaSec: round(delta, 1), hr: unit.hr, elevM: unit.elevM, cadenceSpm: unit.cadenceSpm, watts: unit.watts, note, tone };
   });
 
   const fastestIndex = paces.indexOf(Math.min(...paces));

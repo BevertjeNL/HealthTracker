@@ -12,7 +12,7 @@ export async function POST(_request: Request, { params }: { params: Promise<{ id
   if (!activity) return NextResponse.json({ error: "Activity not found" }, { status: 404 });
   try {
     const detail = await getDetailedActivity(activity.stravaId);
-    await db.update(activities).set({ raw: detail }).where(eq(activities.id, activity.id));
+    await db.update(activities).set({ raw: { ...detail, _coach_detail_loaded: true } }).where(eq(activities.id, activity.id));
     const splits = Array.isArray(detail.splits_metric) ? detail.splits_metric.length : 0;
     return NextResponse.json({ splits });
   } catch {
