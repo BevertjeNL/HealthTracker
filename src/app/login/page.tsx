@@ -1,25 +1,6 @@
-import Link from "next/link";
 import { LoginForm } from "@/app/login/LoginForm";
 import { AppLogo } from "@/components/AppLogo";
 
 export default function LoginPage() {
-  return (
-    <main className="flex min-h-screen items-center justify-center px-6 py-12">
-      <section
-        className="w-full max-w-sm rounded-2xl p-6 shadow-sm"
-        style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}
-      >
-        <Link href="/" className="brand-mark" aria-label="Naar Pulse dashboard">
-          <AppLogo />
-        </Link>
-        <h1 className="mt-2 text-2xl font-semibold" style={{ color: "var(--text-primary)" }}>
-          Persoonlijke gegevens
-        </h1>
-        <p className="mt-2 text-sm leading-6" style={{ color: "var(--text-secondary)" }}>
-          Log in om je gezondheids- en hardloopgegevens te bekijken.
-        </p>
-        <LoginForm />
-      </section>
-    </main>
-  );
+  return <main className="c-login-shell"><section className="c-login-intro"><div className="brand-mark"><AppLogo /></div><span className="c-overline">JOUW PERSOONLIJKE HARDLOOPCOACH</span><h1>Loop met meer<br /><em>richting.</em></h1><p>Inzichten uit je Strava-runs en Apple Health, vertaald naar een stap die vandaag bij je past.</p><div className="c-login-source">STRAVA <span>×</span> APPLE HEALTH</div></section><section className="c-login-form"><span className="c-overline">WELKOM TERUG</span><h2>Log in bij Pulse.</h2><p>Je trainings- en gezondheidsgegevens zijn privé.</p><LoginForm /></section></main>;
 }

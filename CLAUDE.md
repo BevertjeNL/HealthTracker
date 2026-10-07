@@ -14,7 +14,7 @@ Read the Next.js 16 docs relevant to what you're about to touch, resolved from `
 - **Neon Postgres**, accessed via `@neondatabase/serverless` HTTP driver + **Drizzle ORM** (`drizzle-orm/neon-http`) — one-shot HTTP queries, not a pooled/long-lived connection. No transactions spanning multiple round trips.
 - **Recharts** for trend charts; `jose` for session signing.
 - Single-user app: password login with a signed stateless session cookie; no accounts or multi-tenant concerns.
-- UI language is Dutch (nl-NL); product name in the UI is **Pulse**. Most page styling is hand-written CSS classes in `src/app/globals.css` (`coach-*`, `goal-*`, `proof-grid` …), not Tailwind utilities.
+- UI language is Dutch (nl-NL); product name in the UI is **Pulse**. The active coach UI uses `c-*` classes in `src/app/globals.css`; legacy CSS remains for supporting components and login actions.
 
 Files:
 
@@ -29,6 +29,7 @@ src/lib/health-import.ts                Apple Shortcuts/Health Auto Export paylo
 src/lib/insights.ts                     Rule-based weight/run-performance summaries, buildTrainingAdvice() and buildInsights()
 src/lib/recovery.ts                     Readiness/recovery score from HRV, resting HR, cardio recovery and walking HR vs. personal baseline (min. 5 baseline samples, freshness check)
 src/lib/half-marathon.ts                buildHalfMarathonPlan(): phase, progress towards 21.1 km, adjustments and example week from the last 28/42 days of runs
+src/lib/coach.ts                        Pure coach orchestration: 7-day load versus a 4-week basis, today’s advice and reasons, per-run Strava/Health evidence, post-run recovery comparison and next step
 src/lib/run-analysis.ts                 Pure run analysis: classifyRun() (race/long/interval/easy), km-split and lap parsing, analyzePacing() (pattern, start/fade, HR drift, per-unit notes, advice), compareToSimilar(), buildRunAnalysis() (insights, training-vs-race, Riegel predictions, style profile), findRaceCandidates() (unmarked likely races), buildEventAnalysis() (per-distance race history with PR, preparation, taper, advice), buildRunDigest() (a verdict + advice for every run, from splits or from similar earlier runs). Min. 3 samples per aggregate
 src/lib/chart-range.ts                  Range-adaptive chart ticks/labels and point summaries for TrendChart
 src/lib/mini-trend.ts                   Calendar-window sparkline series (only used by the currently unused HealthOverviewTile)
@@ -45,21 +46,22 @@ src/app/api/health/ingest/route.ts      GET metric contract + protected POST ing
 src/app/layout.tsx                      Pulse metadata (noindex), favicon/Apple/Safari/PWA integration and authenticated shell
 src/app/manifest.ts                     PWA manifest and installable app icons
 src/app/globals.css                     Tailwind import plus the hand-written Pulse/coach design system
-src/app/page.tsx                        Dashboard "Jouw coach": today's advice + readiness signals, half-marathon goal panel, trend charts, last 4 runs, data-refresh control
-src/app/runs/page.tsx                   Run analysis page: headline verdict, prioritized insights with advice, training-vs-race comparison, race predictions, pacing-style profile, splits backfill, then TrainingExplorer
+src/app/page.tsx                        Coach home: one advice with reasons, latest run verdict, training direction, Health context and data refresh
+src/app/runs/page.tsx                   Training journal: current phase, recent load and run list with a short verdict
 src/app/runs/actions.ts                 Authenticated Server Actions: manual Strava sync (syncRunsAction) and setRunKindAction (writes activities.kind_override)
-src/app/runs/[id]/page.tsx              Single-run analysis: kind (race/training), RunCoach per-km/per-lap coaching, comparison with similar runs, Health before/during/after, split range selector
+src/app/runs/[id]/page.tsx              Post-run coach: verdict, evidence from Strava and Apple Health, next step, collapsible split tools
 src/components/AppLogo.tsx              Shared Pulse wordmark used throughout the UI
+src/components/CoachNav.tsx             Shared navigation for coach home, journal and run detail
 src/components/DataRefreshButton.tsx    Dashboard refresh: on iPhone/iPad opens the "Pulse Health-sync" Shortcut (shortcuts:// URL), then re-syncs Strava on return; elsewhere Strava sync only
-src/components/TrendChartsSection.tsx   Dashboard trend charts (weight, pace, …) with range selector; uses TrendChart
+src/components/TrendChartsSection.tsx   Legacy dashboard chart section, no longer rendered by the coach home
 src/components/TrendChart.tsx           Recharts line chart with range-adaptive axes (chart-range.ts)
-src/components/TrainingExplorer.tsx     Client-side selectable Strava statistics, filters, aggregation and charts
+src/components/TrainingExplorer.tsx     Legacy client-side Strava explorer, no longer rendered by the journal
 src/components/SplitAnalyzer.tsx        Client-side selection and analysis of detailed kilometer splits
 src/components/RunCoach.tsx             Client-side per-kilometer/per-lap pacing coach (verdict, advice, chart, table) on the run page
-src/components/RunDigest.tsx            Filterable list of every Strava run with verdict and advice (/runs)
-src/components/RaceMarker.tsx           Mark a run as race / not a race (race candidates on /runs, toggle on the run page)
+src/components/RunDigest.tsx            Legacy filterable digest; the new journal renders digest verdicts directly
+src/components/RaceMarker.tsx           Mark a run as race / not a race on the run detail page
 src/components/EventsAnalysis.tsx       Per-distance race overview: tabs, pace-over-time chart, preparation table and advice
-src/components/SplitsBackfill.tsx      Loads missing Strava splits for recent runs one by one via POST /api/strava/activity/[id] (max 10 per click)
+src/components/SplitsBackfill.tsx      Legacy bulk split loader, no longer rendered by the journal
 src/components/SyncButton.tsx           Manual Strava sync on /runs
 src/components/LogoutButton.tsx         Logout control in the layout
 src/components/{HealthOverviewTile,StatTile,Sparkline,InsightCard,RunTrendsChart}.tsx
@@ -78,6 +80,7 @@ tests/insights.test.mjs                 Insight thresholds, staleness and recomm
 tests/recovery.test.mjs                 Recovery baseline/freshness/score regression tests
 tests/half-marathon.test.mjs            Personal half-marathon phase and progression regression tests
 tests/run-analysis.test.mjs             Classification, pacing patterns, comparison, predictions and minimum-sample regression tests
+tests/coach.test.mjs                    Weekly load confidence, missing Health data, post-run recovery and same-day timing regression tests
 tests/chart-range.test.mjs              Chart tick/label regression tests
 tests/mini-trend.test.mjs               Mini-trend windowing regression tests
 vercel.json                             Daily cron hitting /api/strava/sync (05:00 UTC)
