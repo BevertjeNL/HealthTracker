@@ -814,3 +814,38 @@ a:focus-visible, button:focus-visible { outline: 3px solid rgba(255, 101, 69, .3
 .c-login-form form input { min-height: 48px; border-color: #d9e3d8 !important; border-radius: 10px !important; background: #fff !important; }
 .c-login-form form button { min-height: 48px; border-radius: 10px !important; background: #1c593d !important; }
 @media (max-width: 800px) { .c-login-shell { grid-template-columns: 1fr; }.c-login-intro { min-height: 360px; }.c-login-intro .brand-mark { top: 24px; }.c-login-intro h1 { font-size: 57px; }.c-login-source { margin-top: 15px; }.c-login-form { padding: 45px 0 70px; } }
+
+/* Readable post-run coaching and adjustable analysis chart */
+.c-run-story { margin: 28px 0 24px; }
+.c-story-grid { margin-top: 16px; display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 14px; }
+.c-story-point { padding: 23px 25px; border: 1px solid #dde8dc; border-top: 4px solid #8da393; border-radius: 18px; background: #fff; }
+.c-story-point.good { border-top-color: #298561; }.c-story-point.watch { border-top-color: #e47a4b; }
+.c-story-point > span { color: #44725a; font-size: 13px; font-weight: 800; text-transform: uppercase; letter-spacing: .08em; }
+.c-story-point h3 { margin: 9px 0 7px; color: #194b36; font-size: 21px; line-height: 1.25; }
+.c-story-point p, .c-story-empty, .c-data-coverage { margin: 0; color: #4c6555; font-size: 16px; line-height: 1.6; }
+.c-story-empty { margin: 15px 0; padding: 18px; border-radius: 14px; background: #f0f4ee; }
+.c-data-coverage { margin-top: 16px; padding: 14px 18px; border-radius: 13px; background: #eef3ec; font-size: 14px; }
+.c-data-coverage strong { color: #234b36; }.c-detail-loading { padding: 13px 16px; border-radius: 12px; color: #284f38; background: #eef4e8; font-size: 15px; }
+.an-coach { margin-top: 18px; }
+.an-chart-panel { margin-top: 24px; padding: 22px; border: 1px solid #e0e9df; border-radius: 20px; background: linear-gradient(150deg,#fff,#f8faf7); }
+.an-chart-heading { display: flex; justify-content: space-between; align-items: end; gap: 18px; }
+.an-chart-heading h3 { margin: 5px 0 0; font-size: 23px; }.an-chart-heading label { display: grid; gap: 5px; color: #365843; font-size: 14px; font-weight: 700; }
+.an-chart-heading select, .an-axis-controls input { min-height: 42px; padding: 8px 12px; border: 1px solid #cbdacc; border-radius: 10px; color: #1b4732; background: #fff; font: inherit; font-size: 15px; }
+.an-axis-controls { margin-top: 18px; display: flex; flex-wrap: wrap; align-items: end; gap: 14px; }
+.an-axis-controls fieldset { min-width: 250px; margin: 0; padding: 10px 13px 13px; display: flex; gap: 10px; border: 1px solid #dde8dc; border-radius: 12px; }
+.an-axis-controls legend { padding: 0 5px; color: #365843; font-size: 14px; font-weight: 750; }
+.an-axis-controls label { min-width: 0; display: grid; flex: 1; gap: 4px; color: #4b6654; font-size: 13px; }
+.an-axis-controls input { width: 100%; }.an-axis-controls button { min-height: 42px; padding: 8px 14px; border: 1px solid #b8cfbc; border-radius: 10px; color: #1d5037; background: #fff; font: inherit; font-size: 14px; font-weight: 750; cursor: pointer; }
+.an-range-error { color: #a64032; font-size: 14px; }.an-chart { height: 320px; }
+.c-overline, .c-detail-meta, .c-back, .c-detail-numbers small, .c-detail-next > span, .c-evidence-note, .c-health-comparison small, .c-health-comparison em, .c-timing-note, .c-strava-link, .c-journal-name small, .c-journal-metrics small, .c-journal-date { font-size: 13px; }
+.c-evidence p, .c-evidence li, .c-deep-dive > p, .c-rhythm-lead p, .c-rhythm-side p, .c-journal-name span, .an-coach-head p, .an-compare, .an-advice p, .an-backfill p { font-size: 15px; line-height: 1.6; }
+.c-detail-coach p { font-size: 17px; }.c-detail-next p { font-size: 19px; }.c-detail-numbers small { color: #526e59; }
+.an-table { font-size: 14px; }.an-table th { font-size: 13px; }.an-note, .an-stat-grid small, .an-stat-grid span, .an-advice b, .an-backfill b { font-size: 14px; }
+.an-backfill button, .an-toggle button, .split-empty button, .split-controls label, .split-result-grid small, .split-result-grid span, .split-empty p, .split-heading p { font-size: 14px; }
+.split-controls output { font-size: 15px; }.split-result-grid strong { font-size: 19px; }.c-run-day-health { font-size: 14px !important; }
+@media (max-width: 700px) { .c-story-grid { grid-template-columns: 1fr; }.an-chart-heading { align-items: stretch; flex-direction: column; }.an-axis-controls fieldset { width: 100%; }.an-chart { height: 280px; } }
+.split-chart-note { margin: 15px 0 0; color: #4c6555; font-size: 14px; line-height: 1.5; }
+.c-small-label, .c-nav-caption, .c-card-top, .c-card-top small, .c-next-footer, .c-next-footer a, .c-reason-card li > span, .c-source-note strong, .c-source-note span, .c-last-title, .c-kind, .c-run-numbers small, .c-last-after, .c-direction-stats small, .c-direction-action b, .c-direction-action small, .c-direction-action a, .c-health-line > span, .c-health-line small, .c-recent-date, .c-footer, .c-button, .c-page-head .refresh-button, .c-page-head .refresh-status { font-size: 13px; }
+.c-coach-explain, .c-reason-card li p, .c-last-verdict > p, .c-direction > p, .c-health-card > p, .c-health-card > p, .c-recent-row, .c-recent-row strong { font-size: 15px; line-height: 1.55; }
+.c-rhythm-lead > div span, .an-coach .eyebrow, .split-empty .eyebrow, .split-analyzer .eyebrow { font-size: 13px; }
+.c-journal-date, .c-journal-name span, .c-journal-metrics small, .c-recent-date, .c-run-numbers small, .c-direction-stats small, .c-health-line small, .c-health-comparison small, .c-timing-note { color: #506a57; }

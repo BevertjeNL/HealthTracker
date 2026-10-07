@@ -27,6 +27,7 @@ test("sync upsert does not blindly overwrite raw with the summary activity", () 
 test("existing detail with splits_metric is merged, otherwise the summary wins", () => {
   const sql = syncUpsertSql();
   assert.match(sql, /"activities"\."raw" \? 'splits_metric'/);
+  assert.match(sql, /"activities"\."raw"->>'_coach_detail_loaded' = 'true'/);
   assert.match(sql, /THEN "activities"\."raw" \|\| excluded\.raw/);
   assert.match(sql, /ELSE excluded\.raw\s+END/);
   assert.match(sql, /jsonb_typeof\("activities"\."raw"\) = 'object'/);

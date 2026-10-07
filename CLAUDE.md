@@ -23,7 +23,7 @@ src/db/schema.ts                        Drizzle schema: strava_tokens, activitie
 src/db/index.ts                         Neon client
 src/lib/strava.ts                       Strava OAuth token exchange/refresh + storage; getDetailedActivity() for per-run detail
 src/lib/sync.ts                         Full-history Strava run sync and reconciliation (upserts runs, deletes runs no longer on Strava)
-src/lib/activity-raw.ts                 preserveDetailedRaw(): conflict-update SQL that keeps fetched detail (splits_metric) in activities.raw during sync
+src/lib/activity-raw.ts                 preserveDetailedRaw(): conflict-update SQL that keeps fetched detail (splits_metric or _coach_detail_loaded) in activities.raw during sync
 src/lib/format.ts                       Shared date/pace/duration/km formatters (nl-NL locale)
 src/lib/health-import.ts                Apple Shortcuts/Health Auto Export payload parsing, HEALTH_METRIC_MAP, plausibility ranges, daily aggregation and unit normalization
 src/lib/insights.ts                     Rule-based weight/run-performance summaries, buildTrainingAdvice() and buildInsights()
@@ -31,6 +31,7 @@ src/lib/recovery.ts                     Readiness/recovery score from HRV, resti
 src/lib/half-marathon.ts                buildHalfMarathonPlan(): phase, progress towards 21.1 km, adjustments and example week from the last 28/42 days of runs
 src/lib/coach.ts                        Pure coach orchestration: 7-day load versus a 4-week basis, today’s advice and reasons, per-run Strava/Health evidence, post-run recovery comparison and next step
 src/lib/run-analysis.ts                 Pure run analysis: classifyRun() (race/long/interval/easy), km-split and lap parsing, analyzePacing() (pattern, start/fade, HR drift, per-unit notes, advice), compareToSimilar(), buildRunAnalysis() (insights, training-vs-race, Riegel predictions, style profile), findRaceCandidates() (unmarked likely races), buildEventAnalysis() (per-distance race history with PR, preparation, taper, advice), buildRunDigest() (a verdict + advice for every run, from splits or from similar earlier runs). Min. 3 samples per aggregate
+src/lib/run-story.ts                    Pure phase-by-phase run narrative and available-Strava-metrics summary (start, middle, finish, load, lap power, best efforts)
 src/lib/chart-range.ts                  Range-adaptive chart ticks/labels and point summaries for TrendChart
 src/lib/mini-trend.ts                   Calendar-window sparkline series (only used by the currently unused HealthOverviewTile)
 src/lib/security.ts                     Constant-time secret comparison and Bearer parsing
@@ -41,15 +42,15 @@ src/app/login/*                         Single-user login/logout actions and UI
 src/app/api/strava/auth/route.ts        GET → redirects to Strava OAuth consent
 src/app/api/strava/callback/route.ts    GET → validates OAuth state, exchanges code, saves tokens
 src/app/api/strava/sync/route.ts        GET/POST, requires Authorization: Bearer $CRON_SECRET → syncs runs
-src/app/api/strava/activity/[id]/route.ts POST, session-protected: fetches Strava activity detail and overwrites activities.raw (source of splits_metric)
+src/app/api/strava/activity/[id]/route.ts POST, session-protected: fetches Strava activity detail and stores it in activities.raw with _coach_detail_loaded marker
 src/app/api/health/ingest/route.ts      GET metric contract + protected POST ingest for Apple Shortcuts and legacy Health Auto Export payloads; upserts health_metrics
 src/app/layout.tsx                      Pulse metadata (noindex), favicon/Apple/Safari/PWA integration and authenticated shell
 src/app/manifest.ts                     PWA manifest and installable app icons
 src/app/globals.css                     Tailwind import plus the hand-written Pulse/coach design system
-src/app/page.tsx                        Coach home: one advice with reasons, latest run verdict, training direction, Health context and data refresh
+src/app/page.tsx                        Coach home: one advice with reasons, latest run summary (auto loads missing detail), training direction, Health context and data refresh
 src/app/runs/page.tsx                   Training journal: current phase, recent load and run list with a short verdict
 src/app/runs/actions.ts                 Authenticated Server Actions: manual Strava sync (syncRunsAction) and setRunKindAction (writes activities.kind_override)
-src/app/runs/[id]/page.tsx              Post-run coach: verdict, evidence from Strava and Apple Health, next step, collapsible split tools
+src/app/runs/[id]/page.tsx              Post-run coach: start/middle/finish/load story, evidence from Strava and Apple Health, next step, adjustable chart and split tools
 src/components/AppLogo.tsx              Shared Pulse wordmark used throughout the UI
 src/components/CoachNav.tsx             Shared navigation for coach home, journal and run detail
 src/components/DataRefreshButton.tsx    Dashboard refresh: on iPhone/iPad opens the "Pulse Health-sync" Shortcut (shortcuts:// URL), then re-syncs Strava on return; elsewhere Strava sync only
@@ -57,11 +58,12 @@ src/components/TrendChartsSection.tsx   Legacy dashboard chart section, no longe
 src/components/TrendChart.tsx           Recharts line chart with range-adaptive axes (chart-range.ts)
 src/components/TrainingExplorer.tsx     Legacy client-side Strava explorer, no longer rendered by the journal
 src/components/SplitAnalyzer.tsx        Client-side selection and analysis of detailed kilometer splits
-src/components/RunCoach.tsx             Client-side per-kilometer/per-lap pacing coach (verdict, advice, chart, table) on the run page
+src/components/RunCoach.tsx             Client-side per-kilometer/per-lap coach with selectable metric, adjustable X/Y axes and detailed table
+src/components/RunDetailLoader.tsx      Fetches missing Strava activity detail once when a run detail page opens
 src/components/RunDigest.tsx            Legacy filterable digest; the new journal renders digest verdicts directly
 src/components/RaceMarker.tsx           Mark a run as race / not a race on the run detail page
 src/components/EventsAnalysis.tsx       Per-distance race overview: tabs, pace-over-time chart, preparation table and advice
-src/components/SplitsBackfill.tsx      Legacy bulk split loader, no longer rendered by the journal
+src/components/SplitsBackfill.tsx       Journal action to fetch missing detail for 20 recent historical runs at a time
 src/components/SyncButton.tsx           Manual Strava sync on /runs
 src/components/LogoutButton.tsx         Logout control in the layout
 src/components/{HealthOverviewTile,StatTile,Sparkline,InsightCard,RunTrendsChart}.tsx
@@ -80,6 +82,7 @@ tests/insights.test.mjs                 Insight thresholds, staleness and recomm
 tests/recovery.test.mjs                 Recovery baseline/freshness/score regression tests
 tests/half-marathon.test.mjs            Personal half-marathon phase and progression regression tests
 tests/run-analysis.test.mjs             Classification, pacing patterns, comparison, predictions and minimum-sample regression tests
+tests/run-story.test.mjs                Phase narrative and missing-split regression tests
 tests/coach.test.mjs                    Weekly load confidence, missing Health data, post-run recovery and same-day timing regression tests
 tests/chart-range.test.mjs              Chart tick/label regression tests
 tests/mini-trend.test.mjs               Mini-trend windowing regression tests
@@ -98,7 +101,7 @@ When you add a file that a future agent would need to know about to orient itsel
 - Cumulative metrics (steps, active energy, exercise minutes, daylight minutes) are **summed** per calendar day. Resting HR, HRV, one-minute cardio recovery, walking heart-rate average, oxygen saturation, respiratory rate, walking speed/steadiness and the running-form metrics (power, stride length, vertical oscillation, ground contact time) are **averaged**. VO2 max, weight and six-minute-walk distance take the **last** chronological value. Values outside the plausibility ranges in `health-import.ts` are rejected. This mapping lives in `HEALTH_METRIC_MAP` in `src/lib/health-import.ts` — if you add a metric, decide its aggregation deliberately and document it there, don't default to "last" out of laziness.
 - Apple Shortcuts sends already aggregated daily values in kcal/kg and the other documented canonical units. Legacy Health Auto Export samples are aggregated server-side; `active_energy` is normalized from kJ to kcal and weight from lb/lbs to kg in `src/lib/health-import.ts`. New units need explicit tests before import.
 - Sleep is intentionally not accepted, imported or analyzed because the connected export does not provide usable sleep data. `sleep_hours` and `sleep_score` are legacy nullable columns only; do not re-enable them without confirming that reliable source data exists and adding fixtures/tests.
-- `activities.raw` holds the Strava JSON for a run. `/api/strava/activity/[id]` overwrites it with the *detailed* activity (which contains `splits_metric`). `syncStravaRuns()` writes the *summary* activity, but via `preserveDetailedRaw()` (`src/lib/activity-raw.ts`): if the stored raw already has `splits_metric`, the sync merges `existing || summary` (summary keys refreshed, detail-only keys like `splits_metric`/`laps`/`best_efforts` kept); otherwise the summary replaces raw. See Gotcha 10.
+- `activities.raw` holds the Strava JSON for a run. `/api/strava/activity/[id]` stores the *detailed* activity with an internal `_coach_detail_loaded` marker, including any `splits_metric`, `laps` and `best_efforts` supplied by Strava. `syncStravaRuns()` writes the *summary* activity via `preserveDetailedRaw()` (`src/lib/activity-raw.ts`): existing detail is merged with refreshed summary keys, including when Strava supplied no splits. Otherwise the summary replaces raw. See Gotcha 10. No schema change is required.
 - All distances in the DB are meters; pace is precomputed at ingest as `avg_pace_min_per_km`. Don't re-derive pace from raw Strava fields in the UI layer — use the stored column so there's one source of truth.
 
 ## Minimum sample size for insights

@@ -10,7 +10,7 @@ export function SplitsBackfill({ runs }: { runs: Array<{ id: number; name: strin
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState(0);
   const [message, setMessage] = useState("");
-  const batch = runs.slice(0, 10);
+  const batch = runs.slice(0, 20);
   if (!batch.length) return null;
 
   const start = async () => {
