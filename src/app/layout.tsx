@@ -15,9 +15,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Pulse HealthTracker",
+  title: "Pulse | Jouw hardloopcoach",
   applicationName: "Pulse",
-  description: "Persoonlijk dashboard voor gezondheid en hardlopen.",
+  description: "Persoonlijke hardloopcoach met Strava-runanalyse en Apple Health-herstelcontext.",
   manifest: "/manifest.webmanifest",
   icons: {
     icon: [

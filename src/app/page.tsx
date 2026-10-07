@@ -1,114 +1,42 @@
-import type { CSSProperties, ReactNode } from "react";
 import Link from "next/link";
 import { desc, gte, sql } from "drizzle-orm";
-import { AppLogo } from "@/components/AppLogo";
+import { CoachNav } from "@/components/CoachNav";
 import { DataRefreshButton } from "@/components/DataRefreshButton";
-import { TrendChartsSection } from "@/components/TrendChartsSection";
 import { db } from "@/db";
 import { activities, healthMetrics } from "@/db/schema";
+import { buildCoachToday, buildPostRunCoach } from "@/lib/coach";
 import { fmtDate, fmtDuration, fmtKm, fmtPace } from "@/lib/format";
 import { buildHalfMarathonPlan } from "@/lib/half-marathon";
-import { buildTrainingAdvice, runPerformanceSummary, weightSummary } from "@/lib/insights";
-import { buildRecoverySummary, dayDifference } from "@/lib/recovery";
+import { KIND_LABEL } from "@/lib/run-analysis";
 
 export const dynamic = "force-dynamic";
 
-type IconName = "arrow" | "heart" | "run" | "spark" | "target" | "trend";
-
-function Icon({ name }: { name: IconName }) {
-  const paths: Record<IconName, ReactNode> = {
-    arrow: <path d="m9 18 6-6-6-6" />,
-    heart: <path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1.1-1.1a5.5 5.5 0 0 0-7.8 7.8l1.1 1.1L12 21l7.8-7.5 1.1-1.1a5.5 5.5 0 0 0-.1-7.8Z" />,
-    run: <><circle cx="15" cy="4" r="2" /><path d="m8 21 3-5 2 2 1 3M6 12l4-4 4 2 3 3 3-1M11 8l-1 8" /></>,
-    spark: <path d="m13 2-8 12h7l-1 8 8-12h-7l1-8Z" />,
-    target: <><circle cx="12" cy="12" r="9" /><circle cx="12" cy="12" r="5" /><circle cx="12" cy="12" r="1" /></>,
-    trend: <><path d="M4 19V5M4 19h16" /><path d="m7 15 4-4 3 2 5-6" /></>,
-  };
-  return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>{paths[name]}</svg>;
-}
-
-function signedPercent(value: number | null) {
-  if (value == null) return "nog geen vergelijking";
-  if (Math.abs(value) < 1) return "vrijwel gelijk aan vorige week";
-  return `${Math.abs(value).toFixed(0)}% ${value > 0 ? "meer" : "minder"} dan vorige week`;
-}
-
 export default async function Home() {
-  const historyStart = sql<Date>`CURRENT_TIMESTAMP - INTERVAL '1100 days'`;
-  const historyStartDate = sql<string>`CURRENT_DATE - 1100`;
-  const [runs, metrics] = await Promise.all([
-    db.select().from(activities).where(gte(activities.startDate, historyStart)).orderBy(desc(activities.startDate)),
-    db.select().from(healthMetrics).where(gte(healthMetrics.date, historyStartDate)),
+  const [runs, health] = await Promise.all([
+    db.select().from(activities).where(gte(activities.startDate, sql<Date>`CURRENT_TIMESTAMP - INTERVAL '400 days'`)).orderBy(desc(activities.startDate)),
+    db.select().from(healthMetrics).where(gte(healthMetrics.date, sql<string>`CURRENT_DATE - 400`)),
   ]);
-
   const now = new Date();
-  const today = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Amsterdam", year: "numeric", month: "2-digit", day: "2-digit" }).format(now);
-  const sortedMetrics = [...metrics].sort((a, b) => a.date.localeCompare(b.date));
-  const latestHealth = sortedMetrics.at(-1);
-  const lastHealthDate = latestHealth?.date ?? null;
-  const healthAgeDays = lastHealthDate ? dayDifference(today, lastHealthDate) : null;
-  const healthNeedsSync = healthAgeDays == null || healthAgeDays > 1;
-  const dayMs = 86_400_000;
-  const recentWeek = runs.filter((run) => run.startDate.getTime() >= now.getTime() - 7 * dayMs);
-  const previousWeek = runs.filter((run) => run.startDate.getTime() >= now.getTime() - 14 * dayMs && run.startDate.getTime() < now.getTime() - 7 * dayMs);
-  const weeklyKm = recentWeek.reduce((sum, run) => sum + (run.distanceM ?? 0), 0) / 1000;
-  const previousWeeklyKm = previousWeek.reduce((sum, run) => sum + (run.distanceM ?? 0), 0) / 1000;
-  const loadChange = previousWeeklyKm > 0 ? ((weeklyKm - previousWeeklyKm) / previousWeeklyKm) * 100 : null;
-  const loadScore = runs.length ? loadChange != null && loadChange > 45 ? 48 : loadChange != null && loadChange > 25 ? 64 : 82 : null;
-  const recovery = buildRecoverySummary(metrics, today, loadScore);
-  const recommendation = buildTrainingAdvice(runs, recovery.score, loadChange, now);
+  const coach = buildCoachToday(runs, health, now);
   const plan = buildHalfMarathonPlan(runs, now);
-  const performance = runPerformanceSummary(runs, metrics);
-  const weight = weightSummary(metrics);
-  const recentRuns = runs.slice(0, 4);
-  const hrv = recovery.signals.hrvMs;
-  const restingHeartRate = recovery.signals.restingHeartRate;
-  const latestVo2 = performance.vo2Trend.at(-1)?.value ?? null;
-  const readinessLabel = recovery.score == null ? "Nog onvoldoende data" : recovery.score >= 78 ? "Klaar voor kwaliteit" : recovery.score >= 58 ? "Rustig opbouwen" : "Herstel krijgt voorrang";
-  const recoveryTone = recovery.score == null ? "neutral" : recovery.score >= 78 ? "good" : recovery.score >= 58 ? "steady" : "careful";
+  const last = coach.lastRun;
+  const review = last ? buildPostRunCoach(last, runs, health) : null;
+  const hrv = coach.recovery.signals.hrvMs;
+  const rhr = coach.recovery.signals.restingHeartRate;
+  const stale = coach.healthAgeDays == null || coach.healthAgeDays > 1;
+  const count28 = runs.filter((run) => run.startDate.getTime() >= now.getTime() - 28 * 86_400_000).length;
 
-  if (!runs.length && !metrics.length) {
-    return <div className="coach-shell min-h-screen px-4 pb-12 sm:px-7"><main className="coach-main"><nav className="coach-nav" aria-label="Hoofdnavigatie"><Link href="/" className="brand-mark"><AppLogo /></Link></nav><section className="empty-hero"><span className="eyebrow">Jouw persoonlijke hardloopcoach</span><h1>Nog geen data <em>van jou.</em></h1><p>Verbind Strava om je eerste dashboard te zien.</p><div className="empty-actions"><a className="primary-button" href="/api/strava/auth">Verbind Strava <Icon name="arrow" /></a></div></section></main></div>;
-  }
-
-  return (
-    <div className="coach-shell min-h-screen px-4 pb-16 sm:px-7">
-      <main className="coach-main">
-        <nav className="coach-nav" aria-label="Hoofdnavigatie">
-          <Link href="/" className="brand-mark" aria-label="Pulse overzicht"><AppLogo /></Link>
-          <div className="coach-nav-links"><Link href="/" className="active">Overzicht</Link><Link href="/runs">Analyse</Link></div>
-          <Link href="/runs" className="coach-avatar" aria-label="Bekijk trainingen">IK</Link>
-        </nav>
-
-        <header className="coach-header">
-          <div><p className="eyebrow">Jouw coach · {fmtDate(today)}</p><h1>Dit is wat je lichaam<br /><em>vandaag aankan.</em></h1></div>
-          <div className="header-actions"><DataRefreshButton healthNeedsSync={healthNeedsSync} lastHealthDate={lastHealthDate} /><span className={`coach-data-state ${healthNeedsSync ? "stale" : ""}`}><i />{healthNeedsSync ? "Health bijwerken" : "Metingen actueel"}</span></div>
-        </header>
-
-        <section className="coach-hero" aria-label="Advies voor vandaag">
-          <article className="coach-advice-card">
-            <div className="coach-card-kicker"><span><Icon name="spark" /> Advies voor vandaag</span><b>{recovery.confidence} betrouwbaar</b></div>
-            <div className="coach-advice-body"><div className="coach-workout-icon"><Icon name="run" /></div><div><span className={`coach-status ${recoveryTone}`}>{readinessLabel}</span><h2>{recommendation.label}</h2><p className="coach-prescription">{recommendation.detail}</p></div></div>
-            <div className="coach-advice-footer"><Link href="/runs">Bekijk trainingen <Icon name="arrow" /></Link></div>
-          </article>
-          <aside className="coach-readiness-card">
-            <div className="coach-card-kicker"><span><Icon name="heart" /> Signalen van je lichaam</span><b>{recovery.freshCount}/4 actueel</b></div>
-            <div className="readiness-score-row"><div className="coach-score-ring" style={{ "--score": `${recovery.score ?? 0}%` } as CSSProperties}><div><strong>{recovery.score ?? "–"}</strong><span>dagvorm</span></div></div><div><h3>{readinessLabel}</h3></div></div>
-            <div className="plain-signals"><span><small>HRV</small><strong>{hrv ? `${Math.round(hrv.value)} ms` : "–"}</strong><em>{hrv?.baseline ? hrv.value >= hrv.baseline ? "op of boven normaal" : "lager dan normaal" : "basislijn opbouwen"}</em></span><span><small>Rusthartslag</small><strong>{restingHeartRate ? `${Math.round(restingHeartRate.value)} bpm` : "–"}</strong><em>{restingHeartRate?.baseline ? restingHeartRate.value <= restingHeartRate.baseline ? "rustig voor jou" : "hoger dan normaal" : "basislijn opbouwen"}</em></span><span><small>Weekbelasting</small><strong>{weeklyKm.toFixed(1)} km</strong><em>{signedPercent(loadChange)}</em></span></div>
-          </aside>
-        </section>
-
-        <section id="doel" className="goal-panel" aria-labelledby="goal-title">
-          <div className="goal-copy"><span className="eyebrow">Jouw doel</span><h2 id="goal-title">21,1 km</h2><p>{plan.summary}</p><div className="goal-progress" aria-label={`${plan.distanceProgressPct}% van halve-marathonafstand bereikt`}><span style={{ width: `${plan.distanceProgressPct}%` }} /></div><div className="goal-progress-labels"><span>Langste recente run: <strong>{plan.longestRunKm.toFixed(1)} km</strong></span><span>Doel: <strong>21,1 km</strong></span></div></div>
-          <div className="goal-stage"><Icon name="target" /><span>Huidige fase</span><strong>{plan.phase}</strong></div>
-          <div className="goal-numbers"><span><small>Laatste 4 weken</small><strong>{plan.last28DaysKm.toFixed(1)} km</strong></span><span><small>Ritme</small><strong>{plan.runsPerWeek.toFixed(1)}×/week</strong></span><span><small>Actieve weken</small><strong>{plan.activeWeeks}/6</strong></span></div>
-        </section>
-
-        <section className="proof-grid">
-          <div><div className="coach-section-heading"><div><h2>Jouw trends</h2></div></div><TrendChartsSection weightPoints={weight.trend} pacePoints={performance.paceTrend} today={today} /></div>
-          <aside className="latest-runs-card"><div className="coach-section-heading"><div><h2>Laatste trainingen</h2></div><Link href="/runs">Alles</Link></div>{recentRuns.map((run, index) => <Link href={`/runs/${run.id}`} className="coach-run-row" key={run.id}><span>{String(index + 1).padStart(2, "0")}</span><div><strong>{run.name || "Run"}</strong><small>{fmtDate(run.startDate)} · {fmtDuration(run.movingTimeS)}</small></div><div><strong>{fmtKm(run.distanceM)}</strong><small>{fmtPace(run.avgPaceMinPerKm)}</small></div><Icon name="arrow" /></Link>)}{!recentRuns.length && <p className="muted">Nog geen Strava-trainingen gevonden.</p>}{latestVo2 != null && <div className="latest-explainer"><Icon name="trend" /><div><strong>VO₂-max {latestVo2.toFixed(1)}</strong></div></div>}</aside>
-        </section>
-      </main>
-    </div>
-  );
+  return <div className="c-shell"><main className="c-container"><CoachNav active="today" />
+    <header className="c-page-head"><div><span className="c-overline">VANDAAG · {fmtDate(coach.today)}</span><h1>Jouw volgende<br /><em>goede stap.</em></h1><p>Een plan uit je runs en je herstel. Elke dag opnieuw berekend.</p></div><DataRefreshButton healthNeedsSync={stale} lastHealthDate={coach.latestHealthDate} /></header>
+    {!runs.length ? <section className="c-empty"><span className="c-overline">BEGIN HIER</span><h2>Je coach leert van jouw runs.</h2><p>Verbind Strava om je loopgeschiedenis te laden. Apple Health voegt herstelcontext toe zodra je iPhone de metingen verstuurt.</p><a href="/api/strava/auth" className="c-button">Verbind Strava <span>↗</span></a></section> : <>
+      <section className="c-lead-grid" aria-label="Advies en onderbouwing">
+        <article className="c-next-card"><div className="c-card-top"><span><i className="c-live-dot" /> ADVIES VOOR VANDAAG</span><small>{coach.recovery.confidence === "onvoldoende" ? "Voorzichtig advies" : `${coach.recovery.confidence} vertrouwen`}</small></div><div className="c-next-content"><span className="c-small-label">DIT PAST NU BIJ JE</span><h2>{coach.advice.label}</h2><p className="c-prescription">{coach.advice.detail}</p><p className="c-coach-explain">{coach.advice.coach}</p></div><div className="c-next-footer"><span>Gebaseerd op jouw ritme, belasting en beschikbare herstelmetingen</span><a href="#waarom">Bekijk waarom ↓</a></div></article>
+        <aside className="c-reason-card" id="waarom"><span className="c-overline">WAAROM DIT ADVIES</span><h2>De signalen achter<br />je volgende stap.</h2><ol>{coach.reason.map((item, index) => <li key={item}><span>0{index + 1}</span><p>{item}</p></li>)}</ol><div className="c-source-note"><strong>Apple Health</strong><span>{stale ? `Laatste gegevens: ${coach.latestHealthDate ? fmtDate(coach.latestHealthDate) : "nog niet ontvangen"}. Werk je Health-sync bij voor een actueel herstelbeeld.` : `Bijgewerkt t/m ${fmtDate(coach.latestHealthDate!)}. Dagwaarden worden vergeleken met je eigen basislijn.`}</span></div></aside>
+      </section>
+      {last && review && <section className="c-last-run" aria-labelledby="last-run-title"><div className="c-section-heading"><div><span className="c-overline">JE LAATSTE RUN</span><h2 id="last-run-title">Wat deze training je vertelt.</h2></div><Link href={`/runs/${last.id}`}>Volledige analyse <span>↗</span></Link></div><div className="c-last-grid"><div className="c-last-main"><div className="c-last-title"><span className="c-kind">{KIND_LABEL[review.kind]}</span><small>{fmtDate(last.startDate)}</small></div><h3>{last.name || "Hardlooptraining"}</h3><div className="c-run-numbers"><span><strong>{fmtKm(last.distanceM)}</strong><small>afstand</small></span><span><strong>{fmtPace(last.avgPaceMinPerKm)}</strong><small>tempo /km</small></span><span><strong>{fmtDuration(last.movingTimeS)}</strong><small>beweegtijd</small></span></div></div><div className="c-last-verdict"><span className="c-small-label">DE COACH ZIET</span><h3>{review.digest?.verdict ?? "Run vastgelegd"}</h3><p>{review.digest?.detail ?? "Open de run voor je persoonlijke analyse."}</p><div className="c-last-after"><strong>Hierna</strong><span>{review.nextStep}</span></div></div></div></section>}
+      <section className="c-lower-grid"><article className="c-direction"><span className="c-overline">WAAR JE STAAT</span><h2>{plan.phase}</h2><p>{plan.phaseReason}</p><div className="c-direction-stats"><span><strong>{count28}</strong><small>runs / 28 dagen</small></span><span><strong>{plan.longestRunKm.toLocaleString("nl-NL", { maximumFractionDigits: 1 })} km</strong><small>langste run / 6 weken</small></span><span><strong>{coach.load.weeklyKm.toLocaleString("nl-NL", { maximumFractionDigits: 1 })} km</strong><small>laatste 7 dagen</small></span></div><div className="c-direction-action"><span><b>Focus voor de komende weken</b><small>{plan.adjustments[0].title}. {plan.adjustments[1].title} als je goed herstelt.</small></span><Link href="/runs">Bekijk je ritme →</Link></div></article><aside className="c-health-card"><span className="c-overline">LICHAAMSCONTEXT</span><h2>Herstel in perspectief.</h2><div className="c-health-line"><span>HRV</span><strong>{hrv?.fresh ? `${Math.round(hrv.value)} ms` : "—"}</strong><small>{hrv?.fresh && hrv.baselineCount >= 5 ? `Basis ${Math.round(hrv.baseline!)} ms` : "Geen actuele basislijn"}</small></div><div className="c-health-line"><span>Rusthartslag</span><strong>{rhr?.fresh ? `${Math.round(rhr.value)} bpm` : "—"}</strong><small>{rhr?.fresh && rhr.baselineCount >= 5 ? `Basis ${Math.round(rhr.baseline!)} bpm` : "Geen actuele basislijn"}</small></div><p>We beoordelen trends ten opzichte van jouw normale waarden. Eén meting is geen oordeel.</p></aside></section>
+      <section className="c-recent"><div className="c-section-heading"><div><span className="c-overline">TRAININGSDAGBOEK</span><h2>Terugkijken en bijsturen.</h2></div><Link href="/runs">Alle runs <span>↗</span></Link></div><div className="c-recent-list">{runs.slice(0, 4).map((run) => <Link href={`/runs/${run.id}`} className="c-recent-row" key={run.id}><span className="c-recent-date">{fmtDate(run.startDate)}</span><strong>{run.name || "Run"}</strong><span>{fmtKm(run.distanceM)}</span><span>{fmtPace(run.avgPaceMinPerKm)}</span><b>↗</b></Link>)}</div></section>
+    </>}
+    <footer className="c-footer">PULSE / JOUW HARDLOOPCOACH <span>Strava × Apple Health</span></footer>
+  </main></div>;
 }
