@@ -19,7 +19,7 @@ Read the Next.js 16 docs relevant to what you're about to touch, resolved from `
 Files:
 
 ```
-src/db/schema.ts                        Drizzle schema: strava_tokens, activities (incl. nullable kind_override: manual race/not_race choice, never written by sync), health_metrics (unique indexes on athlete_id, strava_id, date)
+src/db/schema.ts                        Drizzle schema: strava_tokens, activities (incl. nullable kind_override: manual race/not_race choice, never written by sync), health_metrics, training_goals (one active single-user goal, unique id index)
 src/db/index.ts                         Neon client
 src/lib/strava.ts                       Strava OAuth token exchange/refresh + storage; getDetailedActivity() for per-run detail
 src/lib/sync.ts                         Full-history Strava run sync and reconciliation (upserts runs, deletes runs no longer on Strava)
@@ -29,6 +29,7 @@ src/lib/health-import.ts                Apple Shortcuts/Health Auto Export paylo
 src/lib/insights.ts                     Rule-based weight/run-performance summaries, buildTrainingAdvice() and buildInsights()
 src/lib/recovery.ts                     Readiness/recovery score from HRV, resting HR, cardio recovery and walking HR vs. personal baseline (min. 5 baseline samples, freshness check)
 src/lib/half-marathon.ts                buildHalfMarathonPlan(): phase, progress towards 21.1 km, adjustments and example week from the last 28/42 days of runs
+src/lib/goal-plan.ts                    Pure race-goal validation, calendar-day arithmetic and rolling training schedule from goal, Strava history and recovery/load context
 src/lib/coach.ts                        Pure coach orchestration: 7-day load versus a 4-week basis, today’s advice and reasons, per-run Strava/Health evidence, post-run recovery comparison and next step
 src/lib/run-analysis.ts                 Pure run analysis: classifyRun() (race/long/interval/easy), km-split and lap parsing, analyzePacing() (pattern, start/fade, HR drift, per-unit notes, advice), compareToSimilar(), buildRunAnalysis() (insights, training-vs-race, Riegel predictions, style profile), findRaceCandidates() (unmarked likely races), buildEventAnalysis() (per-distance race history with PR, preparation, taper, advice), buildRunDigest() (a verdict + advice for every run, from splits or from similar earlier runs). Min. 3 samples per aggregate
 src/lib/run-story.ts                    Pure phase-by-phase run narrative and available-Strava-metrics summary (start, middle, finish, load, lap power, best efforts)
@@ -47,12 +48,15 @@ src/app/api/health/ingest/route.ts      GET metric contract + protected POST ing
 src/app/layout.tsx                      Pulse metadata (noindex), favicon/Apple/Safari/PWA integration and authenticated shell
 src/app/manifest.ts                     PWA manifest and installable app icons
 src/app/globals.css                     Tailwind import plus the hand-written Pulse/coach design system
-src/app/page.tsx                        Coach home: one advice with reasons, latest run summary (auto loads missing detail), training direction, Health context and data refresh
+src/app/page.tsx                        Coach home: goal-aware daily advice and next session, latest run summary (auto loads missing detail), training direction, Health context and data refresh
 src/app/runs/page.tsx                   Training journal: current phase, recent load and run list with a short verdict
+src/app/goal/page.tsx                   Saved race goal, editable target and four-week calendar schedule
+src/app/goal/actions.ts                Session-protected Server Action for validated single-goal upsert and revalidation
 src/app/runs/actions.ts                 Authenticated Server Actions: manual Strava sync (syncRunsAction) and setRunKindAction (writes activities.kind_override)
 src/app/runs/[id]/page.tsx              Post-run coach: start/middle/finish/load story, evidence from Strava and Apple Health, next step, adjustable chart and split tools
 src/components/AppLogo.tsx              Shared Pulse wordmark used throughout the UI
 src/components/CoachNav.tsx             Shared navigation for coach home, journal and run detail
+src/components/GoalEditor.tsx           Accessible client-side goal form with Server Action state
 src/components/DataRefreshButton.tsx    Dashboard refresh: on iPhone/iPad opens the "Pulse Health-sync" Shortcut (shortcuts:// URL), then re-syncs Strava on return; elsewhere Strava sync only
 src/components/TrendChartsSection.tsx   Legacy dashboard chart section, no longer rendered by the coach home
 src/components/TrendChart.tsx           Recharts line chart with range-adaptive axes (chart-range.ts)
@@ -81,6 +85,7 @@ tests/health-import.test.mjs            Health payload parsing and unit-normaliz
 tests/insights.test.mjs                 Insight thresholds, staleness and recommendations
 tests/recovery.test.mjs                 Recovery baseline/freshness/score regression tests
 tests/half-marathon.test.mjs            Personal half-marathon phase and progression regression tests
+tests/goal-plan.test.mjs                Goal input, four-week schedule, taper, low-base and recovery adjustments, DST date arithmetic
 tests/run-analysis.test.mjs             Classification, pacing patterns, comparison, predictions and minimum-sample regression tests
 tests/run-story.test.mjs                Phase narrative and missing-split regression tests
 tests/coach.test.mjs                    Weekly load confidence, missing Health data, post-run recovery and same-day timing regression tests
@@ -98,6 +103,7 @@ When you add a file that a future agent would need to know about to orient itsel
 
 - `activities.start_date` is stored `timestamptz` — always in UTC as returned by Strava. Convert to local time (`Europe/Amsterdam`, via `src/lib/format.ts`) only at render time, never at write time.
 - `health_metrics.date` is a plain `date` (no timezone) representing a **calendar day reported by the iPhone source**. Apple Shortcuts sends an explicit local `yyyy-MM-dd` string; Health Auto Export supplies its device-local date. Do not reinterpret either through a timezone conversion — treat the string as already being the correct local day and only use string comparison, not local/UTC date arithmetic that could shift it across a day boundary.
+- `training_goals.race_date` is also a plain local calendar date, chosen by the user. The single goal row has `id = 1`; dates for race planning use Europe/Amsterdam and UTC-noon calendar arithmetic, so daylight-saving transitions cannot shift the target day. Goal edits never change imported Strava or Apple Health rows.
 - Cumulative metrics (steps, active energy, exercise minutes, daylight minutes) are **summed** per calendar day. Resting HR, HRV, one-minute cardio recovery, walking heart-rate average, oxygen saturation, respiratory rate, walking speed/steadiness and the running-form metrics (power, stride length, vertical oscillation, ground contact time) are **averaged**. VO2 max, weight and six-minute-walk distance take the **last** chronological value. Values outside the plausibility ranges in `health-import.ts` are rejected. This mapping lives in `HEALTH_METRIC_MAP` in `src/lib/health-import.ts` — if you add a metric, decide its aggregation deliberately and document it there, don't default to "last" out of laziness.
 - Apple Shortcuts sends already aggregated daily values in kcal/kg and the other documented canonical units. Legacy Health Auto Export samples are aggregated server-side; `active_energy` is normalized from kJ to kcal and weight from lb/lbs to kg in `src/lib/health-import.ts`. New units need explicit tests before import.
 - Sleep is intentionally not accepted, imported or analyzed because the connected export does not provide usable sleep data. `sleep_hours` and `sleep_score` are legacy nullable columns only; do not re-enable them without confirming that reliable source data exists and adding fixtures/tests.

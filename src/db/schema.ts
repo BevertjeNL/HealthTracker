@@ -79,3 +79,16 @@ export const healthMetrics = pgTable(
   },
   (table) => [uniqueIndex("health_metrics_date_idx").on(table.date)],
 );
+
+// Single-user goal. Keep the target separate from imported Strava/Health history.
+export const trainingGoals = pgTable(
+  "training_goals",
+  {
+    id: integer("id").primaryKey(),
+    distanceM: integer("distance_m").notNull(),
+    raceDate: date("race_date").notNull(),
+    targetPaceSecPerKm: integer("target_pace_sec_per_km").notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [uniqueIndex("training_goals_id_idx").on(table.id)],
+);
