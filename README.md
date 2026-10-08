@@ -12,12 +12,13 @@ Beide app-URL's horen naar dezelfde actuele productie-deployment te wijzen. De a
 
 ## Wat de app doet
 
-- **Vandaag (`/`)** toont één trainingsadvies met concrete invulling en drie zichtbare redenen: laatste run, weekbelasting en actuele Health-signalen. Rust is een volwaardig advies. Tempo of kwaliteit wordt pas geadviseerd wanneer ritme, belasting en herstel dat dragen.
-- **Laatste run op het startscherm** geeft direct een oordeel, de belangrijkste Strava-cijfers en een volgende stap. Een link opent de volledige analyse.
+- **Vandaag (`/`)** zet je wedstrijddoel, de opdracht voor vandaag, de volgende geplande sessie en de redenen voor een aanpassing vooraan. Rust is een volwaardig advies. Tempo of kwaliteit wordt pas geadviseerd wanneer ritme, belasting en herstel dat dragen.
+- **Laatste run op het startscherm** laat het verloop, maximaal drie concrete onderbouwingen en een leerpunt voor de volgende loop zien. De analyse per kilometer staat één klik verder.
+- **Gewicht op het startscherm** toont Apple Health-metingen in een grafiek met instelbare begindatum, einddatum en onder- en bovengrens in kilogram. Snelkeuzes en automatische Y-schaal blijven beschikbaar; bij minder dan drie metingen verschijnt geen trendclaim.
 - **Trainingsdagboek (`/runs`)** toont de huidige trainingsfase, de belasting ten opzichte van een persoonlijke weekbasis, de verdeling van recente runs en per run een kort oordeel. De oude tabellen, racevoorspellingen en verkenningspanelen staan niet meer in de hoofdflow.
 - **Runanalyse (`/runs/[id]`)** haalt ontbrekende Strava-details bij het openen op en beschrijft start, middenstuk, slot en totale belasting. Waar beschikbaar gebruikt de analyse kilometersplits, rondes, hartslag, hoogtecorrectie, vermogen, cadans, beweegtijd versus verstreken tijd, inspanningsscore en beste stukken. Apple Health plaatst het herstel in de context van je eigen basislijn. De grafiek laat je meetwaarde en het bereik van zowel X- als Y-as instellen; de X-as is afstand in km en tempo op de Y-as voer je in seconden per km in.
 - **Historische Strava-details** kun je in het trainingsdagboek per 20 runs aanvullen. Strava levert niet elke meting voor elke run; de runpagina noemt welke gegevens beschikbaar zijn. Bij minder dan drie volle kilometersplits trekt de coach geen conclusies over het tempoverloop.
-- **Wedstrijddoel (`/goal`)**: kies 5 km, 10 km of halve marathon, een wedstrijddatum en doeltempo per kilometer. Pulse slaat één actief doel op en berekent een kalenderplan met rustige trainingen, hoogstens één tempoprikkel per week, lange duurlopen, herstel en een lichtere laatste periode. Op het startscherm staat wat vandaag past en wanneer de volgende geplande training is. Nieuwe Strava-runs worden als gelogd in het schema getoond; recente loopomvang en beschikbare Apple Health-herstelmetingen kunnen het advies voor vandaag aanpassen. Een doeltempo is een ambitie en wordt niet als voorspelling gepresenteerd.
+- **Wedstrijddoel (`/goal`)**: kies 5 km, 10 km of halve marathon, een wedstrijddatum en doeltempo per kilometer. Pulse slaat één actief doel op en berekent een kalenderplan met rustige trainingen, hoogstens één tempoprikkel per week, lange duurlopen, herstel en een lichtere laatste periode. Op het startscherm staat wat vandaag past en wanneer de volgende geplande training is. Nieuwe Strava-runs worden als gelogd in het schema getoond; recente loopomvang, beschikbare Apple Health-herstelmetingen en duidelijk tempoverlies of hartslagdrift in de laatste run kunnen een zware training vandaag vervangen door herstel. Een doeltempo is een ambitie en wordt niet als voorspelling gepresenteerd.
 
 | Strava-gegevens | Wat de coach ermee doet |
 | --- | --- |
@@ -112,7 +113,7 @@ Apple Opdrachten ──POST──┘                  ▼
 
 | Pad | Inhoud |
 |---|---|
-| `src/app/page.tsx` | Advies voor vandaag, redenen, laatste run en trainingsrichting |
+| `src/app/page.tsx` | Doel, advies voor vandaag, post-run leermoment, gewichtsgrafiek en trainingsrichting |
 | `src/app/runs/` | Trainingsdagboek, post-run coachanalyse en handmatige sync-actie |
 | `src/app/api/` | Strava OAuth/sync/activity-detail en Health-ingest |
 | `src/lib/` | Pure logica: coach, runanalyse, import, herstel, inzichten, halve-marathonplan, sessies en security |
@@ -223,7 +224,7 @@ Controleer daarna GitHub Actions, de Vercel-deployment, de publieke URL, de `mai
 - Cardio Recovery en Walking Heart Rate Average leveren pas conclusies nadat voldoende nieuwe metingen zijn verzameld.
 - De aanbevelingen zijn regelgebaseerd en herberekenen bij nieuwe Strava- en Health-data. Er is geen LLM-gegenereerde coachinglaag.
 - De elf uitgebreide Health-metrics blijven opgeslagen; de coach gebruikt voor herstel alleen signalen waarvoor voldoende betrouwbare dagmetingen bestaan.
-- Historische grafiek- en verkenningscomponenten staan niet meer in de hoofdflow. Ze blijven voorlopig als broncode beschikbaar.
+- Enkele historische grafiek- en verkenningscomponenten staan niet meer in de hoofdflow. De nieuwe gewichtsgrafiek staat op het overzicht; oudere componenten blijven voorlopig als broncode beschikbaar.
 
 ## Versiegeschiedenis (samengevat)
 

@@ -50,3 +50,22 @@ export function summarizeChartPoints(points: ChartPoint[]) {
     average: values.reduce((sum, value) => sum + value, 0) / values.length,
   };
 }
+
+export function selectChartWindow(points: ChartPoint[], start: string, end: string) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(start) || !/^\d{4}-\d{2}-\d{2}$/.test(end) || start > end) return null;
+  return points.filter((point) => point.date.slice(0, 10) >= start && point.date.slice(0, 10) <= end);
+}
+
+export function manualValueDomain(points: ChartPoint[], lower: string, upper: string) {
+  const values = points.flatMap((point) => point.value == null ? [] : [point.value]);
+  if (!values.length) return { domain: undefined, error: null };
+  const min = Math.min(...values);
+  const max = Math.max(...values);
+  const padding = (max - min) * .12 || 1;
+  const parsedLower = lower.trim() === "" ? min - padding : Number(lower);
+  const parsedUpper = upper.trim() === "" ? max + padding : Number(upper);
+  if (!Number.isFinite(parsedLower) || !Number.isFinite(parsedUpper) || parsedLower >= parsedUpper) {
+    return { domain: undefined, error: "De ondergrens moet lager zijn dan de bovengrens." };
+  }
+  return { domain: [parsedLower, parsedUpper] as [number, number], error: null };
+}

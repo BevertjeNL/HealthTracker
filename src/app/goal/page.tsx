@@ -4,7 +4,7 @@ import { CoachNav } from "@/components/CoachNav";
 import { GoalEditor } from "@/components/GoalEditor";
 import { db } from "@/db";
 import { activities, healthMetrics, trainingGoals } from "@/db/schema";
-import { buildCoachToday } from "@/lib/coach";
+import { buildCoachToday, buildPostRunCoach, postRunPlanWarning } from "@/lib/coach";
 import { addDays, buildGoalPlan, dateText, goalDate } from "@/lib/goal-plan";
 
 export const dynamic = "force-dynamic";
@@ -19,7 +19,8 @@ export default async function GoalPage() {
   ]);
   const goal = saved[0] ?? null;
   const coach = buildCoachToday(runs, health, now);
-  const plan = goal ? buildGoalPlan(goal, runs, { recoveryScore: coach.recovery.score, loadChangePct: coach.load.changePct, generalAdvice: coach.advice }, now) : null;
+  const review = coach.lastRun ? buildPostRunCoach(coach.lastRun, runs, health) : null;
+  const plan = goal ? buildGoalPlan(goal, runs, { recoveryScore: coach.recovery.score, loadChangePct: coach.load.changePct, generalAdvice: coach.advice, lastRunWarning: coach.lastRun && review ? postRunPlanWarning(review, coach.lastRun.startDate) : null }, now) : null;
   return <div className="c-shell"><main className="c-container"><CoachNav active="goal" />
     <header className="c-page-head g-page-head"><div><span className="c-overline">JOUW VOLGENDE WEDSTRIJD</span><h1>Een doel geeft<br /><em>richting.</em></h1><p>Stel afstand, datum en doeltempo in. Je schema verandert mee met je Strava-runs en beschikbare Apple Health-hersteldata.</p></div><Link href="/" className="g-back-link">← Advies voor vandaag</Link></header>
     <section className="g-setup" aria-labelledby="goal-setup-title"><div className="g-setup-copy"><span className="c-overline">DOEL INSTELLEN</span><h2 id="goal-setup-title">{goal ? "Pas je wedstrijd aan." : "Maak je wedstrijd concreet."}</h2><p>{goal ? "Je schema wordt opnieuw berekend zodra je afstand, datum of tempo opslaat." : "Voor jouw voorbeeld staan een halve marathon over vier weken en 5:20/km alvast ingevuld."}</p></div><GoalEditor goal={goal} defaultDate={addDays(today, 28)} minDate={addDays(today, 1)} /></section>
