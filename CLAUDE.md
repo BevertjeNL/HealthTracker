@@ -32,6 +32,7 @@ src/lib/half-marathon.ts                buildHalfMarathonPlan(): phase, progress
 src/lib/goal-plan.ts                    Pure race-goal validation, calendar-day arithmetic and rolling training schedule from goal, Strava history, recent split warning and recovery/load context
 src/lib/coach.ts                        Pure coach orchestration: 7-day load versus a 4-week basis, today’s advice and reasons, per-run Strava/Health evidence, post-run recovery comparison, split warning and next step
 src/lib/coach-verdict.ts                Pure colored judgments and concrete actions for load, recovery, goal readiness and each run
+src/lib/run-lesson.ts                   Plain-language post-run lesson: meaning, what to keep, correction and next run from splits and run type
 src/lib/run-analysis.ts                 Pure run analysis: classifyRun() (race/long/interval/easy), km-split and lap parsing, analyzePacing() (pattern, start/fade, HR drift, per-unit notes, advice), compareToSimilar(), buildRunAnalysis() (insights, training-vs-race, Riegel predictions, style profile), findRaceCandidates() (unmarked likely races), buildEventAnalysis() (per-distance race history with PR, preparation, taper, advice), buildRunDigest() (a verdict + advice for every run, from splits or from similar earlier runs). Min. 3 samples per aggregate
 src/lib/run-story.ts                    Pure phase-by-phase run narrative and available-Strava-metrics summary (start, middle, finish, load, lap power, best efforts)
 src/lib/chart-range.ts                  Range-adaptive chart ticks/labels, point summaries and manual X/Y range validation for TrendChart
@@ -58,6 +59,7 @@ src/app/runs/[id]/page.tsx              Post-run coach: start/middle/finish/load
 src/components/AppLogo.tsx              Shared Pulse wordmark used throughout the UI
 src/components/CoachNav.tsx             Shared navigation for coach home, journal and run detail
 src/components/CoachVerdict.tsx         Shared judgment card with textual status, reason and action
+src/components/RunLessonCard.tsx        Primary post-run coaching card with practical keep/change/next-run instructions
 src/components/LiveCoachRefresh.tsx     Refreshes authenticated dynamic pages on focus and at most once a minute while visible
 src/components/GoalEditor.tsx           Accessible client-side goal form with Server Action state
 src/components/DataRefreshButton.tsx    Dashboard refresh: on iPhone/iPad opens the "Pulse Health-sync" Shortcut (shortcuts:// URL), then re-syncs Strava on return; elsewhere Strava sync only
@@ -94,6 +96,7 @@ tests/run-analysis.test.mjs             Classification, pacing patterns, compari
 tests/run-story.test.mjs                Phase narrative and missing-split regression tests
 tests/coach.test.mjs                    Weekly load confidence, missing Health data, post-run recovery and same-day timing regression tests
 tests/coach-verdict.test.mjs            Judgment transitions and missing-data safeguards
+tests/run-lesson.test.mjs               Actionable lessons for fading, even and summary-only runs
 tests/chart-range.test.mjs              Chart tick/label regression tests
 tests/mini-trend.test.mjs               Mini-trend windowing regression tests
 vercel.json                             Daily cron hitting /api/strava/sync (05:00 UTC)

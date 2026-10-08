@@ -18,10 +18,11 @@ export function recoveryVerdict(score: number | null, stale: boolean): CoachVerd
   return { tone: "good", label: "Herstel geeft ruimte", reason: `Herstelscore ${score}/100 ten opzichte van je eigen basislijn.`, action: "Volg de geplande training. Schakel terug als je benen of ademhaling anders aanvoelen." };
 }
 
-export function goalVerdict(level: "basis opbouwen" | "afstand uitbreiden" | "gericht voorbereiden", daysUntilRace: number): CoachVerdict {
+export function goalVerdict(level: "basis opbouwen" | "afstand uitbreiden" | "gericht voorbereiden", daysUntilRace: number, runsPerWeek: number | null = null): CoachVerdict {
   if (daysUntilRace < 0) return { tone: "unknown", label: "Wedstrijd voorbij", reason: "De ingestelde wedstrijddatum is verlopen.", action: "Stel een nieuwe datum en een realistisch doeltempo in." };
   if (level === "basis opbouwen") return { tone: "critical", label: "Doel nog niet gedragen door je loopbasis", reason: "Je recente regelmaat en lange duurloop zijn nog onvoldoende voor gerichte voorbereiding.", action: "Bouw nu rustige, regelmatige loopdagen op. Forceer de doelpace of een grote sprong in afstand niet." };
   if (level === "afstand uitbreiden") return { tone: "warning", label: "Afstand is je belangrijkste werkpunt", reason: "Je loopritme is aanwezig, maar de recente lange duurloop blijft achter op het doel.", action: "Volg de geplande rustige lange duurlopen. Voeg pas snelheid toe als de afstand goed gaat." };
+  if (runsPerWeek != null && runsPerWeek < 2) return { tone: "warning", label: "Afstand bewezen, regelmaat verbeteren", reason: "Je kunt de afstand aan, maar loopt nog minder dan twee keer per week.", action: "Doe de wekelijkse tempotraining en rustige lange loop. Voeg de korte rustige loop alleen toe als je goed herstelt." };
   return { tone: "good", label: "Basis voor gerichte voorbereiding aanwezig", reason: "Je recente ritme en lange duurloop ondersteunen een gericht schema.", action: "Volg het dagschema en houd zware en rustige dagen gescheiden." };
 }
 
@@ -32,8 +33,8 @@ export function runVerdict(digest: DigestRow | null | undefined, nextStep: strin
 }
 
 export function journalAction(digest: DigestRow | null | undefined) {
-  if (!digest) return "Haal de Strava-details op en open de run opnieuw.";
-  if (!digest.hasSplits) return "Open de run en haal kilometersplits op voor een oordeel over het verloop.";
+  if (!digest) return "Maak de volgende loop rustig; begin de eerste 10 minuten ontspannen.";
+  if (!digest.hasSplits) return digest.kind === "race" ? "Begin de volgende wedstrijd rustig en houd de eerste helft onder controle." : "Loop de volgende rustige training op een tempo waarop je nog kunt praten.";
   if (digest.pattern === "fade" || digest.pattern === "heavy-fade") return "Begin je volgende vergelijkbare run rustiger en houd het middenstuk gelijkmatig.";
   if (digest.tone === "watch") return "Loop je volgende training rustig en controleer het aandachtspunt in de volledige analyse.";
   if (digest.tone === "good") return "Herhaal wat hier goed ging; voeg alleen de geplande volgende trainingsprikkel toe.";

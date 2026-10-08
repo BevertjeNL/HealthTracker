@@ -41,7 +41,36 @@ test("a limited running base does not prescribe goal-pace intervals or a large l
   const plan = buildGoalPlan(goal, sparse, context, now);
   assert.equal(plan.level, "basis opbouwen");
   assert.equal(plan.weeks.flatMap((week) => week.days).some((day) => day.tone === "quality" && day.detail.includes("5:20")), false);
-  assert.match(plan.weeks.flatMap((week) => week.days).find((day) => day.tone === "long").detail, /6\.5 km/);
+  assert.match(plan.weeks.flatMap((week) => week.days).find((day) => day.tone === "long").detail, /6 km/);
+});
+
+test("a completed half marathon earns controlled weekly tempo work even with low run frequency", () => {
+  const thursday = new Date("2026-10-08T12:00:00Z");
+  const sparseButExperienced = [
+    { startDate: new Date("2026-10-04T10:00:00Z"), distanceM: 21100, movingTimeS: 6840, avgPaceMinPerKm: 5.4, name: "Halve marathon" },
+    { startDate: new Date("2026-09-25T10:00:00Z"), distanceM: 11000, movingTimeS: 3600, avgPaceMinPerKm: 5.45, name: "Training" },
+    { startDate: new Date("2026-09-15T10:00:00Z"), distanceM: 9000, movingTimeS: 3100, avgPaceMinPerKm: 5.7, name: "Training" },
+    { startDate: new Date("2026-09-05T10:00:00Z"), distanceM: 9000, movingTimeS: 3300, avgPaceMinPerKm: 5.9, name: "Training" },
+  ];
+  const plan = buildGoalPlan(goal, sparseButExperienced, context, thursday);
+  const days = plan.weeks.flatMap((week) => week.days);
+  assert.equal(plan.level, "gericht voorbereiden");
+  assert.equal(days.filter((day) => day.tone === "quality").length, 4);
+  assert.match(days.filter((day) => day.tone === "quality").at(-1).detail, /2 × 4 min/);
+  assert.match(plan.today.label, /Soepel tempo/);
+  assert.match(days.find((day) => day.tone === "long").detail, /12 km/);
+  assert.match(days.find((day) => day.title === "Optionele rustige loop").detail, /Sla deze extra loop over/);
+});
+
+test("a newly imported distance run changes the generated plan", () => {
+  const shortRuns = [2, 12].map((daysAgo) => ({ startDate: new Date(now.getTime() - daysAgo * 86_400_000), distanceM: 5000, movingTimeS: 1800, avgPaceMinPerKm: 6, name: "Training" }));
+  const fullRun = { startDate: new Date(now.getTime() - 86400000), distanceM: 21097, movingTimeS: 6900, avgPaceMinPerKm: 5.45, name: "Halve marathon" };
+  const before = buildGoalPlan(goal, shortRuns, context, now);
+  const after = buildGoalPlan(goal, [...shortRuns, fullRun], context, now);
+  assert.equal(before.level, "basis opbouwen");
+  assert.equal(after.level, "gericht voorbereiden");
+  assert.equal(before.weeks.flatMap((week) => week.days).some((day) => day.tone === "quality"), false);
+  assert.equal(after.weeks.flatMap((week) => week.days).some((day) => day.tone === "quality"), true);
 });
 
 test("low recovery replaces today's quality session with rest", () => {
@@ -58,6 +87,13 @@ test("recent split deterioration postpones a hard session even when recovery sco
   assert.equal(plan.today.label, "Herstel krijgt voorrang");
   assert.match(plan.today.coach, /Tempoverlies/);
   assert.equal(plan.weeks[0].days[0].status, "adjusted");
+});
+
+test("recent pacing deterioration changes the goal assessment after the immediate rest window", () => {
+  const thursday = new Date("2026-10-08T12:00:00Z");
+  const plan = buildGoalPlan(goal, runs, { ...context, lastRunWarning: { at: new Date("2026-10-04T08:00:00Z"), reason: "Tempoverlies in de tweede helft." } }, thursday);
+  assert.match(plan.assessment, /rustigere start/);
+  assert.match(plan.evidence.join(" "), /Tempoverlies/);
 });
 
 test("a Strava run today is recorded without claiming the prescribed workout was completed", () => {
