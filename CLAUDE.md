@@ -29,11 +29,11 @@ src/lib/health-import.ts                Apple Shortcuts/Health Auto Export paylo
 src/lib/insights.ts                     Rule-based weight/run-performance summaries, buildTrainingAdvice() and buildInsights()
 src/lib/recovery.ts                     Readiness/recovery score from HRV, resting HR, cardio recovery and walking HR vs. personal baseline (min. 5 baseline samples, freshness check)
 src/lib/half-marathon.ts                buildHalfMarathonPlan(): phase, progress towards 21.1 km, adjustments and example week from the last 28/42 days of runs
-src/lib/goal-plan.ts                    Pure race-goal validation, calendar-day arithmetic and rolling training schedule from goal, Strava history and recovery/load context
-src/lib/coach.ts                        Pure coach orchestration: 7-day load versus a 4-week basis, today’s advice and reasons, per-run Strava/Health evidence, post-run recovery comparison and next step
+src/lib/goal-plan.ts                    Pure race-goal validation, calendar-day arithmetic and rolling training schedule from goal, Strava history, recent split warning and recovery/load context
+src/lib/coach.ts                        Pure coach orchestration: 7-day load versus a 4-week basis, today’s advice and reasons, per-run Strava/Health evidence, post-run recovery comparison, split warning and next step
 src/lib/run-analysis.ts                 Pure run analysis: classifyRun() (race/long/interval/easy), km-split and lap parsing, analyzePacing() (pattern, start/fade, HR drift, per-unit notes, advice), compareToSimilar(), buildRunAnalysis() (insights, training-vs-race, Riegel predictions, style profile), findRaceCandidates() (unmarked likely races), buildEventAnalysis() (per-distance race history with PR, preparation, taper, advice), buildRunDigest() (a verdict + advice for every run, from splits or from similar earlier runs). Min. 3 samples per aggregate
 src/lib/run-story.ts                    Pure phase-by-phase run narrative and available-Strava-metrics summary (start, middle, finish, load, lap power, best efforts)
-src/lib/chart-range.ts                  Range-adaptive chart ticks/labels and point summaries for TrendChart
+src/lib/chart-range.ts                  Range-adaptive chart ticks/labels, point summaries and manual X/Y range validation for TrendChart
 src/lib/mini-trend.ts                   Calendar-window sparkline series (only used by the currently unused HealthOverviewTile)
 src/lib/security.ts                     Constant-time secret comparison and Bearer parsing
 src/lib/session.ts                      Session signing/verification and password check
@@ -48,7 +48,7 @@ src/app/api/health/ingest/route.ts      GET metric contract + protected POST ing
 src/app/layout.tsx                      Pulse metadata (noindex), favicon/Apple/Safari/PWA integration and authenticated shell
 src/app/manifest.ts                     PWA manifest and installable app icons
 src/app/globals.css                     Tailwind import plus the hand-written Pulse/coach design system
-src/app/page.tsx                        Coach home: goal-aware daily advice and next session, latest run summary (auto loads missing detail), training direction, Health context and data refresh
+src/app/page.tsx                        Coach home: goal-aware daily advice and next session, latest run evidence (auto loads missing detail), adjustable Apple Health weight chart, training direction and data refresh
 src/app/runs/page.tsx                   Training journal: current phase, recent load and run list with a short verdict
 src/app/goal/page.tsx                   Saved race goal, editable target and four-week calendar schedule
 src/app/goal/actions.ts                Session-protected Server Action for validated single-goal upsert and revalidation
@@ -59,7 +59,8 @@ src/components/CoachNav.tsx             Shared navigation for coach home, journa
 src/components/GoalEditor.tsx           Accessible client-side goal form with Server Action state
 src/components/DataRefreshButton.tsx    Dashboard refresh: on iPhone/iPad opens the "Pulse Health-sync" Shortcut (shortcuts:// URL), then re-syncs Strava on return; elsewhere Strava sync only
 src/components/TrendChartsSection.tsx   Legacy dashboard chart section, no longer rendered by the coach home
-src/components/TrendChart.tsx           Recharts line chart with range-adaptive axes (chart-range.ts)
+src/components/TrendChart.tsx           Recharts line/area chart with range-adaptive axes and optional manual Y-domain (chart-range.ts)
+src/components/WeightChartPanel.tsx     Active overview weight chart with manual X dates, Y kg limits and quick period choices
 src/components/TrainingExplorer.tsx     Legacy client-side Strava explorer, no longer rendered by the journal
 src/components/SplitAnalyzer.tsx        Client-side selection and analysis of detailed kilometer splits
 src/components/RunCoach.tsx             Client-side per-kilometer/per-lap coach with selectable metric, adjustable X/Y axes and detailed table

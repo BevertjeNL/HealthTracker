@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { buildChartTicks, chartSpanDays, formatChartTick, summarizeChartPoints } from "../src/lib/chart-range.ts";
+import { buildChartTicks, chartSpanDays, formatChartTick, manualValueDomain, selectChartWindow, summarizeChartPoints } from "../src/lib/chart-range.ts";
 
 test("uses calendar dates for short ranges and years for multi-year ranges", () => {
   const shortDomain = ["2026-08-02", "2026-08-31"];
@@ -21,4 +21,18 @@ test("summary only reflects the points passed for the selected range", () => {
   assert.equal(summary.minimum, 70.5);
   assert.equal(summary.maximum, 71.2);
   assert.ok(Math.abs(summary.average - 70.8333333333) < 0.0001);
+});
+
+test("manual chart axes crop dates and accept independent Y limits", () => {
+  const points = [
+    { date: "2026-08-01", value: 71.2 },
+    { date: "2026-08-20", value: 70.8 },
+    { date: "2026-08-31", value: 70.5 },
+  ];
+  const visible = selectChartWindow(points, "2026-08-20", "2026-08-31");
+  assert.equal(visible.length, 2);
+  assert.deepEqual(manualValueDomain(visible, "69", "72").domain, [69, 72]);
+  assert.equal(manualValueDomain(visible, "70", "").domain[0], 70);
+  assert.match(manualValueDomain(visible, "72", "69").error, /ondergrens/);
+  assert.equal(selectChartWindow(points, "2026-09-01", "2026-08-31"), null);
 });

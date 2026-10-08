@@ -875,3 +875,37 @@ a:focus-visible, button:focus-visible { outline: 3px solid rgba(255, 101, 69, .3
 @media (max-width: 980px) { .g-setup, .g-assessment, .g-today { grid-template-columns: 1fr; }.g-setup-copy p { max-width: none; } }
 @media (max-width: 720px) { .g-weeks { grid-template-columns: 1fr; }.g-target, .g-home-target { align-items: flex-start; flex-direction: column; }.g-race { grid-template-columns: 1fr; gap: 10px; }.g-form { grid-template-columns: 1fr; }.c-nav { grid-template-columns: auto 1fr; gap: 14px; }.c-nav-links { justify-content: flex-end; gap: 15px; }.c-nav-links a { font-size: 13px; } }
 @media (max-width: 450px) { .c-nav .brand-mark { font-size: 18px; }.c-nav-links { gap: 10px; }.c-nav-links a { font-size: 12px; }.g-setup, .g-target, .g-assessment, .g-today > div, .g-today aside, .g-week { padding: 20px; }.g-day { grid-template-columns: 1fr; gap: 6px; } }
+
+/* Clearer overview decisions and readable chart controls */
+.g-home-target { margin-bottom: 20px; }
+.c-next-session { margin: 19px 0 0; padding: 14px 16px; border: 1px solid rgba(224,247,162,.25); border-radius: 13px; color: #e2f2d7; background: rgba(255,255,255,.08); font-size: 15px; line-height: 1.5; }
+.c-next-session strong { color: #def6a0; }
+.c-last-run { margin-top: 30px; }
+.c-last-evidence { margin: 15px 0 0; padding: 0; display: grid; gap: 7px; list-style: none; }
+.c-last-evidence li { padding-left: 17px; position: relative; color: #385a43; font-size: 14px; line-height: 1.5; }
+.c-last-evidence li::before { content: ""; position: absolute; top: 8px; left: 0; width: 7px; height: 7px; border-radius: 50%; background: #df7951; }
+.c-last-after { grid-template-columns: 1fr; gap: 5px; font-size: 15px; }
+.c-last-after strong { font-size: 14px; }
+.w-section { margin-top: 42px; }
+.w-intro { max-width: 760px; margin: -7px 0 17px; color: #506a57; font-size: 15px; line-height: 1.55; }
+.w-controls { margin: 0 0 17px; padding: 16px; border: 1px solid #dce8dc; border-radius: 15px; background: #f5f8f3; }
+.w-presets { margin-bottom: 14px; display: flex; flex-wrap: wrap; gap: 8px; }
+.w-presets button, .w-axis-grid button { min-height: 42px; padding: 8px 13px; border: 1px solid #bfd2bf; border-radius: 10px; color: #1c4b33; background: #fff; font: inherit; font-size: 14px; font-weight: 750; cursor: pointer; }
+.w-presets button[aria-pressed="true"] { border-color: #1a563a; color: #fff; background: #1a563a; }
+.w-axis-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 13px; }
+.w-axis-grid fieldset { min-width: 0; margin: 0; padding: 12px; display: flex; flex-wrap: wrap; align-items: end; gap: 9px; border: 1px solid #d1dfd0; border-radius: 12px; }
+.w-axis-grid legend { padding: 0 5px; color: #234c35; font-size: 15px; font-weight: 800; }
+.w-axis-grid label { min-width: 120px; flex: 1; display: grid; gap: 5px; color: #365b42; font-size: 14px; font-weight: 700; }
+.w-axis-grid input { width: 100%; min-height: 43px; padding: 8px 10px; border: 1px solid #bdd0bf; border-radius: 9px; color: #183d2b; background: #fff; font: inherit; font-size: 16px; }
+.w-axis-grid input[aria-invalid="true"] { border-color: #b24737; }
+.w-error { margin: 10px 0 0; color: #a1382e; font-size: 14px; font-weight: 700; }
+.w-count { margin: 12px 0 0; color: #4c6853; font-size: 14px; }
+.w-section .chart-stat-strip small { color: #536d59; font-size: 13px; }
+.w-section .chart-stat-strip strong { font-size: 16px; }
+.c-shell .c-nav-links a, .c-shell .c-overline, .c-shell .c-small-label, .c-shell .c-card-top, .c-shell .c-card-top small, .c-shell .c-next-footer, .c-shell .c-next-footer a, .c-shell .c-source-note span, .c-shell .c-run-numbers small, .c-shell .c-direction-stats small, .c-shell .c-health-line small, .c-shell .c-journal-metrics small, .c-shell .c-footer, .c-shell .g-done, .c-shell .g-adjusted { font-size: 14px; }
+.c-shell .c-reason-card li p, .c-shell .c-last-verdict > p, .c-shell .c-direction > p, .c-shell .c-health-card > p, .c-shell .g-day p, .c-shell .g-assessment li { font-size: 15px; }
+.c-shell .c-next-footer { color: #d8e8d7; }
+.c-shell .c-source-note span, .c-shell .c-run-numbers small, .c-shell .c-direction-stats small, .c-shell .c-health-line small, .c-shell .c-footer { color: #506a57; }
+.c-shell small { font-size: 14px; line-height: 1.4; }
+@media (max-width: 760px) { .w-axis-grid { grid-template-columns: 1fr; } }
+@media (max-width: 450px) { .c-shell .c-nav-links a { font-size: 14px; }.w-axis-grid fieldset { flex-direction: column; align-items: stretch; }.w-axis-grid label { min-width: 0; } }

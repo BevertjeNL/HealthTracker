@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import { buildChartTicks, chartSpanDays, formatChartTick, summarizeChartPoints } from "@/lib/chart-range";
 
 import {
+  Area,
   CartesianGrid,
   Line,
   LineChart,
@@ -55,6 +56,7 @@ export function TrendChart({
   reversed = false,
   controls,
   dateDomain,
+  valueDomain,
 }: {
   title: string;
   subtitle?: string;
@@ -64,6 +66,7 @@ export function TrendChart({
   reversed?: boolean;
   controls?: ReactNode;
   dateDomain?: [string, string];
+  valueDomain?: [number, number];
 }) {
   const formatter = FORMATTERS[unit];
   const data = points
@@ -94,13 +97,13 @@ export function TrendChart({
     >
       <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h3 className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>{title}</h3>
-          {subtitle && <p className="mt-0.5 text-xs" style={{ color: "var(--text-muted)" }}>{subtitle}</p>}
+          <h3 className="text-lg font-semibold" style={{ color: "var(--text-primary)" }}>{title}</h3>
+          {subtitle && <p className="mt-0.5 text-sm" style={{ color: "var(--text-secondary)" }}>{subtitle}</p>}
         </div>
         {latest != null && values.length >= 3 && (
           <div className="text-right">
             <p className="text-lg font-semibold tabular-nums" style={{ color: "var(--text-primary)" }}>{formatter.value(latest)}</p>
-            <p className="text-xs" style={{ color: "var(--text-muted)" }}>
+            <p className="text-sm" style={{ color: "var(--text-secondary)" }}>
               laatste · bereik {first != null ? `${latest - first > 0 ? "+" : ""}${formatter.value(latest - first)}` : ""}
             </p>
           </div>
@@ -134,30 +137,34 @@ export function TrendChart({
                 allowDataOverflow
                 minTickGap={34}
                 tickFormatter={(value) => formatChartTick(Number(value), spanDays)}
-                tick={{ fontSize: 11, fill: "var(--text-muted)" }}
+                tick={{ fontSize: 13, fill: "var(--text-secondary)" }}
                 axisLine={{ stroke: "var(--axis)" }}
                 tickLine={false}
               />
               <YAxis
-                domain={domain}
+                domain={valueDomain ?? domain}
                 reversed={reversed}
                 tickFormatter={formatter.tick}
-                tick={{ fontSize: 11, fill: "var(--text-muted)" }}
-                width={54}
+                tick={{ fontSize: 13, fill: "var(--text-secondary)" }}
+                width={58}
                 axisLine={false}
                 tickLine={false}
-                label={{ value: formatter.axis, angle: -90, position: "insideLeft", fill: "var(--text-muted)", fontSize: 10 }}
+                allowDataOverflow={Boolean(valueDomain)}
+                label={{ value: formatter.axis, angle: -90, position: "insideLeft", fill: "var(--text-secondary)", fontSize: 13 }}
               />
               {average != null && (
-                <ReferenceLine y={average} stroke="var(--text-muted)" strokeDasharray="5 5" label={{ value: "gem.", position: "insideTopRight", fill: "var(--text-muted)", fontSize: 10 }} />
+                <ReferenceLine y={average} stroke="var(--text-muted)" strokeDasharray="5 5" label={{ value: "gem.", position: "insideTopRight", fill: "var(--text-muted)", fontSize: 13 }} />
               )}
               <Tooltip
-                contentStyle={{ background: "var(--surface-1)", border: "1px solid var(--border)", borderRadius: 10, fontSize: 12 }}
+                contentStyle={{ background: "var(--surface-1)", border: "1px solid var(--border)", borderRadius: 10, fontSize: 14 }}
                 labelStyle={{ color: "var(--text-secondary)", marginBottom: 4 }}
                 labelFormatter={(_, payload) => payload[0]?.payload?.date ? fmtDateLong(payload[0].payload.date) : ""}
                 formatter={(value) => [formatter.value(Number(value)), title]}
               />
-              <Line type="monotone" dataKey="value" stroke={color} strokeWidth={2.5} dot={{ r: 2.5, fill: color, strokeWidth: 0 }} activeDot={{ r: 5, stroke: "var(--surface-1)", strokeWidth: 2 }} connectNulls isAnimationActive={false} />
+              {unit === "kg" ? <>
+                <defs><linearGradient id="weight-chart-fill" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor={color} stopOpacity={0.23} /><stop offset="100%" stopColor={color} stopOpacity={0.01} /></linearGradient></defs>
+                <Area type="monotone" dataKey="value" stroke={color} strokeWidth={3} fill="url(#weight-chart-fill)" dot={{ r: 3.5, fill: color, strokeWidth: 0 }} activeDot={{ r: 6, fill: color, stroke: "#fff", strokeWidth: 2 }} connectNulls isAnimationActive={false} />
+              </> : <Line type="monotone" dataKey="value" stroke={color} strokeWidth={3} dot={{ r: 3, fill: color, strokeWidth: 0 }} activeDot={{ r: 5, stroke: "var(--surface-1)", strokeWidth: 2 }} connectNulls isAnimationActive={false} />}
             </LineChart>
           </ResponsiveContainer>
         </div>

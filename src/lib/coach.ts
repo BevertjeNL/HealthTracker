@@ -96,3 +96,14 @@ export function buildPostRunCoach(run: Activity, allRuns: Activity[], health: He
   const healthAfterDate = [hrv.afterDate, restingHr.afterDate].filter((date): date is string => date != null).sort()[0] ?? null;
   return { kind, runDate, digest, pacing, comparison, hrv, restingHr, recoveryTitle, recoveryText, nextStep, evidence, healthAfterDate, hasHealthOnRunDay: hrv.onDay != null || restingHr.onDay != null };
 }
+
+export function postRunPlanWarning(review: ReturnType<typeof buildPostRunCoach>, runAt: Date) {
+  if (!review.pacing) return null;
+  if (review.pacing.pattern === "heavy-fade" || review.pacing.pattern === "fade") {
+    return { at: runAt, reason: "Je laatste run verloor in de tweede helft tempo. Geef je volgende zware training pas ruimte na een rustige hersteldag." };
+  }
+  if (review.pacing.hrDriftPct != null && review.pacing.hrDriftPct >= 6 && review.kind !== "interval") {
+    return { at: runAt, reason: "Je hartslag liep in de laatste run op bij vergelijkbaar tempo. Houd de eerstvolgende training rustig." };
+  }
+  return null;
+}
