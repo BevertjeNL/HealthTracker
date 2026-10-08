@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { LogoutButton } from "@/components/LogoutButton";
+import { LiveCoachRefresh } from "@/components/LiveCoachRefresh";
 import { hasAuthenticatedSession } from "@/lib/session-server";
 import "./globals.css";
 
@@ -71,6 +72,7 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
     >
       <body className="min-h-full flex flex-col">
         {authenticated && <LogoutButton />}
+        {authenticated && <LiveCoachRefresh />}
         {children}
       </body>
     </html>
