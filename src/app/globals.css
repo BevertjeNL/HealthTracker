@@ -909,3 +909,34 @@ a:focus-visible, button:focus-visible { outline: 3px solid rgba(255, 101, 69, .3
 .c-shell small { font-size: 14px; line-height: 1.4; }
 @media (max-width: 760px) { .w-axis-grid { grid-template-columns: 1fr; } }
 @media (max-width: 450px) { .c-shell .c-nav-links a { font-size: 14px; }.w-axis-grid fieldset { flex-direction: column; align-items: stretch; }.w-axis-grid label { min-width: 0; } }
+
+/* Decisive coach judgments: text carries the meaning as well as color. */
+.c-verdict-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; margin: 20px 0 30px; }
+.c-verdict { padding: 20px 22px; border: 1px solid var(--verdict-border); border-left: 6px solid var(--verdict-accent); border-radius: 16px; color: var(--verdict-text); background: var(--verdict-bg); }
+.c-verdict-good { --verdict-border: #a9d6ba; --verdict-accent: #14804c; --verdict-bg: #ecf8ef; --verdict-text: #145236; }
+.c-verdict-warning { --verdict-border: #e7c989; --verdict-accent: #bb7307; --verdict-bg: #fff7e5; --verdict-text: #704606; }
+.c-verdict-critical { --verdict-border: #e8a8a0; --verdict-accent: #c5362e; --verdict-bg: #fff0ee; --verdict-text: #8b2824; }
+.c-verdict-unknown { --verdict-border: #c5d1ce; --verdict-accent: #647977; --verdict-bg: #f2f6f4; --verdict-text: #365551; }
+.c-verdict-label { display: block; font-size: 16px; line-height: 1.35; letter-spacing: .015em; }
+.c-verdict p, .c-shell .g-assessment .c-verdict p, .c-shell .c-detail-coach .c-verdict p { margin: 10px 0 0; color: inherit; font-size: 15px; line-height: 1.5; }
+.c-verdict .c-verdict-action { padding-top: 10px; border-top: 1px solid var(--verdict-border); font-weight: 550; }
+.c-verdict.compact { padding: 14px 16px; }
+.c-next-card.c-next-critical { background: linear-gradient(135deg, #872a2a, #b94635); }
+.c-next-card.c-next-warning { background: linear-gradient(135deg, #765019, #a77323); }
+.c-next-card.c-next-good { background: linear-gradient(135deg, #135637, #21774a); }
+.c-last-verdict .c-verdict { margin: 12px 0; }
+.c-detail-coach .c-verdict { margin: 14px 0; }
+.c-story-point.watch { background: #fff5ef; border-color: #e9b4a0; border-top-color: #c5362e; }
+.c-story-point.good { background: #f0faf2; border-color: #addabd; border-top-color: #14804c; }
+.c-story-point .c-story-action { margin-top: 13px; padding-top: 11px; border-top: 1px solid currentColor; font-weight: 550; }
+.c-mini-judgment { font-size: 14px; font-weight: 850; line-height: 1.4; }
+.c-mini-judgment.good, .c-journal-name .c-mini-judgment.good { color: #14643e; }
+.c-mini-judgment.watch, .c-journal-name .c-mini-judgment.watch { color: #ae3029; }
+.c-mini-judgment.info, .c-journal-name .c-mini-judgment.info { color: #88580f; }
+.c-journal-name span { white-space: normal; }
+.c-journal-name .c-mini-judgment { font-size: 14px; }
+.c-rhythm-side .c-verdict { margin-top: 14px; }
+.c-rhythm-side .c-verdict p { margin-top: 8px; color: inherit; font-size: 14px; }
+.c-health-action { padding: 12px 14px; border-left: 4px solid #b96e1c; border-radius: 8px; background: #fff6e8; color: #68420c; }
+@media (max-width: 900px) { .c-verdict-grid { grid-template-columns: 1fr 1fr; } }
+@media (max-width: 650px) { .c-verdict-grid { grid-template-columns: 1fr; } }

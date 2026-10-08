@@ -256,9 +256,9 @@ export function analyzePacing(units: PaceUnit[], kind: RunKind, context: Analysi
   const fastBlocks = paces.filter((pace) => pace <= paceMean - 20).length;
   const slowBlocks = paces.filter((pace) => pace >= paceMean + 20).length;
   if (kind === "interval" && fastBlocks >= 2 && slowBlocks >= 2) pattern = "intervals";
+  else if (splitDiffSec >= 15 && kind !== "interval") pattern = "heavy-fade";
   else if (cvPct != null && cvPct > 7 && kind !== "interval") pattern = "variable";
   else if (splitDiffSec <= -4) pattern = "negative";
-  else if (splitDiffSec >= 15) pattern = "heavy-fade";
   else if (splitDiffSec >= 5) pattern = "fade";
   else pattern = "even";
 
@@ -713,9 +713,9 @@ export function buildRunDigest(runs: AnalysisRun[]): DigestRow[] {
     const hardEasy = (kind === "easy" || kind === "long") && run.avgHr != null && maxHrObserved != null && run.avgHr / maxHrObserved >= 0.84;
 
     if (kind === "race") {
-      if (band && run.movingTimeS > 0 && bestRaceByBand.get(band.key) === run.movingTimeS && sorted.filter((other) => classifyRun(other) === "race" && distanceBand(other.distanceM)?.key === band.key).length >= 2) return pick("good", "Snelste wedstrijd op deze afstand", `Je persoonlijk record op ${band.label}.`);
       if (pacing?.pattern === "heavy-fade") return pick("watch", "Sterk vervallen", `Tweede helft ${Math.round(pacing.splitDiffSec)} s/km langzamer. Start rustiger.`);
       if (pacing?.firstUnitDeltaSec != null && pacing.firstUnitDeltaSec <= -10) return pick("watch", "Te snel gestart", `Eerste kilometer ${Math.abs(Math.round(pacing.firstUnitDeltaSec))} s/km sneller dan de rest.`);
+      if (band && run.movingTimeS > 0 && bestRaceByBand.get(band.key) === run.movingTimeS && sorted.filter((other) => classifyRun(other) === "race" && distanceBand(other.distanceM)?.key === band.key).length >= 2) return pick("good", "Snelste wedstrijd op deze afstand", `Je persoonlijk record op ${band.label}.`);
       if (pacing?.pattern === "negative" || pacing?.pattern === "even") return pick("good", pacing.pattern === "negative" ? "Negatieve split" : "Gelijkmatig gelopen", "Goed ingedeelde wedstrijd.");
       if (comparison?.paceDeltaSec != null && comparison.paceDeltaSec <= -3) return pick("good", "Sneller dan je vorige wedstrijden", `${Math.abs(Math.round(comparison.paceDeltaSec))} s/km onder je mediaan.`);
       return pick("info", "Wedstrijd", pacing ? "Geen bijzonderheden in het tempoverloop." : "Haal de splits op voor de analyse per kilometer.");
@@ -724,7 +724,7 @@ export function buildRunDigest(runs: AnalysisRun[]): DigestRow[] {
       const fast = pacing?.pattern === "intervals" ? pacing.advice[0] : null;
       return fast ? pick(fast.tone, fast.title, fast.detail) : pick("info", "Interval / tempo", pacing ? "Geen duidelijke blokken herkend." : "Haal de splits op voor de analyse per blok.");
     }
-    if (hardEasy) return pick("watch", kind === "long" ? "Lange duur te hard" : "Te hard voor rustig", `Gemiddeld ${Math.round(run.avgHr!)} bpm is ${Math.round((run.avgHr! / maxHrObserved!) * 100)}% van je maximum. Loop 30–60 s/km langzamer.`);
+    if (hardEasy) return pick("watch", kind === "long" ? "Lange duur te hard" : "Te hard voor rustig", `Gemiddeld ${Math.round(run.avgHr!)} bpm is ${Math.round((run.avgHr! / maxHrObserved!) * 100)}% van je hoogste gemeten Strava-hartslag. Loop de volgende rustige run duidelijk langzamer en controleer of je kunt praten.`);
     if (pacing && (pacing.pattern === "heavy-fade" || pacing.pattern === "fade")) return pick("watch", "Langzamer geworden", `Tweede helft ${Math.round(pacing.splitDiffSec)} s/km langzamer${pacing.firstUnitDeltaSec != null && pacing.firstUnitDeltaSec <= -10 ? ", na een te snelle start" : ""}.`);
     if (pacing?.firstUnitDeltaSec != null && pacing.firstUnitDeltaSec <= -10) return pick("watch", "Te snel gestart", `Eerste kilometer ${Math.abs(Math.round(pacing.firstUnitDeltaSec))} s/km sneller dan de rest.`);
     if (efficiencyVsSimilarPct != null && efficiencyVsSimilarPct >= 3) return pick("good", "Efficiënter dan normaal", `${efficiencyVsSimilarPct}% meer meters per hartslag dan vergelijkbare runs.`);
