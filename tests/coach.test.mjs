@@ -24,7 +24,7 @@ test("today's advice keeps incomplete Health information explicit", () => {
   const view = buildCoachToday([run(1, "2026-10-07")], [], now);
   assert.match(view.advice.label, /niet nogmaals lopen/i);
   assert.equal(view.recovery.score, null);
-  assert.match(view.reason.at(-1), /Nog geen bruikbare Apple Health/i);
+  assert.ok(view.reason.every((item) => !item.includes("Apple Health")));
 });
 
 test("post-run coach uses a personal baseline and two next-day signals", () => {
@@ -42,13 +42,13 @@ test("a same-day Health reading is not treated as a post-run measurement", () =>
   const response = buildPostRunCoach(target, [target], [health("2026-10-01", 50, 50)]);
   assert.equal(response.hasHealthOnRunDay, true);
   assert.equal(response.hrv.after, null);
-  assert.match(response.recoveryTitle, /niet beoordeelbaar/i);
+  assert.match(response.recoveryTitle, /training eerst landen/i);
 });
 
 test("post-run signals from different calendar days do not become a paired recovery verdict", () => {
   const base = [1, 2, 3, 4, 5, 6].map((day) => health(`2026-09-${String(day + 19).padStart(2, "0")}`, 50, 50));
   const target = run(10, "2026-10-01", 12000, { name: "Lange duurloop" });
   const response = buildPostRunCoach(target, [target], [...base, health("2026-10-02", 40, null), health("2026-10-03", null, 55)]);
-  assert.match(response.recoveryTitle, /verschillende dagen/i);
+  assert.match(response.recoveryText, /verschillende dagen/i);
   assert.doesNotMatch(response.nextStep, /signalen normaliseren/i);
 });

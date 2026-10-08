@@ -25,5 +25,5 @@ test("goal and run decisions retain explicit action and uncertainty", () => {
   assert.equal(decision.tone, "critical");
   assert.equal(decision.action, "Begin rustiger.");
   assert.match(journalAction({ tone: "watch", hasSplits: true, pattern: "fade" }), /Begin je volgende/);
-  assert.match(journalAction({ tone: "good", hasSplits: false, pattern: null }), /kilometersplits/);
+  assert.match(journalAction({ tone: "good", hasSplits: false, pattern: null }), /tempo waarop je nog kunt praten/);
 });

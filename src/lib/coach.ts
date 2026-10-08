@@ -2,6 +2,7 @@ import type { activities, healthMetrics } from "@/db/schema";
 import { buildTrainingAdvice } from "./insights.ts";
 import { buildRecoverySummary, dayDifference, isUsableRecoveryValue } from "./recovery.ts";
 import { analyzePacing, buildRunDigest, classifyRun, compareToSimilar, KIND_LABEL, parseKmSplits, toAnalysisRun } from "./run-analysis.ts";
+import { buildRunLesson } from "./run-lesson.ts";
 
 type Activity = typeof activities.$inferSelect;
 type Health = typeof healthMetrics.$inferSelect;
@@ -36,7 +37,6 @@ export function buildCoachToday(runs: Activity[], health: Health[], now = new Da
   if (load.changePct != null) reason.push(`7 dagen ${oneDecimal(load.weeklyKm)} km · ${Math.abs(load.changePct)}% ${load.changePct >= 0 ? "boven" : "onder"} je 4-weekse basis`);
   else reason.push(`7 dagen ${oneDecimal(load.weeklyKm)} km · weekbasis wordt opgebouwd`);
   if (recovery.score != null) reason.push(`Herstel ${recovery.score}/100 op basis van ${recovery.scoredSignalCount} actuele signalen`);
-  else reason.push(healthAgeDays == null ? "Nog geen bruikbare Apple Health-basislijn" : healthAgeDays > 1 ? "Apple Health is niet actueel" : "Nog te weinig Health-signalen voor een herstelscore");
   const qualitySuggested = advice.label.toLowerCase().includes("kwaliteit");
   const recentFrequency = sorted.filter((run) => run.startDate.getTime() >= now.getTime() - 28 * DAY).length;
   const prescription = qualitySuggested && recentFrequency >= 10 && (load.changePct == null || load.changePct <= 15)
@@ -76,13 +76,13 @@ export function buildPostRunCoach(run: Activity, allRuns: Activity[], health: He
   if (run.avgHeartRate != null) evidence.push(`Gemiddelde hartslag ${Math.round(run.avgHeartRate)} bpm`);
   if (hrv.deltaPct != null) evidence.push(`HRV na de run ${Math.abs(hrv.deltaPct)}% ${hrv.deltaPct >= 0 ? "boven" : "onder"} eigen basislijn`);
   if (restingHr.deltaPct != null) evidence.push(`Rusthartslag na de run ${Math.abs(restingHr.deltaPct)}% ${restingHr.deltaPct >= 0 ? "boven" : "onder"} eigen basislijn`);
-  let recoveryTitle = "Herstel nog niet beoordeelbaar";
-  let recoveryText = "Voor een persoonlijke vergelijking zijn minstens 5 eerdere Health-metingen en een meting op de volgende dag nodig.";
+  let recoveryTitle = "Laat deze training eerst landen";
+  let recoveryText = "Maak de volgende loop rustig op praattempo. Een zware sessie direct na deze training levert geen betere voorbereiding op.";
   if (pairedSignals) {
     if (adverseHrv && adverseRhr) { recoveryTitle = "Herstel staat onder druk"; recoveryText = "HRV ligt lager en rusthartslag hoger dan je eigen basislijn. Plan eerst een rustige dag en kijk of beide waarden terugveren."; }
     else { recoveryTitle = "Geen dubbel herstelsignaal"; recoveryText = "HRV en rusthartslag wijzen niet allebei op extra belasting. Kijk ook naar vermoeidheid en spierpijn voordat je weer hard traint."; }
-  } else if (postSignalCount === 2) { recoveryTitle = "Signalen op verschillende dagen"; recoveryText = "De beschikbare HRV en rusthartslag komen uit verschillende kalenderdagen. Bekijk ze los; samen geven ze nog geen duidelijk herstelbeeld."; }
-  else if (postSignalCount === 1) { recoveryTitle = "Eén herstelsignaal beschikbaar"; recoveryText = "Eén waarde na de run is te weinig voor een stevig oordeel. Gebruik het als context, niet als besluit op zichzelf."; }
+  } else if (postSignalCount === 2) { recoveryTitle = "Houd je volgende loop rustig"; recoveryText = "Je herstelmetingen zijn op verschillende dagen gedaan. Laat je volgende training daarom een rustige loop zijn en plan snelheid pas daarna."; }
+  else if (postSignalCount === 1) { recoveryTitle = "Houd je volgende loop rustig"; recoveryText = "Na deze training is een rustige volgende loop de verstandige stap. Voeg pas weer tempo toe als je benen goed voelen."; }
   const demanding = kind === "race" || kind === "interval" || kind === "long" || (run.distanceM ?? 0) >= 12000;
   let nextStep = pairedSignals && adverseHrv && adverseRhr ? "Neem minstens één rustige dag. Loop pas weer stevig als je je hersteld voelt en de signalen normaliseren."
     : demanding ? "Maak je volgende loop rustig op gesprekstempo, of neem een rustdag als je benen nog zwaar voelen."
@@ -94,7 +94,8 @@ export function buildPostRunCoach(run: Activity, allRuns: Activity[], health: He
     else if (pacing.hrDriftPct != null && pacing.hrDriftPct >= 6 && kind !== "interval") nextStep = "Houd je volgende duurloop korter en rustig. Let erop of de hartslag in de tweede helft opnieuw oploopt bij vergelijkbaar tempo.";
   }
   const healthAfterDate = [hrv.afterDate, restingHr.afterDate].filter((date): date is string => date != null).sort()[0] ?? null;
-  return { kind, runDate, digest, pacing, comparison, hrv, restingHr, recoveryTitle, recoveryText, nextStep, evidence, healthAfterDate, hasHealthOnRunDay: hrv.onDay != null || restingHr.onDay != null };
+  const lesson = buildRunLesson(kind, digest, pacing, nextStep);
+  return { kind, runDate, digest, pacing, comparison, lesson, hrv, restingHr, recoveryTitle, recoveryText, nextStep, evidence, healthAfterDate, hasHealthOnRunDay: hrv.onDay != null || restingHr.onDay != null };
 }
 
 export function postRunPlanWarning(review: ReturnType<typeof buildPostRunCoach>, runAt: Date) {

@@ -31,34 +31,40 @@ export function parseGoalInput(distance: unknown, date: unknown, pace: unknown, 
   return { goal: { distanceM: meters, raceDate: date, targetPaceSecPerKm: seconds } };
 }
 
-function sessionForDate(date: string, raceDate: string, distanceM: number, paceSec: number, level: GoalPlan["level"], longestKm: number, runsPerWeek: number | null, paceSupported: boolean): PlanDay {
+type SessionContext = { level: GoalPlan["level"]; longestKm: number; runsPerWeek: number | null; paceSupported: boolean; sustainedPace: boolean; qualityEligible: boolean; recentFullDistanceAt: string | null; trainingPaceSec: number };
+function sessionForDate(date: string, raceDate: string, distanceM: number, paceSec: number, context: SessionContext): PlanDay {
   const until = daysBetween(raceDate, date);
   const weekday = dayOfWeek(date);
   const pace = paceText(paceSec);
+  const trainingPace = paceText(context.trainingPaceSec);
   const distanceKm = distanceM / 1000;
   const maxLong = distanceKm >= 20 ? 18 : distanceKm >= 9 ? 13 : 10;
-  const hasBase = level !== "basis opbouwen";
-  const ready = level === "gericht voorbereiden";
-  const longKm = roundHalf(Math.min(maxLong, Math.max(4, longestKm + (until >= 22 ? 1.5 : 2))));
+  const hasBase = context.level !== "basis opbouwen";
+  const ready = context.level === "gericht voorbereiden";
+  const recentRaceRecovery = context.recentFullDistanceAt != null && daysBetween(date, context.recentFullDistanceAt) <= 10 && daysBetween(date, context.recentFullDistanceAt) >= 0;
+  const baseLongKm = roundHalf(Math.min(maxLong, Math.max(4, context.longestKm + (until >= 22 ? 1 : 1.5))));
+  const longKm = recentRaceRecovery ? roundHalf(Math.min(baseLongKm, distanceKm >= 20 ? 12 : distanceKm * .65)) : baseLongKm;
   const rest: PlanDay = { date, title: "Herstel", detail: "Rust of wandelen. Sla een gemiste training over; haal haar niet dubbel in.", tone: "rest", status: "planned", actualKm: null };
   if (until === 0) return { date, title: GOAL_DISTANCES.find((item) => item.meters === distanceM)?.label ?? "Wedstrijd", detail: `Start de eerste kilometers circa 5–10 s/km rustiger dan ${pace}/km. Zoek daarna je doeltempo als het gecontroleerd voelt.`, tone: "race", status: "planned", actualKm: null };
   if (until <= 7) {
     if (until === 6) return { date, title: "Rustig loslopen", detail: "30–35 min op praattempo. Houd de benen fris.", tone: "easy", status: "planned", actualKm: null };
-    if (until === 4 && hasBase) return { date, title: "Korte doeltempo-prikkel", detail: `10 min rustig · 2 × 4 min rond ${pace}/km met 3 min dribbelen · 10 min uitlopen. Stop als het zwaar voelt.`, tone: "quality", status: "planned", actualKm: null };
+    if (until === 4 && context.qualityEligible) return { date, title: "Korte doeltempo-prikkel", detail: `10 min rustig inlopen · 2 × 4 min rond ${trainingPace}/km met 3 min heel rustig dribbelen · 10 min uitlopen. Je moet na elk blok nog een blok kunnen doen.`, tone: "quality", status: "planned", actualKm: null };
     if (until === 2) return { date, title: "Optioneel losmaken", detail: "15–20 min heel rustig of volledige rust als je beter herstelt.", tone: "easy", status: "planned", actualKm: null };
     return rest;
   }
   if (weekday === 0) {
-    if (until <= 14) return { date, title: "Kortere lange duur", detail: `${roundHalf(Math.min(longKm, Math.max(6, longestKm * .7), distanceKm >= 20 ? 12 : 9))} km rustig op praattempo. De omvang neemt nu af richting je race.`, tone: "long", status: "planned", actualKm: null };
-    return { date, title: "Lange duurloop", detail: `${longKm} km rustig op praattempo. Vergroot alleen als de vorige lange duur goed herstelde; loop dit niet op wedstrijdtempo.`, tone: "long", status: "planned", actualKm: null };
+    if (until <= 14) return { date, title: "Kortere lange duur", detail: `${roundHalf(Math.min(longKm, Math.max(6, context.longestKm * .7), distanceKm >= 20 ? 12 : 9))} km rustig: je kunt volledige zinnen spreken. De omvang neemt nu af richting je race.`, tone: "long", status: "planned", actualKm: null };
+    return { date, title: recentRaceRecovery ? "Herstellende lange duur" : "Lange duurloop", detail: `${longKm} km rustig: je kunt volledige zinnen spreken. ${recentRaceRecovery ? "Je liep kort geleden al ongeveer de wedstrijdafstand; voeg nu geen tweede zware lange loop toe." : "Loop het laatste deel niet sneller om een doeltempo te bewijzen."}`, tone: "long", status: "planned", actualKm: null };
   }
-  if (weekday === 2) return { date, title: "Rustige duurloop", detail: `${ready ? "40–50" : "30–40"} min comfortabel op praattempo, zonder op ${pace}/km te jagen.`, tone: "easy", status: "planned", actualKm: null };
+  if (weekday === 2) return { date, title: context.runsPerWeek != null && context.runsPerWeek < 2 ? "Optionele rustige loop" : "Rustige duurloop", detail: `${ready && (context.runsPerWeek ?? 0) >= 2 ? "40–50" : "25–35"} min op praattempo: je kunt volledige zinnen spreken. ${context.runsPerWeek != null && context.runsPerWeek < 2 ? "Sla deze extra loop over als drie trainingen deze week te veel zijn." : "Bewaar je snelheid voor de tempotraining."}`, tone: "easy", status: "planned", actualKm: null };
   if (weekday === 4) {
-    if (!hasBase) return { date, title: "Rustig basiswerk", detail: "30–35 min rustig lopen. Eerst regelmaat en langere duur opbouwen; het doeltempo is nog geen trainingsplicht.", tone: "easy", status: "planned", actualKm: null };
-    if (until <= 14) return { date, title: "Beheerst tempogevoel", detail: `10 min inlopen · 2 × 6 min rond ${pace}/km met 3 min dribbelen · 10 min uitlopen.`, tone: "quality", status: "planned", actualKm: null };
-    return { date, title: paceSupported && ready ? "Doeltempo oefenen" : "Doeltempo verkennen", detail: paceSupported && ready ? `12 min inlopen · 3 × 8 min rond ${pace}/km met 3 min dribbelen · 10 min uitlopen.` : `10 min inlopen · 2 × 6 min beheerst; ${pace}/km alleen als dit soepel voelt · 3 min dribbelen · 10 min uitlopen.`, tone: "quality", status: "planned", actualKm: null };
+    if (!context.qualityEligible) return { date, title: "Rustig basiswerk", detail: "30–35 min op praattempo. Eindig met 4 × 20 seconden vlot maar ontspannen, telkens met 1 minuut wandelen of dribbelen.", tone: "easy", status: "planned", actualKm: null };
+    if (recentRaceRecovery) return { date, title: "Soepel tempo hervatten", detail: "10 min rustig inlopen · 4 × 3 min vlot maar ontspannen, met 3 min rustig dribbelen · 10 min uitlopen. Dit is geen test of wedstrijd.", tone: "quality", status: "planned", actualKm: null };
+    if (!hasBase) return { date, title: "Korte tempoblokken", detail: "10 min rustig inlopen · 6 × 1 min stevig maar ontspannen, met 2 min wandelen of dribbelen · 10 min uitlopen. Houd elke herhaling even vlot.", tone: "quality", status: "planned", actualKm: null };
+    if (until <= 14) return { date, title: "Beheerst tempogevoel", detail: `10 min rustig inlopen · 2 × 6 min rond ${trainingPace}/km met 3 min heel rustig dribbelen · 10 min uitlopen.`, tone: "quality", status: "planned", actualKm: null };
+    return { date, title: context.paceSupported && context.sustainedPace && ready ? "Doeltempo oefenen" : "Doeltempo verkennen", detail: context.paceSupported && context.sustainedPace && ready ? `12 min rustig inlopen · 3 × 8 min rond ${trainingPace}/km met 3 min dribbelen · 10 min uitlopen. Houd het laatste blok even sterk als het eerste.` : context.paceSupported ? `10 min rustig inlopen · 2 × 8 min rond ${trainingPace}/km met 3 min dribbelen · 10 min uitlopen. Houd het tweede blok even sterk als het eerste.` : `10 min rustig inlopen · 2 × 6 min stevig maar controleerbaar, met 3 min dribbelen · 10 min uitlopen. ${pace}/km is nu geen verplichting.`, tone: "quality", status: "planned", actualKm: null };
   }
-  if (weekday === 6 && ready && runsPerWeek != null && runsPerWeek >= 3.5 && until > 14) return { date, title: "Optionele herstelrun", detail: "20–30 min zeer rustig. Laat weg als je benen zwaar zijn.", tone: "easy", status: "planned", actualKm: null };
+  if (weekday === 6 && ready && context.runsPerWeek != null && context.runsPerWeek >= 3.5 && until > 14) return { date, title: "Optionele herstelrun", detail: "20–30 min zeer rustig. Laat weg als je benen zwaar zijn.", tone: "easy", status: "planned", actualKm: null };
   return rest;
 }
 
@@ -70,31 +76,39 @@ export function buildGoalPlan(goal: TrainingGoal, runs: Activity[], context: Goa
   const runsPerWeek = recent.length >= 3 ? recent.length / 6 : null;
   const distanceKm = goal.distanceM / 1000;
   const paceEvidenceCount = recent.filter((run) => km(run) >= distanceKm * .45 && run.avgPaceMinPerKm != null && run.avgPaceMinPerKm * 60 <= goal.targetPaceSecPerKm + 15).length;
-  const paceSupported = paceEvidenceCount >= 3;
+  const recentFullDistance = [...recent].filter((run) => km(run) >= distanceKm * .9 && run.avgPaceMinPerKm != null).sort((a, b) => b.startDate.getTime() - a.startDate.getTime())[0] ?? null;
+  const fullDistancePace = recentFullDistance?.avgPaceMinPerKm == null ? null : Math.round(recentFullDistance.avgPaceMinPerKm * 60);
+  const sustainedPace = paceEvidenceCount >= 3;
+  const paceSupported = sustainedPace || fullDistancePace != null && fullDistancePace <= goal.targetPaceSecPerKm + 15;
   const baseLong = distanceKm >= 20 ? 14 : distanceKm >= 9 ? 9 : 6;
   const moderateLong = distanceKm >= 20 ? 8 : distanceKm >= 9 ? 6 : 4;
-  const level: GoalPlan["level"] = runsPerWeek != null && runsPerWeek >= 2.5 && last42LongestKm >= baseLong ? "gericht voorbereiden" : runsPerWeek != null && runsPerWeek >= 1.5 && last42LongestKm >= moderateLong ? "afstand uitbreiden" : "basis opbouwen";
-  const baseAssessment = level === "gericht voorbereiden" ? "Je recente loopritme en lange duur geven ruimte voor één gerichte tempotraining per week." : level === "afstand uitbreiden" ? "Je hebt al een duurloopbasis. Houd het bij één beheerst tempoblok per week en laat de lange duur voorzichtig groeien." : "Vier weken is kort om zowel afstand als snelheid fors op te bouwen. Dit schema kiest voor regelmaat en herstel; overweeg je tijdsdoel of datum bij te stellen als de afstand nog ver weg is.";
-  const assessment = `${baseAssessment} ${paceSupported ? "Meerdere langere runs lagen rond je doeltempo, maar dat bewijst nog niet dat je de wedstrijdafstand zo kunt lopen." : "Het doeltempo is nog niet in drie recente langere runs bevestigd; test het eerst in korte, beheerste blokken."}`;
-  const evidence = [recent.length >= 3 ? `${(recent.length / 6).toFixed(1).replace(".", ",")} runs per week in de laatste 6 weken` : "Nog te weinig recente runs voor een betrouwbaar weekritme", `Langste run in 6 weken: ${last42LongestKm.toFixed(1).replace(".", ",")} km`, paceSupported ? "Minstens 3 langere runs rond het doeltempo" : "Minder dan 3 langere runs rond het doeltempo", context.recoveryScore == null ? "Apple Health geeft nu geen betrouwbare herstelscore" : `Herstel ${context.recoveryScore}/100`, context.loadChangePct == null ? "Weekbelasting: basis wordt opgebouwd" : `Laatste 7 dagen ${Math.abs(context.loadChangePct)}% ${context.loadChangePct >= 0 ? "boven" : "onder"} je basis`];
+  const level: GoalPlan["level"] = recent.length >= 3 && last42LongestKm >= distanceKm * .9 || runsPerWeek != null && runsPerWeek >= 2.5 && last42LongestKm >= baseLong ? "gericht voorbereiden" : recent.length >= 3 && last42LongestKm >= moderateLong ? "afstand uitbreiden" : "basis opbouwen";
+  const qualityEligible = recent.length >= 3 && last42LongestKm >= moderateLong;
+  const trainingPaceSec = Math.max(goal.targetPaceSecPerKm, fullDistancePace ?? goal.targetPaceSecPerKm);
+  const recentPacingWarning = context.lastRunWarning && daysBetween(today, goalDate(context.lastRunWarning.at)) >= 0 && daysBetween(today, goalDate(context.lastRunWarning.at)) <= 14 ? context.lastRunWarning : null;
+  const baseAssessment = recentFullDistance ? "Je hebt de wedstrijdafstand recent gelopen. Meer afstand bewijzen is nu niet je prioriteit: oefen één keer per week een gelijkmatig tempo en herstel goed tussen de sessies." : level === "gericht voorbereiden" ? "Je recente duurloop en regelmaat geven ruimte voor één gerichte tempotraining per week naast een rustige lange loop." : level === "afstand uitbreiden" ? "Je kunt een gecontroleerde tempotraining per week doen. Bouw de lange loop stapsgewijs op en maak de extra rustige loop optioneel." : "Bouw eerst loopritme en afstand op. Korte vlotte stukjes mogen, maar een lang blok op wedstrijdtempo is nu geen goed idee.";
+  const assessment = `${baseAssessment} ${recentPacingWarning ? "Je laatste loop liet tempoverlies zien: oefen een rustigere start en maak het laatste tempoblok even sterk als het eerste." : paceSupported ? `Gebruik ongeveer ${paceText(trainingPaceSec)}/km als startpunt voor korte tempoblokken, niet als plicht voor elke training.` : "Loop tempoblokken op gevoel: stevig maar controleerbaar, zodat het laatste blok even goed gaat als het eerste."}`;
+  const evidence = [recent.length >= 3 ? `${(recent.length / 6).toFixed(1).replace(".", ",")} runs per week in de laatste 6 weken` : "Je schema begint met twee vaste loopmomenten per week", `Langste run in 6 weken: ${last42LongestKm.toFixed(1).replace(".", ",")} km`, recentPacingWarning ? "Tempoverlies in de laatste loop: start de tempoblokken rustiger" : recentFullDistance ? "De wedstrijdafstand is al recent gelopen; focus op tempovastheid" : sustainedPace ? "Drie langere runs ondersteunen korte blokken rond het doeltempo" : "Tempoblokken worden op inspanning gestuurd", context.recoveryScore == null ? "Herstel: houd zware en rustige dagen gescheiden" : `Herstel ${context.recoveryScore}/100`, context.loadChangePct == null ? "Weekbelasting: verhoog de omvang niet om trainingen in te halen" : `Laatste 7 dagen ${Math.abs(context.loadChangePct)}% ${context.loadChangePct >= 0 ? "boven" : "onder"} je basis`];
+  const sessionContext: SessionContext = { level, longestKm: last42LongestKm, runsPerWeek, paceSupported, sustainedPace, qualityEligible, recentFullDistanceAt: recentFullDistance ? goalDate(recentFullDistance.startDate) : null, trainingPaceSec };
   const allDays: PlanDay[] = [];
   const previewDays = Math.min(28, Math.max(0, daysUntilRace));
   const runDates = new Map<string, Activity[]>();
   for (const run of runs) { const date = goalDate(run.startDate); runDates.set(date, [...(runDates.get(date) ?? []), run]); }
   for (let offset = 0; offset < previewDays; offset++) {
     const date = addDays(today, offset);
-    const day = sessionForDate(date, goal.raceDate, goal.distanceM, goal.targetPaceSecPerKm, level, last42LongestKm, runsPerWeek, paceSupported);
+    const day = sessionForDate(date, goal.raceDate, goal.distanceM, goal.targetPaceSecPerKm, sessionContext);
     const actual = runDates.get(date);
     if (actual?.length) { day.status = day.tone === "rest" ? "extra-run" : "run-recorded"; day.actualKm = roundHalf(actual.reduce((sum, run) => sum + km(run), 0)); }
     allDays.push(day);
   }
-  const raceDay = sessionForDate(goal.raceDate, goal.raceDate, goal.distanceM, goal.targetPaceSecPerKm, level, last42LongestKm, runsPerWeek, paceSupported);
+  const raceDay = sessionForDate(goal.raceDate, goal.raceDate, goal.distanceM, goal.targetPaceSecPerKm, sessionContext);
   const raceActual = runDates.get(goal.raceDate);
   if (raceActual?.length) { raceDay.status = "run-recorded"; raceDay.actualKm = roundHalf(raceActual.reduce((sum, run) => sum + km(run), 0)); }
   const todayDay = allDays[0];
   const general = context.generalAdvice;
   const recoveryOverride = context.recoveryScore != null && context.recoveryScore < 58 || context.loadChangePct != null && context.loadChangePct > 30;
-  const generalRest = /niet nogmaals|rustdag|geen looptraining|herstel boven/i.test(general.label);
+  const lastRunAge = recent.length ? daysBetween(today, goalDate([...recent].sort((a, b) => b.startDate.getTime() - a.startDate.getTime())[0].startDate)) : null;
+  const generalRest = lastRunAge != null && lastRunAge <= 1 && /niet nogmaals|rustdag|geen looptraining|herstel boven/i.test(general.label);
   const recentRunWarning = context.lastRunWarning && daysBetween(today, goalDate(context.lastRunWarning.at)) <= 2 && daysBetween(today, goalDate(context.lastRunWarning.at)) >= 0 ? context.lastRunWarning : null;
   let todayAdvice: GoalPlan["today"];
   if (daysUntilRace < 0) todayAdvice = { label: "Stel een nieuw doel in", detail: "Je wedstrijddatum is voorbij.", coach: "Werk je doel bij om een nieuw schema te krijgen." };
@@ -104,8 +118,8 @@ export function buildGoalPlan(goal: TrainingGoal, runs: Activity[], context: Goa
     todayAdvice = { label: "Herstel krijgt voorrang", detail: generalRest ? general.detail : "Rust of 20–30 min heel rustig wandelen", coach: `${recentRunWarning?.reason ?? general.coach} De geplande zware sessie schuift niet automatisch naar morgen.` };
     if (todayDay && todayDay.tone !== "rest") { todayDay.status = "adjusted"; todayDay.title = "Aangepast: herstel"; todayDay.detail = todayAdvice.detail; todayDay.tone = "rest"; }
   } else if (todayDay?.tone === "rest") todayAdvice = { label: "Vandaag herstel", detail: todayDay.detail, coach: "Deze rustdag is onderdeel van je schema richting de wedstrijd." };
-  else todayAdvice = { label: todayDay.title, detail: todayDay.detail, coach: `Dit is je geplande sessie voor vandaag richting ${GOAL_DISTANCES.find((item) => item.meters === goal.distanceM)?.label.toLowerCase() ?? "je wedstrijd"}. Stop of schakel terug als het niet goed voelt.` };
-  const nextSession = allDays.find((day) => day.date >= today && day.tone !== "rest" && day.status === "planned") ?? (daysUntilRace >= 0 ? raceDay : null);
+  else todayAdvice = { label: todayDay.title, detail: todayDay.detail, coach: todayDay.tone === "quality" ? "Houd de eerste herhaling gecontroleerd. De laatste moet even goed gaan; zo train je tempo zonder jezelf leeg te lopen." : todayDay.tone === "long" ? "Loop op een tempo waarop je volledige zinnen kunt spreken. De lange loop traint volhouden, niet racen." : "Dit is een rustige training die je klaar maakt voor de volgende tempoprikkel." };
+  const nextSession = allDays.find((day) => day.date > today && day.tone !== "rest" && day.status === "planned") ?? (daysUntilRace >= 0 ? raceDay : null);
   const weeks = Array.from({ length: Math.ceil(allDays.length / 7) }, (_, index) => ({ label: `Week ${index + 1}`, days: allDays.slice(index * 7, index * 7 + 7) }));
   return { daysUntilRace, finishTime: finishText(goal.targetPaceSecPerKm * distanceKm), distanceLabel: GOAL_DISTANCES.find((item) => item.meters === goal.distanceM)?.label ?? `${distanceKm.toFixed(1)} km`, targetPace: paceText(goal.targetPaceSecPerKm), level, assessment, evidence, weeks, raceDay, today: todayAdvice, nextSession, last42LongestKm, runsPerWeek };
 }

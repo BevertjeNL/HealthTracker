@@ -940,3 +940,32 @@ a:focus-visible, button:focus-visible { outline: 3px solid rgba(255, 101, 69, .3
 .c-health-action { padding: 12px 14px; border-left: 4px solid #b96e1c; border-radius: 8px; background: #fff6e8; color: #68420c; }
 @media (max-width: 900px) { .c-verdict-grid { grid-template-columns: 1fr 1fr; } }
 @media (max-width: 650px) { .c-verdict-grid { grid-template-columns: 1fr; } }
+
+/* A practical running lesson is the primary result of each analysis. */
+.c-run-lesson { --lesson-accent: #207b4a; padding: 26px; border: 1px solid #c8dccb; border-top: 6px solid var(--lesson-accent); border-radius: 20px; background: #f3faf2; color: #173e2c; }
+.c-run-lesson.warning { --lesson-accent: #b87514; border-color: #e7d4aa; background: #fffaeb; }
+.c-run-lesson.critical { --lesson-accent: #bd3b31; border-color: #e7b9b1; background: #fff3f0; }
+.c-run-lesson .c-overline { color: var(--lesson-accent); }
+.c-run-lesson h3 { margin: 8px 0 10px; color: #173e2c; font-size: clamp(25px, 3vw, 34px); line-height: 1.16; letter-spacing: -.045em; }
+.c-run-lesson > p { margin: 0; color: #365541; font-size: 17px; line-height: 1.55; }
+.c-run-lesson-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 13px; margin-top: 20px; }
+.c-run-lesson-grid > div { padding: 16px; border-radius: 13px; background: #fff; }
+.c-run-lesson-grid .keep { border-left: 4px solid #25804a; }
+.c-run-lesson-grid .improve { border-left: 4px solid #c4533a; }
+.c-run-lesson-grid strong, .c-run-lesson-next strong { color: #1c5035; font-size: 16px; }
+.c-run-lesson-grid p { margin: 6px 0 0; color: #365541; font-size: 16px; line-height: 1.5; }
+.c-run-lesson .c-run-lesson-next { margin-top: 18px; padding: 15px 17px; border-radius: 12px; background: #193f2e; color: #fff; font-size: 16px; }
+.c-run-lesson-next strong { color: #ddf3a3; }
+.c-run-lesson.compact { padding: 21px; }
+.c-run-lesson.compact h3 { font-size: 27px; }
+.c-last-grid > .c-run-lesson { min-width: 0; }
+.c-detail-lesson { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(220px, .4fr); gap: 17px; }
+.c-detail-lesson-facts { padding: 24px; border-radius: 20px; color: #224b35; background: #eaf2e8; }
+.c-detail-lesson-facts strong { display: block; margin-bottom: 11px; font-size: 17px; }
+.c-detail-lesson-facts p { margin: 0 0 12px; font-size: 16px; line-height: 1.55; }
+.g-session-label { width: fit-content; padding: 3px 7px; border-radius: 6px; color: #496350; background: #eaf0e8; font-size: 12px; font-weight: 850; letter-spacing: .05em; }
+.g-session-label.quality { color: #8e4912; background: #fff0d5; }
+.g-session-label.long { color: #175c3a; background: #e4f4e8; }
+.g-session-label.race { color: #9d3028; background: #ffebe8; }
+@media (max-width: 830px) { .c-detail-lesson { grid-template-columns: 1fr; } }
+@media (max-width: 650px) { .c-run-lesson-grid { grid-template-columns: 1fr; } }
