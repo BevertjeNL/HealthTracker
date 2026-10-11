@@ -51,6 +51,8 @@ export function TrendChart({
   title,
   subtitle,
   points,
+  displayPoints,
+  displayLabel,
   color,
   unit,
   reversed = false,
@@ -63,6 +65,8 @@ export function TrendChart({
   title: string;
   subtitle?: string;
   points: Point[];
+  displayPoints?: Point[];
+  displayLabel?: string;
   color: string;
   unit: Unit;
   reversed?: boolean;
@@ -73,10 +77,11 @@ export function TrendChart({
   chartFooter?: ReactNode;
 }) {
   const formatter = FORMATTERS[unit];
-  const data = points
+  const data = (displayPoints ?? points)
     .filter((point) => point.value != null)
     .map((point) => ({ ...point, timestamp: dateTimestamp(point.date) }));
-  const values = data.map((point) => point.value).filter((value): value is number => value != null);
+  const values = points.map((point) => point.value).filter((value): value is number => value != null);
+  const displayValues = data.map((point) => point.value).filter((value): value is number => value != null);
   const summary = summarizeChartPoints(points);
   const average = values.length >= 3 ? summary.average : null;
   const latest = summary.latest;
@@ -84,12 +89,12 @@ export function TrendChart({
   const resolvedDateDomain: [string, string] = dateDomain ?? [data[0]?.date ?? "1970-01-01", data.at(-1)?.date ?? "1970-01-02"];
   const spanDays = chartSpanDays(resolvedDateDomain);
   const xTicks = buildChartTicks(resolvedDateDomain);
-  const dotRadius = data.length > 400 ? 0 : data.length > 120 ? 2 : 3.5;
+  const dotRadius = displayPoints || data.length > 400 ? 0 : data.length > 120 ? 2 : 3.5;
 
   let domain: [number, number] | undefined;
-  if (values.length > 0) {
-    const min = Math.min(...values);
-    const max = Math.max(...values);
+  if (displayValues.length > 0) {
+    const min = Math.min(...displayValues);
+    const max = Math.max(...displayValues);
     const pad = (max - min) * 0.12 || Math.abs(max) * 0.05 || 1;
     domain = [min - pad, max + pad];
   }
@@ -166,7 +171,7 @@ export function TrendChart({
                 contentStyle={{ background: "var(--surface-1)", border: "1px solid var(--border)", borderRadius: 10, fontSize: 14 }}
                 labelStyle={{ color: "var(--text-secondary)", marginBottom: 4 }}
                 labelFormatter={(_, payload) => payload[0]?.payload?.date ? fmtDateLong(payload[0].payload.date) : ""}
-                formatter={(value) => [formatter.value(Number(value)), title]}
+                formatter={(value) => [formatter.value(Number(value)), displayLabel ?? title]}
               />
               {unit === "kg" ? <>
                 <defs><linearGradient id="weight-chart-fill" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor={color} stopOpacity={0.23} /><stop offset="100%" stopColor={color} stopOpacity={0.01} /></linearGradient></defs>

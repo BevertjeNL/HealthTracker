@@ -893,6 +893,10 @@ a:focus-visible, button:focus-visible { outline: 3px solid rgba(255, 101, 69, .3
 .w-presets button, .w-reset { min-height: 36px; padding: 5px 12px; border: 1px solid #bfd2bf; border-radius: 9px; color: #1c4b33; background: #fff; font: inherit; font-size: 14px; font-weight: 750; cursor: pointer; }
 .w-presets button[aria-pressed="true"] { border-color: #1a563a; color: #fff; background: #1a563a; }
 .w-reset:disabled { opacity: .45; cursor: default; }
+.w-curve-choice { margin-top: 10px; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.w-curve-choice button { min-height: 36px; padding: 5px 12px; border: 1px solid #bfd2bf; border-radius: 9px; color: #1c4b33; background: #fff; font: inherit; font-size: 14px; font-weight: 750; cursor: pointer; }
+.w-curve-choice button[aria-pressed="true"] { border-color: #1a563a; color: #fff; background: #1a563a; }
+.w-curve-choice span { margin-left: 4px; color: #506a57; font-size: 13px; line-height: 1.4; }
 .w-exact { margin-top: 8px; }
 .w-exact summary { width: fit-content; color: #365b42; font-size: 14px; font-weight: 700; cursor: pointer; }
 .w-axis-grid { margin-top: 8px; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
