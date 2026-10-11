@@ -6,8 +6,8 @@ import { buildChartTicks, chartSpanDays, formatChartTick, summarizeChartPoints }
 import {
   Area,
   CartesianGrid,
+  ComposedChart,
   Line,
-  LineChart,
   ReferenceLine,
   ResponsiveContainer,
   Tooltip,
@@ -57,6 +57,8 @@ export function TrendChart({
   controls,
   dateDomain,
   valueDomain,
+  chartAside,
+  chartFooter,
 }: {
   title: string;
   subtitle?: string;
@@ -67,6 +69,8 @@ export function TrendChart({
   controls?: ReactNode;
   dateDomain?: [string, string];
   valueDomain?: [number, number];
+  chartAside?: ReactNode;
+  chartFooter?: ReactNode;
 }) {
   const formatter = FORMATTERS[unit];
   const data = points
@@ -80,6 +84,7 @@ export function TrendChart({
   const resolvedDateDomain: [string, string] = dateDomain ?? [data[0]?.date ?? "1970-01-01", data.at(-1)?.date ?? "1970-01-02"];
   const spanDays = chartSpanDays(resolvedDateDomain);
   const xTicks = buildChartTicks(resolvedDateDomain);
+  const dotRadius = data.length > 400 ? 0 : data.length > 120 ? 2 : 3.5;
 
   let domain: [number, number] | undefined;
   if (values.length > 0) {
@@ -124,9 +129,10 @@ export function TrendChart({
           </p>
         </div>
       ) : (
-        <div className="h-60 w-full">
+        <div className="chart-frame">
+        <div className="chart-plot h-60 w-full">
           <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={data} margin={{ top: 8, right: 12, bottom: 8, left: 8 }} accessibilityLayer>
+            <ComposedChart data={data} margin={{ top: 8, right: 12, bottom: 0, left: 8 }} accessibilityLayer>
               <CartesianGrid strokeDasharray="3 4" stroke="var(--gridline)" vertical={false} />
               <XAxis
                 dataKey="timestamp"
@@ -136,6 +142,7 @@ export function TrendChart({
                 ticks={xTicks}
                 allowDataOverflow
                 minTickGap={34}
+                height={30}
                 tickFormatter={(value) => formatChartTick(Number(value), spanDays)}
                 tick={{ fontSize: 13, fill: "var(--text-secondary)" }}
                 axisLine={{ stroke: "var(--axis)" }}
@@ -163,12 +170,16 @@ export function TrendChart({
               />
               {unit === "kg" ? <>
                 <defs><linearGradient id="weight-chart-fill" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor={color} stopOpacity={0.23} /><stop offset="100%" stopColor={color} stopOpacity={0.01} /></linearGradient></defs>
-                <Area type="monotone" dataKey="value" stroke={color} strokeWidth={3} fill="url(#weight-chart-fill)" dot={{ r: 3.5, fill: color, strokeWidth: 0 }} activeDot={{ r: 6, fill: color, stroke: "#fff", strokeWidth: 2 }} connectNulls isAnimationActive={false} />
-              </> : <Line type="monotone" dataKey="value" stroke={color} strokeWidth={3} dot={{ r: 3, fill: color, strokeWidth: 0 }} activeDot={{ r: 5, stroke: "var(--surface-1)", strokeWidth: 2 }} connectNulls isAnimationActive={false} />}
-            </LineChart>
+                <Area type="monotone" dataKey="value" stroke={color} strokeWidth={3} fill="url(#weight-chart-fill)" dot={dotRadius ? { r: dotRadius, fill: color, strokeWidth: 0 } : false} activeDot={{ r: 6, fill: color, stroke: "#fff", strokeWidth: 2 }} connectNulls isAnimationActive={false} />
+              </> : <Line type="monotone" dataKey="value" stroke={color} strokeWidth={3} dot={dotRadius ? { r: Math.min(dotRadius, 3), fill: color, strokeWidth: 0 } : false} activeDot={{ r: 5, stroke: "var(--surface-1)", strokeWidth: 2 }} connectNulls isAnimationActive={false} />}
+            </ComposedChart>
           </ResponsiveContainer>
         </div>
+        {chartAside && <div className="chart-aside">{chartAside}</div>}
+        {chartFooter && <div className="chart-footer">{chartFooter}</div>}
+        </div>
       )}
+      {values.length < 3 && chartFooter}
     </article>
   );
 }

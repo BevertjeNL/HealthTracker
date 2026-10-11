@@ -69,3 +69,75 @@ export function manualValueDomain(points: ChartPoint[], lower: string, upper: st
   }
   return { domain: [parsedLower, parsedUpper] as [number, number], error: null };
 }
+
+export type ChartPreset = 30 | 90 | 365 | "all";
+export type ChartSettings = {
+  preset: ChartPreset | null;
+  start: string | null;
+  end: string | null;
+  lower: number | null;
+  upper: number | null;
+};
+
+export const DEFAULT_CHART_SETTINGS: ChartSettings = { preset: "all", start: null, end: null, lower: null, upper: null };
+export const MIN_CHART_SPAN_DAYS = 7;
+
+const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+
+export function addChartDays(date: string, days: number) {
+  const result = new Date(`${date.slice(0, 10)}T12:00:00Z`);
+  result.setUTCDate(result.getUTCDate() + days);
+  return result.toISOString().slice(0, 10);
+}
+
+export function chartDaysBetween(from: string, to: string) {
+  const start = new Date(`${from.slice(0, 10)}T12:00:00Z`).getTime();
+  const end = new Date(`${to.slice(0, 10)}T12:00:00Z`).getTime();
+  return Math.round((end - start) / DAY_MS);
+}
+
+export function parseChartSettings(raw: string | null): ChartSettings {
+  if (!raw) return DEFAULT_CHART_SETTINGS;
+  try {
+    const value = JSON.parse(raw) as Record<string, unknown>;
+    const preset = value.preset === 30 || value.preset === 90 || value.preset === 365 || value.preset === "all" ? value.preset : null;
+    const start = typeof value.start === "string" && DATE_PATTERN.test(value.start) ? value.start : null;
+    const end = typeof value.end === "string" && DATE_PATTERN.test(value.end) ? value.end : null;
+    const lower = typeof value.lower === "number" && Number.isFinite(value.lower) ? value.lower : null;
+    const upper = typeof value.upper === "number" && Number.isFinite(value.upper) ? value.upper : null;
+    const validY = !(lower != null && upper != null && lower >= upper);
+    const validX = start != null && end != null && start < end;
+    if (preset == null && !validX) return { ...DEFAULT_CHART_SETTINGS, lower: validY ? lower : null, upper: validY ? upper : null };
+    return { preset, start: validX ? start : null, end: validX ? end : null, lower: validY ? lower : null, upper: validY ? upper : null };
+  } catch {
+    return DEFAULT_CHART_SETTINGS;
+  }
+}
+
+/** Resolves the saved settings to a concrete [start, end] window that always lies inside [earliest, today]. */
+export function resolveChartWindow(settings: ChartSettings, earliest: string, today: string): [string, string] {
+  if (typeof settings.preset === "number") return [addChartDays(today, -(settings.preset - 1)), today];
+  if (settings.preset === "all" || settings.start == null || settings.end == null) return [earliest, today];
+  let end = settings.end > today ? today : settings.end;
+  let start = settings.start < earliest ? earliest : settings.start;
+  if (chartDaysBetween(start, end) < MIN_CHART_SPAN_DAYS) {
+    start = addChartDays(end, -MIN_CHART_SPAN_DAYS);
+    if (start < earliest) {
+      start = earliest;
+      end = addChartDays(start, MIN_CHART_SPAN_DAYS) > today ? today : addChartDays(start, MIN_CHART_SPAN_DAYS);
+    }
+  }
+  return [start, end];
+}
+
+/** Slider bounds for the value axis: all data plus some air, widened to include any saved manual limits. */
+export function valueSliderBounds(points: ChartPoint[], lower: number | null, upper: number | null): [number, number] | null {
+  const values = points.flatMap((point) => point.value == null ? [] : [point.value]);
+  if (!values.length) return null;
+  const min = Math.min(...values);
+  const max = Math.max(...values);
+  const pad = (max - min) * 0.2 || 1;
+  const floor = Math.min(min - pad, lower ?? Infinity);
+  const ceil = Math.max(max + pad, upper ?? -Infinity);
+  return [Math.floor(floor * 10) / 10, Math.ceil(ceil * 10) / 10];
+}
