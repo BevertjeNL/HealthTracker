@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo, useSyncExternalStore } from "react";
+import { useActionState, useMemo, useState, useSyncExternalStore } from "react";
+import { correctWeightAction, type WeightActionState } from "@/app/actions";
 import { RangeSlider } from "@/components/RangeSlider";
 import { TrendChart } from "@/components/TrendChart";
 import {
@@ -61,6 +62,8 @@ function shortDate(date: string) {
 
 export function WeightChartPanel({ points, today }: { points: Point[]; today: string }) {
   const sorted = useMemo(() => [...points].sort((a, b) => a.date.localeCompare(b.date)), [points]);
+  const [selectedDate, setSelectedDate] = useState("");
+  const [correctionState, correctionAction, correctionPending] = useActionState<WeightActionState, FormData>(correctWeightAction, { message: "", ok: false });
   const firstDate = sorted[0]?.date.slice(0, 10) ?? addChartDays(today, -89);
   const earliest = chartDaysBetween(firstDate, today) < MIN_CHART_SPAN_DAYS * 2 ? addChartDays(today, -MIN_CHART_SPAN_DAYS * 2) : firstDate;
   const totalDays = chartDaysBetween(earliest, today);
@@ -69,6 +72,8 @@ export function WeightChartPanel({ points, today }: { points: Point[]; today: st
 
   const [start, end] = resolveChartWindow(settings, earliest, today);
   const visible = selectChartWindow(sorted, start, end);
+  const measured = visible?.filter((point): point is { date: string; value: number } => point.value != null) ?? [];
+  const selected = measured.find((point) => point.date === selectedDate) ?? measured.at(-1);
   const yAxis = manualValueDomain(visible ?? [], settings.lower == null ? "" : String(settings.lower), settings.upper == null ? "" : String(settings.upper));
   const bounds = valueSliderBounds(sorted, settings.lower, settings.upper);
   const customized = settings.preset !== "all" || settings.lower != null || settings.upper != null;
@@ -113,5 +118,19 @@ export function WeightChartPanel({ points, today }: { points: Point[]; today: st
 
   return <section className="w-section" aria-labelledby="weight-title"><div className="c-section-heading"><div><span className="c-overline">APPLE HEALTH · GEWICHT</span><h2 id="weight-title">Je gewicht in context.</h2></div></div>
     <TrendChart title="Gewicht" subtitle="Sleep de handvatten om in of uit te zoomen" points={visible ?? []} color="var(--series-blue)" unit="kg" dateDomain={[start, end]} valueDomain={yAxis.error ? undefined : yAxis.domain} controls={controls} chartAside={aside} chartFooter={footer} />
+    {selected && <form className="w-correction" action={correctionAction} onSubmit={(event) => {
+      const submitter = (event.nativeEvent as SubmitEvent).submitter as HTMLButtonElement | null;
+      if (submitter?.value === "remove" && !window.confirm(`Gewichtsmeting van ${selected.date} uit Pulse verwijderen?`)) event.preventDefault();
+    }}>
+      <h3>Meting corrigeren</h3>
+      <p>Een verwijderde Health-meting blijft in Pulse staan tot je deze hier verwijdert.</p>
+      <div className="w-correction-fields">
+        <label>Meetdatum<select name="date" value={selected.date} onChange={(event) => setSelectedDate(event.target.value)}>{measured.map((point) => <option key={point.date} value={point.date}>{new Date(`${point.date}T12:00:00Z`).toLocaleDateString("nl-NL", { day: "numeric", month: "long", year: "numeric" })} · {point.value.toLocaleString("nl-NL", { maximumFractionDigits: 2 })} kg</option>)}</select></label>
+        <label>Gewicht in kg<input key={`${selected.date}:${selected.value}`} name="weightKg" type="text" inputMode="decimal" defaultValue={String(selected.value).replace(".", ",")} aria-describedby="w-correction-help" /></label>
+      </div>
+      <p id="w-correction-help">Gebruik een komma of punt als decimaalteken. Kies Verwijder meting als die ook uit Health is gewist.</p>
+      <div className="w-correction-actions"><button type="submit" name="operation" value="save" disabled={correctionPending}>Waarde opslaan</button><button type="submit" name="operation" value="remove" disabled={correctionPending}>Verwijder meting</button></div>
+      {correctionState.message && <p className={correctionState.ok ? "w-success" : "w-error"} role="status">{correctionState.message}</p>}
+    </form>}
   </section>;
 }

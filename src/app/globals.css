@@ -919,6 +919,19 @@ a:focus-visible, button:focus-visible { outline: 3px solid rgba(255, 101, 69, .3
 .rs-horizontal .rs-handle { top: 6px; transform: translateX(-50%); }
 .rs-vertical .rs-handle { left: 6px; transform: translateY(50%); }
 .rs-handle:focus-visible { outline: 3px solid #df7951; outline-offset: 2px; }
+.w-correction { margin-top: 16px; padding: 16px; border: 1px solid #dce8dc; border-radius: 15px; background: #f5f8f3; }
+.w-correction h3 { margin: 0 0 5px; color: #234c35; font-size: 17px; font-weight: 800; }
+.w-correction p { margin: 0 0 12px; color: #506a57; font-size: 14px; line-height: 1.5; }
+.w-correction-fields { display: flex; flex-wrap: wrap; gap: 12px; }
+.w-correction-fields label { min-width: 180px; flex: 1; display: grid; gap: 5px; color: #365b42; font-size: 14px; font-weight: 700; }
+.w-correction-fields input, .w-correction-fields select { width: 100%; min-height: 43px; padding: 8px 10px; border: 1px solid #bdd0bf; border-radius: 9px; color: #183d2b; background: #fff; font: inherit; font-size: 16px; }
+.w-correction #w-correction-help { margin: 10px 0; }
+.w-correction-actions { display: flex; flex-wrap: wrap; gap: 9px; }
+.w-correction-actions button { min-height: 42px; padding: 8px 13px; border: 1px solid #1a563a; border-radius: 10px; color: #fff; background: #1a563a; font: inherit; font-size: 14px; font-weight: 750; cursor: pointer; }
+.w-correction-actions button[value="remove"] { border-color: #b24737; color: #a1382e; background: #fff; }
+.w-correction-actions button:disabled { opacity: .6; cursor: wait; }
+.w-correction .w-success { margin: 10px 0 0; color: #1a563a; font-weight: 700; }
+.w-correction .w-error { margin: 10px 0 0; }
 .w-section .chart-stat-strip small { color: #536d59; font-size: 13px; }
 .w-section .chart-stat-strip strong { font-size: 16px; }
 .c-shell .c-nav-links a, .c-shell .c-overline, .c-shell .c-small-label, .c-shell .c-card-top, .c-shell .c-card-top small, .c-shell .c-next-footer, .c-shell .c-next-footer a, .c-shell .c-source-note span, .c-shell .c-run-numbers small, .c-shell .c-direction-stats small, .c-shell .c-health-line small, .c-shell .c-journal-metrics small, .c-shell .c-footer, .c-shell .g-done, .c-shell .g-adjusted { font-size: 14px; }

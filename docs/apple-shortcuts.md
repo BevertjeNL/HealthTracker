@@ -95,3 +95,5 @@ De dagelijkse opdracht leest alleen gisteren. Maak daarom een aparte opdracht `P
 7. Voer deze backfill één keer handmatig uit. Automatiseer hem niet en verwijder hem na een geslaagde import.
 
 Pulse zet metingen niet kunstmatig door op dagen zonder weging. Daardoor blijft de gewichtsgrafiek gebaseerd op echte Health-metingen.
+
+Als je later een foutieve weging uit Apple Health verwijdert, verdwijnt die niet vanzelf uit Pulse: de opdracht stuurt alleen aanwezige waarden door. Kies onder de gewichtsgrafiek de meetdatum en gebruik **Verwijder meting**. Alleen het gewicht van die dag wordt gewist; andere Health-gegevens blijven staan.
