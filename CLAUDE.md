@@ -26,6 +26,7 @@ src/lib/sync.ts                         Full-history Strava run sync and reconci
 src/lib/activity-raw.ts                 preserveDetailedRaw(): conflict-update SQL that keeps fetched detail (splits_metric or _coach_detail_loaded) in activities.raw during sync
 src/lib/format.ts                       Shared date/pace/duration/km formatters (nl-NL locale)
 src/lib/health-import.ts                Apple Shortcuts/Health Auto Export payload parsing, HEALTH_METRIC_MAP, plausibility ranges, daily aggregation and unit normalization
+src/lib/weight-correction.ts            Validates date and weight for manual correction of an existing imported measurement
 src/lib/insights.ts                     Rule-based weight/run-performance summaries, buildTrainingAdvice() and buildInsights()
 src/lib/recovery.ts                     Readiness/recovery score from HRV, resting HR, cardio recovery and walking HR vs. personal baseline (min. 5 baseline samples, freshness check)
 src/lib/half-marathon.ts                buildHalfMarathonPlan(): phase, progress towards 21.1 km, adjustments and example week from the last 28/42 days of runs
@@ -51,6 +52,7 @@ src/app/layout.tsx                      Pulse metadata (noindex), favicon/Apple/
 src/app/manifest.ts                     PWA manifest and installable app icons
 src/app/globals.css                     Tailwind import plus the hand-written Pulse/coach design system
 src/app/page.tsx                        Coach home: goal-aware daily advice and next session, latest run evidence (auto loads missing detail), adjustable Apple Health weight chart, training direction and data refresh
+src/app/actions.ts                     Authenticated Server Action to update or clear one day's weight while preserving its other Health metrics
 src/app/runs/page.tsx                   Training journal: current phase, recent load and run list with a short verdict
 src/app/goal/page.tsx                   Saved race goal, editable target and four-week calendar schedule
 src/app/goal/actions.ts                Session-protected Server Action for validated single-goal upsert and revalidation
@@ -89,6 +91,7 @@ docs/apple-shortcuts.md                 iPhone setup guide for the subscription-
 tests/activity-raw.test.mjs             Sync upsert keeps detailed raw (splits) instead of overwriting it
 tests/security.test.mjs                 Shared-secret fail-closed regression tests
 tests/health-import.test.mjs            Health payload parsing and unit-normalization regression tests
+tests/weight-correction.test.mjs       Weight correction date, operation and value validation
 tests/insights.test.mjs                 Insight thresholds, staleness and recommendations
 tests/recovery.test.mjs                 Recovery baseline/freshness/score regression tests
 tests/half-marathon.test.mjs            Personal half-marathon phase and progression regression tests
