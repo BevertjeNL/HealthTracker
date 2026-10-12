@@ -1,9 +1,9 @@
 import type { ChartPoint } from "./chart-range";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
-const RADIUS_DAYS = 3;
+const RADIUS_DAYS = 7;
 
-/** A centered seven-day trend, calculated only at dates with a real measurement. */
+/** A centered fifteen-day trend, calculated only at dates with a real measurement. */
 export function smoothWeightPoints(points: ChartPoint[]): ChartPoint[] {
   const measured = points
     .filter((point): point is { date: string; value: number } => point.value != null)
@@ -22,6 +22,6 @@ export function smoothWeightPoints(points: ChartPoint[]): ChartPoint[] {
       totalWeight += weight;
       count++;
     }
-    return { date: point.date, value: count >= 3 ? weightedSum / totalWeight : point.value };
+    return { date: point.date, value: count >= 2 ? weightedSum / totalWeight : point.value };
   });
 }

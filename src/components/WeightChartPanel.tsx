@@ -99,7 +99,7 @@ export function WeightChartPanel({ points, today }: { points: Point[]; today: st
     <div className="w-curve-choice" role="group" aria-label="Weergave van de gewichtslijn">
       <button type="button" onClick={() => update({ smooth: false })} aria-pressed={!settings.smooth}>Metingen</button>
       <button type="button" onClick={() => update({ smooth: true })} aria-pressed={settings.smooth}>Vloeiende lijn</button>
-      <span>{settings.smooth ? "7-daags gewogen gemiddelde; statistieken blijven gebaseerd op je metingen." : "Elke weging en dagschommeling zichtbaar."}</span>
+      <span>{settings.smooth ? "15-daags gewogen gemiddelde; statistieken blijven gebaseerd op je metingen." : "Elke weging en dagschommeling zichtbaar."}</span>
     </div>
     <details className="w-exact">
       <summary>Exact instellen</summary>
@@ -125,7 +125,7 @@ export function WeightChartPanel({ points, today }: { points: Point[]; today: st
   </div>;
 
   return <section className="w-section" aria-labelledby="weight-title"><div className="c-section-heading"><div><span className="c-overline">APPLE HEALTH · GEWICHT</span><h2 id="weight-title">Je gewicht in context.</h2></div></div>
-    <TrendChart title="Gewicht" subtitle="Sleep de handvatten om in of uit te zoomen" points={visible ?? []} displayPoints={trendVisible} displayLabel={settings.smooth ? "7-daagse trend" : undefined} color="var(--series-blue)" unit="kg" dateDomain={[start, end]} valueDomain={yAxis.error ? undefined : yAxis.domain} controls={controls} chartAside={aside} chartFooter={footer} />
+    <TrendChart title="Gewicht" subtitle="Sleep de handvatten om in of uit te zoomen" points={visible ?? []} displayPoints={trendVisible} displayLabel={settings.smooth ? "15-daagse trend" : undefined} color="var(--series-blue)" unit="kg" dateDomain={[start, end]} valueDomain={yAxis.error ? undefined : yAxis.domain} controls={controls} chartAside={aside} chartFooter={footer} />
     {selected && <form className="w-correction" action={correctionAction} onSubmit={(event) => {
       const submitter = (event.nativeEvent as SubmitEvent).submitter as HTMLButtonElement | null;
       if (submitter?.value === "remove" && !window.confirm(`Gewichtsmeting van ${selected.date} uit Pulse verwijderen?`)) event.preventDefault();
