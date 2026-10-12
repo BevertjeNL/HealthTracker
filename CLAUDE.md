@@ -37,7 +37,7 @@ src/lib/run-lesson.ts                   Plain-language post-run lesson: meaning,
 src/lib/run-analysis.ts                 Pure run analysis: classifyRun() (race/long/interval/easy), km-split and lap parsing, analyzePacing() (pattern, start/fade, HR drift, per-unit notes, advice), compareToSimilar(), buildRunAnalysis() (insights, training-vs-race, Riegel predictions, style profile), findRaceCandidates() (unmarked likely races), buildEventAnalysis() (per-distance race history with PR, preparation, taper, advice), buildRunDigest() (a verdict + advice for every run, from splits or from similar earlier runs). Min. 3 samples per aggregate
 src/lib/run-story.ts                    Pure phase-by-phase run narrative and available-Strava-metrics summary (start, middle, finish, load, lap power, best efforts)
 src/lib/chart-range.ts                  Range-adaptive chart ticks/labels, point summaries, manual X/Y range validation, and parse/resolve of the saved weight-chart settings (presets, custom window, Y limits)
-src/lib/weight-trend.ts                Centered seven-day smoothing at real weight-measurement dates; sparse stretches keep their original values
+src/lib/weight-trend.ts                Centered fifteen-day smoothing at real weight-measurement dates; isolated measurements keep their original values
 src/lib/mini-trend.ts                   Calendar-window sparkline series (only used by the currently unused HealthOverviewTile)
 src/lib/security.ts                     Constant-time secret comparison and Bearer parsing
 src/lib/session.ts                      Session signing/verification and password check
