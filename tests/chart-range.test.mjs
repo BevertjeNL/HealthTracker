@@ -39,8 +39,9 @@ test("manual chart axes crop dates and accept independent Y limits", () => {
 
 test("saved chart settings survive a round trip and reject malformed input", async () => {
   const { parseChartSettings, DEFAULT_CHART_SETTINGS } = await import("../src/lib/chart-range.ts");
-  const saved = { preset: null, start: "2026-08-01", end: "2026-09-30", lower: 70, upper: 75 };
+  const saved = { preset: null, start: "2026-08-01", end: "2026-09-30", lower: 70, upper: 75, smooth: true };
   assert.deepEqual(parseChartSettings(JSON.stringify(saved)), saved);
+  assert.equal(parseChartSettings(JSON.stringify({ preset: "all" })).smooth, false);
   assert.deepEqual(parseChartSettings("not json"), DEFAULT_CHART_SETTINGS);
   assert.deepEqual(parseChartSettings(null), DEFAULT_CHART_SETTINGS);
   assert.equal(parseChartSettings(JSON.stringify({ preset: 90, lower: 80, upper: 70 })).lower, null);

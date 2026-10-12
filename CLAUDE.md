@@ -37,6 +37,7 @@ src/lib/run-lesson.ts                   Plain-language post-run lesson: meaning,
 src/lib/run-analysis.ts                 Pure run analysis: classifyRun() (race/long/interval/easy), km-split and lap parsing, analyzePacing() (pattern, start/fade, HR drift, per-unit notes, advice), compareToSimilar(), buildRunAnalysis() (insights, training-vs-race, Riegel predictions, style profile), findRaceCandidates() (unmarked likely races), buildEventAnalysis() (per-distance race history with PR, preparation, taper, advice), buildRunDigest() (a verdict + advice for every run, from splits or from similar earlier runs). Min. 3 samples per aggregate
 src/lib/run-story.ts                    Pure phase-by-phase run narrative and available-Strava-metrics summary (start, middle, finish, load, lap power, best efforts)
 src/lib/chart-range.ts                  Range-adaptive chart ticks/labels, point summaries, manual X/Y range validation, and parse/resolve of the saved weight-chart settings (presets, custom window, Y limits)
+src/lib/weight-trend.ts                Centered seven-day smoothing at real weight-measurement dates; sparse stretches keep their original values
 src/lib/mini-trend.ts                   Calendar-window sparkline series (only used by the currently unused HealthOverviewTile)
 src/lib/security.ts                     Constant-time secret comparison and Bearer parsing
 src/lib/session.ts                      Session signing/verification and password check
@@ -67,7 +68,7 @@ src/components/GoalEditor.tsx           Accessible client-side goal form with Se
 src/components/DataRefreshButton.tsx    Dashboard refresh: on iPhone/iPad opens the "Pulse Health-sync" Shortcut (shortcuts:// URL), then re-syncs Strava on return; elsewhere Strava sync only
 src/components/TrendChartsSection.tsx   Legacy dashboard chart section, no longer rendered by the coach home
 src/components/TrendChart.tsx           Recharts ComposedChart (line/area; Area needs ComposedChart, not LineChart) with range-adaptive axes, optional manual Y-domain (chart-range.ts) and optional chartAside/chartFooter slots
-src/components/WeightChartPanel.tsx     Active overview weight chart: draggable X (period) and Y (kg) sliders, period presets, collapsed exact inputs; settings persist in localStorage (pulse.weight-chart.v1)
+src/components/WeightChartPanel.tsx     Active overview weight chart: draggable X (period) and Y (kg) sliders, period presets, raw/smoothed toggle, collapsed exact inputs; settings persist in localStorage (pulse.weight-chart.v1)
 src/components/RangeSlider.tsx          Two-handle draggable/keyboard range slider (horizontal or vertical); handles stretch/shrink, the band pans
 src/components/TrainingExplorer.tsx     Legacy client-side Strava explorer, no longer rendered by the journal
 src/components/SplitAnalyzer.tsx        Client-side selection and analysis of detailed kilometer splits
@@ -102,6 +103,7 @@ tests/coach.test.mjs                    Weekly load confidence, missing Health d
 tests/coach-verdict.test.mjs            Judgment transitions and missing-data safeguards
 tests/run-lesson.test.mjs               Actionable lessons for fading, even and summary-only runs
 tests/chart-range.test.mjs              Chart tick/label, saved-settings parsing and window resolution regression tests
+tests/weight-trend.test.mjs            Smoothing dampens daily changes without adding unmeasured dates or bridging sparse gaps
 tests/mini-trend.test.mjs               Mini-trend windowing regression tests
 vercel.json                             Daily cron hitting /api/strava/sync (05:00 UTC)
 drizzle.config.ts                       Points at src/db/schema.ts, reads DATABASE_URL

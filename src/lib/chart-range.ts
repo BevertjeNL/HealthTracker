@@ -77,9 +77,10 @@ export type ChartSettings = {
   end: string | null;
   lower: number | null;
   upper: number | null;
+  smooth: boolean;
 };
 
-export const DEFAULT_CHART_SETTINGS: ChartSettings = { preset: "all", start: null, end: null, lower: null, upper: null };
+export const DEFAULT_CHART_SETTINGS: ChartSettings = { preset: "all", start: null, end: null, lower: null, upper: null, smooth: false };
 export const MIN_CHART_SPAN_DAYS = 7;
 
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
@@ -105,10 +106,11 @@ export function parseChartSettings(raw: string | null): ChartSettings {
     const end = typeof value.end === "string" && DATE_PATTERN.test(value.end) ? value.end : null;
     const lower = typeof value.lower === "number" && Number.isFinite(value.lower) ? value.lower : null;
     const upper = typeof value.upper === "number" && Number.isFinite(value.upper) ? value.upper : null;
+    const smooth = value.smooth === true;
     const validY = !(lower != null && upper != null && lower >= upper);
     const validX = start != null && end != null && start < end;
-    if (preset == null && !validX) return { ...DEFAULT_CHART_SETTINGS, lower: validY ? lower : null, upper: validY ? upper : null };
-    return { preset, start: validX ? start : null, end: validX ? end : null, lower: validY ? lower : null, upper: validY ? upper : null };
+    if (preset == null && !validX) return { ...DEFAULT_CHART_SETTINGS, lower: validY ? lower : null, upper: validY ? upper : null, smooth };
+    return { preset, start: validX ? start : null, end: validX ? end : null, lower: validY ? lower : null, upper: validY ? upper : null, smooth };
   } catch {
     return DEFAULT_CHART_SETTINGS;
   }

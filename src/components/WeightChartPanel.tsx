@@ -4,6 +4,7 @@ import { useActionState, useMemo, useState, useSyncExternalStore } from "react";
 import { correctWeightAction, type WeightActionState } from "@/app/actions";
 import { RangeSlider } from "@/components/RangeSlider";
 import { TrendChart } from "@/components/TrendChart";
+import { smoothWeightPoints } from "@/lib/weight-trend";
 import {
   addChartDays,
   chartDaysBetween,
@@ -72,11 +73,13 @@ export function WeightChartPanel({ points, today }: { points: Point[]; today: st
 
   const [start, end] = resolveChartWindow(settings, earliest, today);
   const visible = selectChartWindow(sorted, start, end);
+  const smoothed = useMemo(() => smoothWeightPoints(sorted), [sorted]);
+  const trendVisible = settings.smooth ? selectChartWindow(smoothed, start, end) ?? [] : undefined;
   const measured = visible?.filter((point): point is { date: string; value: number } => point.value != null) ?? [];
   const selected = measured.find((point) => point.date === selectedDate) ?? measured.at(-1);
-  const yAxis = manualValueDomain(visible ?? [], settings.lower == null ? "" : String(settings.lower), settings.upper == null ? "" : String(settings.upper));
+  const yAxis = manualValueDomain(trendVisible ?? visible ?? [], settings.lower == null ? "" : String(settings.lower), settings.upper == null ? "" : String(settings.upper));
   const bounds = valueSliderBounds(sorted, settings.lower, settings.upper);
-  const customized = settings.preset !== "all" || settings.lower != null || settings.upper != null;
+  const customized = settings.preset !== "all" || settings.lower != null || settings.upper != null || settings.smooth;
 
   function update(patch: Partial<ChartSettings>) {
     saveSettings({ ...settings, ...patch });
@@ -92,6 +95,11 @@ export function WeightChartPanel({ points, today }: { points: Point[]; today: st
         {PRESETS.map((item) => <button key={item.label} type="button" onClick={() => update({ preset: item.value, start: null, end: null })} aria-pressed={settings.preset === item.value}>{item.label}</button>)}
       </div>
       <button type="button" className="w-reset" onClick={() => saveSettings(DEFAULT_CHART_SETTINGS)} disabled={!customized}>Herstel</button>
+    </div>
+    <div className="w-curve-choice" role="group" aria-label="Weergave van de gewichtslijn">
+      <button type="button" onClick={() => update({ smooth: false })} aria-pressed={!settings.smooth}>Metingen</button>
+      <button type="button" onClick={() => update({ smooth: true })} aria-pressed={settings.smooth}>Vloeiende lijn</button>
+      <span>{settings.smooth ? "7-daags gewogen gemiddelde; statistieken blijven gebaseerd op je metingen." : "Elke weging en dagschommeling zichtbaar."}</span>
     </div>
     <details className="w-exact">
       <summary>Exact instellen</summary>
@@ -117,7 +125,7 @@ export function WeightChartPanel({ points, today }: { points: Point[]; today: st
   </div>;
 
   return <section className="w-section" aria-labelledby="weight-title"><div className="c-section-heading"><div><span className="c-overline">APPLE HEALTH · GEWICHT</span><h2 id="weight-title">Je gewicht in context.</h2></div></div>
-    <TrendChart title="Gewicht" subtitle="Sleep de handvatten om in of uit te zoomen" points={visible ?? []} color="var(--series-blue)" unit="kg" dateDomain={[start, end]} valueDomain={yAxis.error ? undefined : yAxis.domain} controls={controls} chartAside={aside} chartFooter={footer} />
+    <TrendChart title="Gewicht" subtitle="Sleep de handvatten om in of uit te zoomen" points={visible ?? []} displayPoints={trendVisible} displayLabel={settings.smooth ? "7-daagse trend" : undefined} color="var(--series-blue)" unit="kg" dateDomain={[start, end]} valueDomain={yAxis.error ? undefined : yAxis.domain} controls={controls} chartAside={aside} chartFooter={footer} />
     {selected && <form className="w-correction" action={correctionAction} onSubmit={(event) => {
       const submitter = (event.nativeEvent as SubmitEvent).submitter as HTMLButtonElement | null;
       if (submitter?.value === "remove" && !window.confirm(`Gewichtsmeting van ${selected.date} uit Pulse verwijderen?`)) event.preventDefault();
