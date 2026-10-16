@@ -1005,3 +1005,36 @@ a:focus-visible, button:focus-visible { outline: 3px solid rgba(255, 101, 69, .3
 .g-session-label.race { color: #9d3028; background: #ffebe8; }
 @media (max-width: 830px) { .c-detail-lesson { grid-template-columns: 1fr; } }
 @media (max-width: 650px) { .c-run-lesson-grid { grid-template-columns: 1fr; } }
+
+/* Verversanimatie: de knop blijft in de app en toont de stappen. */
+.refresh-button.is-running { position: relative; overflow: hidden; }
+.refresh-button.is-running::after { content: ""; position: absolute; inset: 0; background: linear-gradient(100deg, transparent 20%, rgba(121, 190, 160, .35) 50%, transparent 80%); transform: translateX(-100%); animation: refresh-sweep 1.2s ease-in-out infinite; }
+.refresh-steps { margin: 0; padding: 0; display: flex; gap: 10px; list-style: none; color: var(--text-muted); font-size: 11px; }
+.refresh-steps li { display: inline-flex; align-items: center; gap: 5px; transition: color .25s ease; }
+.refresh-steps i { width: 8px; height: 8px; border-radius: 50%; background: currentColor; opacity: .35; transition: opacity .25s ease, background .25s ease; }
+.refresh-steps li.active { color: var(--text-primary); }
+.refresh-steps li.active i { opacity: 1; animation: refresh-pulse 1s ease-in-out infinite; }
+.refresh-steps li.done { color: #16845e; }
+.refresh-steps li.done i { opacity: 1; background: #16845e; }
+@keyframes refresh-sweep { to { transform: translateX(100%); } }
+@keyframes refresh-pulse { 50% { transform: scale(1.7); opacity: .5; } }
+@media (prefers-reduced-motion: reduce) { .refresh-button.is-running::after, .refresh-steps li.active i { animation: none; } }
+
+/* Gewichtsperioden naast elkaar, zoals in Apple Gezondheid. */
+.w-periods { margin-bottom: 14px; padding: 18px; border: 1px solid var(--border); border-radius: 18px; background: var(--surface-1); }
+.w-periods-head { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.w-periods-head h3 { margin: 0; max-width: 28ch; font-size: 22px; line-height: 1.25; color: var(--text-primary); }
+.w-period-choice { display: flex; gap: 4px; }
+.w-period-choice button { min-height: 34px; padding: 6px 11px; border: 1px solid var(--border); border-radius: 9px; background: transparent; color: var(--text-secondary); font: inherit; font-size: 13px; cursor: pointer; }
+.w-period-choice button[aria-pressed="true"] { color: #fff; background: var(--series-violet); border-color: var(--series-violet); }
+.w-period-grid { margin-top: 14px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.w-period-grid span { padding: 10px 12px; display: flex; flex-direction: column; gap: 2px; border-left: 4px solid var(--text-muted); border-radius: 4px; background: var(--surface-2); }
+.w-period-grid .w-period-recent { border-left-color: var(--series-violet); }
+.w-period-grid .w-period-delta { border-left-color: transparent; }
+.w-period-grid small { font-size: 12px; color: var(--text-secondary); }
+.w-period-grid strong { font-size: 20px; font-variant-numeric: tabular-nums; color: var(--text-primary); }
+.w-period-recent strong { color: var(--series-violet); }
+.w-period-grid em { font-size: 12px; font-style: normal; color: var(--text-muted); }
+.w-latest { margin: 12px 0 0; font-size: 13px; color: var(--text-secondary); }
+.w-latest.stale { color: #9a4d2b; }
+@media (max-width: 640px) { .w-period-grid { grid-template-columns: 1fr; } }
