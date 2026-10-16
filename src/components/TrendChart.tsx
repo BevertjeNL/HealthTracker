@@ -16,6 +16,7 @@ import {
 } from "recharts";
 
 type Point = { date: string; value: number | null };
+export type PeriodLine = { start: string; end: string; value: number; color: string; label: string };
 type Unit = "kg" | "pace" | "bpm" | "ms" | "hours" | "number";
 
 function fmtDateLong(d: string) {
@@ -61,6 +62,7 @@ export function TrendChart({
   valueDomain,
   chartAside,
   chartFooter,
+  periodLines,
 }: {
   title: string;
   subtitle?: string;
@@ -75,6 +77,7 @@ export function TrendChart({
   valueDomain?: [number, number];
   chartAside?: ReactNode;
   chartFooter?: ReactNode;
+  periodLines?: PeriodLine[];
 }) {
   const formatter = FORMATTERS[unit];
   const data = (displayPoints ?? points)
@@ -167,6 +170,12 @@ export function TrendChart({
               {average != null && (
                 <ReferenceLine y={average} stroke="var(--text-muted)" strokeDasharray="5 5" label={{ value: "gem.", position: "insideTopRight", fill: "var(--text-muted)", fontSize: 13 }} />
               )}
+              {periodLines?.map((line) => {
+                const from = dateTimestamp(line.start < resolvedDateDomain[0] ? resolvedDateDomain[0] : line.start);
+                const to = dateTimestamp(line.end > resolvedDateDomain[1] ? resolvedDateDomain[1] : line.end);
+                if (from >= to) return null;
+                return <ReferenceLine key={line.label} segment={[{ x: from, y: line.value }, { x: to, y: line.value }]} stroke={line.color} strokeWidth={4} strokeLinecap="round" ifOverflow="hidden" />;
+              })}
               <Tooltip
                 contentStyle={{ background: "var(--surface-1)", border: "1px solid var(--border)", borderRadius: 10, fontSize: 14 }}
                 labelStyle={{ color: "var(--text-secondary)", marginBottom: 4 }}

@@ -78,7 +78,7 @@ Een volledige body heeft deze vorm; de getallen hieronder zijn uitsluitend een v
 5. Open in Opdrachten het tabblad **Automatisering** en maak een persoonlijke automatisering voor iedere ochtend, nadat de iPhone normaal gesproken is ontgrendeld.
 6. Kies `Voer onmiddellijk uit` en laat de automatisering `Pulse Health-sync` starten.
 
-De website kan Apple Health niet rechtstreeks uitlezen: iOS staat alleen apps en Opdrachten toe om de Health-database te benaderen. Plan de automatisering daarom op een moment waarop de iPhone normaal ontgrendeld is en de Apple Watch al heeft kunnen synchroniseren. Als de laatste Health-dag in Pulse achterloopt, gebruik dan **Gegevens bijwerken** in het dashboard op de iPhone. Pulse controleert Strava, opent `Pulse Health-sync` en leest bij terugkeer de nieuw ontvangen dag opnieuw in.
+De website kan Apple Health niet rechtstreeks uitlezen: iOS staat alleen apps en Opdrachten toe om de Health-database te benaderen. Een webapp kan Opdrachten ook niet op de achtergrond starten. Pulse vertrouwt daarom op automatiseringen op de iPhone zelf (zie stap 6). De knop **Gegevens verversen** in Pulse blijft in de app: hij synchroniseert Strava en leest alles opnieuw wat de iPhone al heeft aangeleverd, met een voortgangsanimatie.
 
 Bij `401 Unauthorized` klopt de geheime header niet. Bij `upserted:0` waren alle meegestuurde metriekvelden leeg of ongeldig. De respons noemt wel veldnamen, maar geeft nooit gezondheidswaarden terug.
 
@@ -97,3 +97,16 @@ De dagelijkse opdracht leest alleen gisteren. Maak daarom een aparte opdracht `P
 Pulse zet metingen niet kunstmatig door op dagen zonder weging. Daardoor blijft de gewichtsgrafiek gebaseerd op echte Health-metingen.
 
 Als je later een foutieve weging uit Apple Health verwijdert, verdwijnt die niet vanzelf uit Pulse: de opdracht stuurt alleen aanwezige waarden door. Kies onder de gewichtsgrafiek de meetdatum en gebruik **Verwijder meting**. Alleen het gewicht van die dag wordt gewist; andere Health-gegevens blijven staan.
+
+## 6. Gewicht en Health meerdere keren per dag laten bijwerken
+
+De dagelijkse opdracht leest alleen gisteren. Een weging van vandaag, of een weging na de laatste uitvoering, komt dan te laat of niet in Pulse. Maak daarom een tweede opdracht `Pulse gewicht-sync`:
+
+1. Zoek **Gewicht** in Gezondheid met begindatum in de laatste 7 dagen, sorteer op begindatum, zonder limiet.
+2. Gebruik **Herhaal met elk onderdeel** en haal per onderdeel de **Begindatum** en **Waarde** op.
+3. Formatteer de begindatum als `yyyy-MM-dd`.
+4. Verstuur per onderdeel dezelfde `POST` met header `x-ingest-secret` en als body `source: apple-shortcuts`, `date: [geformatteerde begindatum]` en `weight_body_mass: [waarde]`.
+
+Pulse overschrijft per meetdatum, dus herhaald versturen geeft geen dubbele metingen en vult gaten van de afgelopen week vanzelf aan.
+
+Maak daarna in **Automatisering** meerdere persoonlijke automatiseringen, bijvoorbeeld om 07:00, 12:00 en 19:00, die `Pulse gewicht-sync` en `Pulse Health-sync` starten. Kies `Voer onmiddellijk uit` en zet `Melden bij uitvoeren` uit, dan draaien ze op de achtergrond. Een weging is in Pulse zichtbaar na de eerstvolgende uitvoering en een druk op **Gegevens verversen**.
