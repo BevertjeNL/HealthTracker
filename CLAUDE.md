@@ -36,6 +36,7 @@ src/lib/coach-verdict.ts                Pure colored judgments and concrete acti
 src/lib/run-lesson.ts                   Plain-language post-run lesson: meaning, what to keep, correction and next run from splits and run type
 src/lib/run-analysis.ts                 Pure run analysis: classifyRun() (race/long/interval/easy), km-split and lap parsing, analyzePacing() (pattern, start/fade, HR drift, per-unit notes, advice), compareToSimilar(), buildRunAnalysis() (insights, training-vs-race, Riegel predictions, style profile), findRaceCandidates() (unmarked likely races), buildEventAnalysis() (per-distance race history with PR, preparation, taper, advice), buildRunDigest() (a verdict + advice for every run, from splits or from similar earlier runs). Min. 3 samples per aggregate
 src/lib/run-story.ts                    Pure phase-by-phase run narrative and available-Strava-metrics summary (start, middle, finish, load, lap power, best efforts)
+src/lib/run-stats.ts                    Pure all-history run statistics: per year/month totals, comparisons with earlier periods (percentage only when the earlier period has min. 3 runs), 26-week trend, weekday/day-part spread, 53-week heatmap, streaks, records, distance mix and fun equivalents (Amsterdam calendar days)
 src/lib/chart-range.ts                  Range-adaptive chart ticks/labels, point summaries, manual X/Y range validation, and parse/resolve of the saved weight-chart settings (presets, custom window, Y limits)
 src/lib/weight-periods.ts              Recent-weeks versus previous-period weight averages (min. 3 measurements each), summary sentence and latest measurement
 src/lib/weight-trend.ts                Centered fifteen-day smoothing at real weight-measurement dates; isolated measurements keep their original values
@@ -56,12 +57,13 @@ src/app/globals.css                     Tailwind import plus the hand-written Pu
 src/app/page.tsx                        Coach home: goal-aware daily advice and next session, latest run evidence (auto loads missing detail), adjustable Apple Health weight chart, training direction and data refresh
 src/app/actions.ts                     Authenticated Server Action to update or clear one day's weight while preserving its other Health metrics
 src/app/runs/page.tsx                   Training journal: current phase, recent load and run list with a short verdict
+src/app/stats/page.tsx                  Read-only "Cijfers" tab: colourful statistics overview (totals, per year/month, comparisons, trend, run days, records, fun facts) built from run-stats.ts
 src/app/goal/page.tsx                   Saved race goal, editable target and four-week calendar schedule
 src/app/goal/actions.ts                Session-protected Server Action for validated single-goal upsert and revalidation
 src/app/runs/actions.ts                 Authenticated Server Actions: manual Strava sync (syncRunsAction) and setRunKindAction (writes activities.kind_override)
 src/app/runs/[id]/page.tsx              Post-run coach: start/middle/finish/load story, evidence from Strava and Apple Health, next step, adjustable chart and split tools
 src/components/AppLogo.tsx              Shared Pulse wordmark used throughout the UI
-src/components/CoachNav.tsx             Shared navigation for coach home, journal and run detail
+src/components/CoachNav.tsx             Shared navigation for coach home, goal, journal and stats
 src/components/CoachVerdict.tsx         Shared judgment card with textual status, reason and action
 src/components/RunLessonCard.tsx        Primary post-run coaching card with practical keep/change/next-run instructions
 src/components/LiveCoachRefresh.tsx     Refreshes authenticated dynamic pages on focus and at most once a minute while visible
@@ -103,6 +105,7 @@ tests/run-story.test.mjs                Phase narrative and missing-split regres
 tests/coach.test.mjs                    Weekly load confidence, missing Health data, post-run recovery and same-day timing regression tests
 tests/coach-verdict.test.mjs            Judgment transitions and missing-data safeguards
 tests/run-lesson.test.mjs               Actionable lessons for fading, even and summary-only runs
+tests/run-stats.test.mjs                Totals, minimum-sample comparisons, Amsterdam day boundaries, streaks, trend, records, landmarks and heatmap
 tests/chart-range.test.mjs              Chart tick/label, saved-settings parsing and window resolution regression tests
 tests/weight-periods.test.mjs            Period averages, stable threshold, minimum samples, latest measurement
 tests/weight-trend.test.mjs            Smoothing dampens daily changes without adding unmeasured dates or bridging sparse gaps
