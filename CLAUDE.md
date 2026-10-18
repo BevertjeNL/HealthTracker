@@ -14,7 +14,7 @@ Read the Next.js 16 docs relevant to what you're about to touch, resolved from `
 - **Neon Postgres**, accessed via `@neondatabase/serverless` HTTP driver + **Drizzle ORM** (`drizzle-orm/neon-http`) — one-shot HTTP queries, not a pooled/long-lived connection. No transactions spanning multiple round trips.
 - **Recharts** for trend charts; `jose` for session signing.
 - Single-user app: password login with a signed stateless session cookie; no accounts or multi-tenant concerns.
-- UI language is Dutch (nl-NL); product name in the UI is **Pulse**. The UI design system is `src/app/pulse.css` (`p-*` classes, shared series colours so a colour always means the same signal, mobile bottom tab bar). `src/app/globals.css` keeps only the legacy `c-*`/`g-*`/`an-*`/`w-*` classes still used by run detail, goal, weight panel and login; remove a class there when its last user goes.
+- UI language is Dutch (nl-NL); product name in the UI is **Pulse**. The app is light-only (`colorScheme: "light"`, light `themeColor`); there is no dark mode yet. The UI design system is `src/app/pulse.css` (`p-*` classes, shared series colours so a colour always means the same signal, mobile bottom tab bar). `src/app/globals.css` keeps only the legacy `c-*`/`g-*`/`an-*`/`w-*` classes still used by run detail, goal, weight panel and login; remove a class there when its last user goes.
 
 Files:
 
@@ -54,6 +54,8 @@ src/app/api/health/ingest/route.ts      GET metric contract + protected POST ing
 src/app/layout.tsx                      Pulse metadata (noindex), favicon/Apple/Safari/PWA integration and authenticated shell
 src/app/manifest.ts                     PWA manifest and installable app icons
 src/app/globals.css                     Tailwind import plus the hand-written Pulse/coach design system
+src/app/ios.css                         iPhone/iPad layer loaded last: safe areas, dvh, floating tab bar (<900px) with sticky blurred top bar, 44px tap targets and pressed states on touch, no hover tricks, 16px inputs (no iOS focus zoom), scrollable chips, segmented controls, login on small screens, pull-to-refresh and skeleton styles
+src/app/loading.tsx                     Instant skeleton with navigation on every tab change
 src/app/page.tsx                        Coach home: goal-aware daily advice, body signals (load, HRV, RHR, fitness) from training-health, race bar, latest run with body context (auto loads missing detail), recent runs, data refresh
 src/app/vorm/page.tsx                   Training × Health: weekly km vs HRV/RHR, load balance, fitness trend, response profile, performance links
 src/app/lichaam/page.tsx                Health trends vs. personal baseline, running form, adjustable weight chart with correction, data-coverage table
@@ -66,7 +68,8 @@ src/app/goal/actions.ts                Session-protected Server Action for valid
 src/app/runs/actions.ts                 Authenticated Server Actions: manual Strava sync (syncRunsAction) and setRunKindAction (writes activities.kind_override)
 src/app/runs/[id]/page.tsx              Post-run coach: start/middle/finish/load story, body context card (morning before, load, morning after, Watch form), next step, adjustable chart and split tools
 src/components/AppLogo.tsx              Shared Pulse wordmark used throughout the UI
-src/components/CoachNav.tsx             Shared navigation (desktop top bar, mobile bottom tab bar, logout) for all six sections
+src/components/CoachNav.tsx             Client component: shared navigation (desktop top bar from 900px, floating bottom tab bar below, logout) for all six sections; falls back to the pathname when no `active` is passed (loading.tsx); re-tapping the active tab scrolls to top
+src/components/PullToRefresh.tsx        Touch-only pull-to-refresh for the authenticated app (Strava sync at most every 2 min, then router.refresh); leaves charts, sliders, inputs and scrollable tables alone
 src/components/CoachVerdict.tsx         Shared judgment card with textual status, reason and action
 src/components/RunLessonCard.tsx        Primary post-run coaching card with practical keep/change/next-run instructions
 src/components/LiveCoachRefresh.tsx     Refreshes authenticated dynamic pages on focus and at most once a minute while visible

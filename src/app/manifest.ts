@@ -5,10 +5,15 @@ export default function manifest(): MetadataRoute.Manifest {
     name: "Pulse HealthTracker",
     short_name: "Pulse",
     description: "Persoonlijk dashboard voor gezondheid en hardlopen.",
+    id: "/",
+    lang: "nl-NL",
+    categories: ["health", "fitness", "sports"],
     start_url: "/",
+    scope: "/",
     display: "standalone",
-    background_color: "#f4f6f2",
-    theme_color: "#183e2e",
+    orientation: "any",
+    background_color: "#f5f4ef",
+    theme_color: "#f5f4ef",
     icons: [
       {
         src: "/icons/icon-192.png",

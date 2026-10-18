@@ -1,0 +1,291 @@
+/* iPhone / iPad layer. Loaded after pulse.css and globals.css, so it only overrides what differs on touch devices:
+   safe areas, the floating tab bar, tap targets, pressed states, no hover tricks, no iOS focus-zoom, pull-to-refresh
+   and loading skeletons. Desktop layout stays untouched above 900px with a mouse. */
+
+:root {
+  --shell-x: 30px;
+  --gutter-l: max(var(--shell-x), env(safe-area-inset-left));
+  --gutter-r: max(var(--shell-x), env(safe-area-inset-right));
+}
+
+/* ---------- base ---------- */
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+  /* No rubber-band chaining: the pull-to-refresh component owns that gesture. */
+  overscroll-behavior-y: contain;
+  scroll-padding-top: 72px;
+}
+body { -webkit-font-smoothing: antialiased; }
+a, button, summary, label, select, input { touch-action: manipulation; }
+.p-nav, .p-tabbar, button, summary, .p-chips a, .p-tile, .p-metric, .p-row, .p-jrow { -webkit-touch-callout: none; }
+.p-nav, .p-tabbar, button, summary, .p-chips a { -webkit-user-select: none; user-select: none; }
+
+/* Never zoom the page when a field is focused (iOS zooms below 16px). */
+@media (pointer: coarse) {
+  input, select, textarea { font-size: max(16px, 1em); }
+}
+
+/* Text that was set below readable size on a phone. */
+.refresh-status { font-size: 12px; }
+.refresh-steps { font-size: 12px; }
+.chart-stat-strip small { font-size: 12px; }
+.chart-stat-strip strong { font-size: 14px; }
+.split-presets button { font-size: 13px; }
+.an-marker, .an-marker button { font-size: 14px; }
+
+/* ---------- shell: dynamic viewport + safe areas ---------- */
+.c-shell {
+  min-height: 100vh;
+  min-height: 100dvh;
+  padding-left: var(--gutter-l);
+  padding-right: var(--gutter-r);
+}
+
+/* ---------- navigation: top bar from 900px, floating tab bar below ---------- */
+@media (min-width: 900px) {
+  .p-tabbar { display: none; }
+  .p-nav-links { display: flex; }
+}
+
+@media (max-width: 899px) {
+  :root { --shell-x: 20px; }
+  .c-shell { padding-bottom: calc(104px + env(safe-area-inset-bottom)); }
+
+  /* Compact, translucent top bar that stays put while you scroll. */
+  .p-nav {
+    position: sticky;
+    top: 0;
+    z-index: 30;
+    height: auto;
+    min-height: 56px;
+    margin-left: calc(var(--gutter-l) * -1);
+    margin-right: calc(var(--gutter-r) * -1);
+    padding: env(safe-area-inset-top) var(--gutter-r) 0 var(--gutter-l);
+    border-bottom: 1px solid rgba(21, 60, 46, .08);
+    background: rgba(245, 244, 239, .8);
+    -webkit-backdrop-filter: saturate(180%) blur(20px);
+    backdrop-filter: saturate(180%) blur(20px);
+  }
+  .p-nav-links { display: none; }
+  .p-nav .brand-mark { font-size: 21px; }
+  .p-nav .brand-icon { width: 32px; height: 32px; border-radius: 10px; }
+
+  /* Floating tab bar, like the current iOS tab bar. */
+  .p-tabbar {
+    position: fixed;
+    right: auto;
+    bottom: max(10px, env(safe-area-inset-bottom));
+    left: 50%;
+    z-index: 40;
+    width: min(560px, calc(100% - max(20px, env(safe-area-inset-left) + env(safe-area-inset-right) + 12px)));
+    padding: 5px;
+    display: grid;
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    gap: 2px;
+    transform: translateX(-50%);
+    border: 1px solid rgba(255, 255, 255, .7);
+    border-radius: 28px;
+    background: rgba(255, 255, 255, .74);
+    box-shadow: 0 10px 34px rgba(21, 60, 46, .18), 0 0 0 .5px rgba(21, 60, 46, .1);
+    -webkit-backdrop-filter: saturate(190%) blur(26px);
+    backdrop-filter: saturate(190%) blur(26px);
+  }
+  .p-tabbar a {
+    min-height: 54px;
+    padding: 6px 0 5px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    border-radius: 23px;
+    gap: 2px;
+    color: #6f8277;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: -.01em;
+    transition: background-color .2s ease, transform .15s ease, color .2s ease;
+  }
+  .p-tabbar a svg { width: 24px; height: 24px; }
+  .p-tabbar a[aria-current="page"] { color: var(--p-ink); }
+  .p-tabbar a[aria-current="page"] svg { color: var(--series-run); }
+  .p-tabbar a:active { transform: scale(.92); }
+  .p-tabbar a[aria-current="page"] { background: rgba(21, 60, 46, .09); }
+  .p-tabbar a[aria-current="page"] span { font-weight: 800; }
+
+  /* Pointer-free iPad portrait gets a wider bar with icon and label side by side. */
+  @media (min-width: 700px) {
+    .p-tabbar { width: min(620px, 80%); }
+    .p-tabbar a { flex-direction: row; gap: 7px; font-size: 13px; }
+    .p-tabbar a svg { width: 22px; height: 22px; }
+  }
+}
+
+/* iPhone in landscape: very little height, so the bar becomes a slim strip. */
+@media (max-width: 899px) and (max-height: 500px) and (orientation: landscape) {
+  .c-shell { padding-bottom: calc(76px + env(safe-area-inset-bottom)); }
+  .p-tabbar { width: min(560px, 70%); }
+  .p-tabbar a { min-height: 42px; flex-direction: row; gap: 6px; font-size: 12px; }
+  .p-tabbar a svg { width: 20px; height: 20px; }
+}
+
+@media (max-width: 380px) {
+  .p-tabbar a { font-size: 10.5px; }
+  .p-tabbar a svg { width: 22px; height: 22px; }
+}
+
+/* ---------- iPad portrait / small tablets: use the width ---------- */
+@media (min-width: 700px) and (max-width: 980px) {
+  .p-tiles { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .p-two { grid-template-columns: 1fr 1fr; }
+  .p-links { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .p-body-phases { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .p-head { flex-direction: row; align-items: flex-end; }
+}
+
+/* ---------- phones ---------- */
+@media (max-width: 700px) {
+  :root { --shell-x: 16px; }
+  .c-shell { padding-top: 0; }
+  .p-head h1 { font-size: clamp(30px, 9vw, 40px); }
+  .p-section { margin-top: 28px; }
+  .p-card, .p-body-card { border-radius: 18px; }
+  .p-decision { border-radius: 24px; }
+  .p-head .data-refresh-control { width: 100%; max-width: none; align-items: stretch; }
+  .p-head .refresh-button { width: 100%; }
+  .p-head .refresh-status { max-width: none; text-align: center; }
+
+  /* Filter chips and presets scroll sideways in one line instead of wrapping into a block. */
+  .p-chips, .w-presets {
+    margin-left: calc(var(--gutter-l) * -1);
+    margin-right: calc(var(--gutter-r) * -1);
+    padding: 0 var(--gutter-r) 2px var(--gutter-l);
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scroll-snap-type: x proximity;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+  }
+  .p-chips::-webkit-scrollbar, .w-presets::-webkit-scrollbar { display: none; }
+  .p-chips a, .w-presets button { flex: none; scroll-snap-align: start; white-space: nowrap; }
+
+  /* Segmented controls span the width, like UISegmentedControl. */
+  .p-chart-controls [role="group"], .an-toggle, .w-period-choice { display: flex; width: 100%; }
+  .p-chart-controls [role="group"] button, .an-toggle button, .w-period-choice button { flex: 1; }
+  .w-bar { align-items: stretch; flex-direction: column; }
+  .p-chart-controls { flex-direction: column; }
+
+  /* Journal rows read as a list: metrics wrap under the title. */
+  .p-jrow { padding: 14px 16px; }
+  .p-jrow-metrics { gap: 8px 6px; }
+  .p-list, .p-journal { border-radius: 18px; }
+  .an-table-wrap, .p-coverage, .st-months-wrap, .st-heat-scroll { -webkit-overflow-scrolling: touch; overscroll-behavior-x: contain; }
+}
+
+/* ---------- touch: tap targets, pressed states, no hover tricks ---------- */
+@media (pointer: coarse) {
+  .p-chart-controls button, .p-chips a, .w-presets button, .w-curve-choice button, .w-period-choice button,
+  .an-toggle button, .split-presets button, .an-marker button, .an-backfill button, .w-reset, .p-nav-logout button,
+  .refresh-button, .c-button, .p-goalbar > a, .split-empty button, .w-correction-actions button, .an-axis-controls button {
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .p-head .refresh-button { min-height: 48px; font-size: 14px; }
+  .p-headlink, .p-section-head > a, .p-more a, .c-section-heading > a, .c-strava-link {
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+  }
+  .p-more a { justify-content: center; }
+  .c-deep-dive > summary, .w-exact summary { min-height: 48px; align-items: center; }
+  .w-exact summary { display: flex; }
+  .p-nav-logout button { padding: 0 14px; }
+
+  /* Range sliders: larger grab area, scroll the page along the free axis. */
+  .rs-horizontal { height: 44px; touch-action: pan-y; }
+  .rs-vertical { width: 44px; touch-action: pan-x; }
+  .rs-horizontal .rs-rail { top: 20px; }
+  .rs-horizontal .rs-band { top: 17px; }
+  .rs-vertical .rs-rail { left: 20px; }
+  .rs-vertical .rs-band { left: 17px; }
+  .rs-handle { width: 30px; height: 30px; }
+  .rs-horizontal .rs-handle { top: 7px; }
+  .rs-vertical .rs-handle { left: 7px; }
+
+  /* Pressed feedback instead of hover. */
+  a.p-tile, a.p-metric, .p-row, .p-jrow, .p-goalbar > a, .c-button, button, .p-link { transition: transform .12s ease, background-color .12s ease, opacity .12s ease; }
+  a.p-tile:active, a.p-metric:active, .p-link:active { transform: scale(.975); }
+  .p-row:active, .p-jrow:active { background: #eaf0e4; }
+  button:not(:disabled):active, .p-goalbar > a:active, .c-button:active { transform: scale(.97); opacity: .86; }
+}
+
+@media (hover: none) {
+  a.p-tile:hover, a.p-metric:hover { transform: none; box-shadow: none; }
+  .refresh-button:hover:not(:disabled) { transform: none; box-shadow: 0 5px 16px rgba(21, 52, 40, .07); }
+  .p-nav-logout button:hover { background: transparent; }
+  .p-row:hover, .p-jrow:hover { background: #fff; }
+}
+
+/* ---------- login ---------- */
+.c-login-shell { min-height: 100vh; min-height: 100dvh; }
+.c-login-intro { min-height: 100vh; min-height: 100dvh; }
+.c-login-form form input.c-login-input { min-height: 52px; font-size: 17px; }
+.c-login-form form button { min-height: 52px; font-size: 17px; }
+@media (max-width: 800px) {
+  .c-login-shell { grid-template-rows: auto 1fr; }
+  .c-login-intro { min-height: 0; padding: calc(84px + env(safe-area-inset-top)) max(24px, env(safe-area-inset-left)) 36px; }
+  .c-login-intro .brand-mark { top: calc(24px + env(safe-area-inset-top)); }
+  .c-login-intro h1 { font-size: clamp(44px, 14vw, 57px); }
+  .c-login-intro > p { font-size: 16px; }
+  .c-login-form { padding: 32px 0 calc(40px + env(safe-area-inset-bottom)); }
+  .c-login-form h2 { font-size: 32px; }
+}
+@media (max-width: 800px) and (max-height: 500px) {
+  .c-login-intro > p, .c-login-source { display: none; }
+}
+
+/* ---------- pull to refresh ---------- */
+.ptr {
+  position: fixed;
+  top: calc(env(safe-area-inset-top) + 8px);
+  right: 0;
+  left: 0;
+  z-index: 60;
+  display: flex;
+  justify-content: center;
+  pointer-events: none;
+  transform: translateY(calc(var(--ptr, 0px) - 56px));
+  opacity: var(--ptr-p, 0);
+  transition: transform .25s ease, opacity .25s ease, visibility 0s linear .25s;
+}
+.ptr-pulling, .ptr-ready { transition: none; }
+.ptr-idle { visibility: hidden; }
+.ptr-loading { opacity: 1; }
+.ptr-chip { padding: 9px 15px 9px 12px; display: inline-flex; align-items: center; gap: 8px; border-radius: 999px; color: var(--p-ink, #153c2e); background: rgba(255, 255, 255, .9); box-shadow: 0 6px 22px rgba(21, 60, 46, .18); -webkit-backdrop-filter: blur(16px); backdrop-filter: blur(16px); font-size: 14px; font-weight: 700; }
+.ptr-chip svg { width: 18px; height: 18px; transition: transform .2s ease; }
+.ptr-ready .ptr-arrow { transform: rotate(180deg); }
+.ptr-spin { animation: refresh-spin .8s linear infinite; }
+
+/* ---------- loading skeleton ---------- */
+.sk { display: block; border-radius: 14px; background: linear-gradient(100deg, #e7ebe2 30%, #f2f5ee 50%, #e7ebe2 70%) 0 0 / 220% 100%; animation: sk-shimmer 1.3s ease-in-out infinite; }
+.sk-head { padding: 34px 0 26px; display: grid; gap: 12px; }
+.sk-line { height: 14px; border-radius: 7px; }
+.sk-w30 { width: 30%; }
+.sk-w60 { width: 60%; }
+.sk-title { width: 72%; height: 40px; border-radius: 10px; }
+.sk-hero { height: 220px; border-radius: 26px; }
+.sk-tiles { margin-top: 16px; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; }
+.sk-tile { height: 112px; border-radius: 18px; }
+.sk-chart { height: 260px; margin-top: 16px; border-radius: 20px; }
+@keyframes sk-shimmer { to { background-position: -220% 0; } }
+@media (max-width: 700px) {
+  .sk-head { padding: 22px 0 18px; }
+  .sk-tiles { grid-template-columns: 1fr 1fr; gap: 10px; }
+  .sk-hero { height: 200px; border-radius: 24px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .sk, .ptr-spin { animation: none; }
+  .p-tabbar a, a.p-tile, a.p-metric, button { transition: none !important; }
+}
