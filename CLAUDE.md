@@ -37,7 +37,9 @@ src/lib/coach-verdict.ts                Pure colored judgments and concrete acti
 src/lib/run-lesson.ts                   Plain-language post-run lesson: meaning, what to keep, correction and next run from splits and run type
 src/lib/run-analysis.ts                 Pure run analysis: classifyRun() (race/long/interval/easy), km-split and lap parsing, analyzePacing() (pattern, start/fade, HR drift, per-unit notes, advice), compareToSimilar(), buildRunAnalysis() (insights, training-vs-race, Riegel predictions, style profile), findRaceCandidates() (unmarked likely races), buildEventAnalysis() (per-distance race history with PR, preparation, taper, advice), buildRunDigest() (a verdict + advice for every run, from splits or from similar earlier runs). Min. 3 samples per aggregate
 src/lib/run-story.ts                    Pure phase-by-phase run narrative and available-Strava-metrics summary (start, middle, finish, load, lap power, best efforts)
+src/lib/run-stats.ts                    Pure all-history run statistics: per year/month totals, comparisons with earlier periods (percentage only when the earlier period has min. 3 runs), 26-week trend, weekday/day-part spread, 53-week heatmap, streaks, records, distance mix and fun equivalents (Amsterdam calendar days)
 src/lib/chart-range.ts                  Range-adaptive chart ticks/labels, point summaries, manual X/Y range validation, and parse/resolve of the saved weight-chart settings (presets, custom window, Y limits)
+src/lib/weight-periods.ts              Recent-weeks versus previous-period weight averages (min. 3 measurements each), summary sentence and latest measurement
 src/lib/weight-trend.ts                Centered fifteen-day smoothing at real weight-measurement dates; isolated measurements keep their original values
 src/lib/security.ts                     Constant-time secret comparison and Bearer parsing
 src/lib/session.ts                      Session signing/verification and password check
@@ -58,17 +60,18 @@ src/app/lichaam/page.tsx                Health trends vs. personal baseline, run
 src/app/pulse.css                       Pulse design system v2 (p-* classes, shared series colours, mobile tab bar); globals.css keeps only legacy classes still in use
 src/app/actions.ts                     Authenticated Server Action to update or clear one day's weight while preserving its other Health metrics
 src/app/runs/page.tsx                   Training journal: summary tiles, type filter (?type=, ?alle=1), per-run verdict, load and morning readiness
+src/app/stats/page.tsx                  Read-only "Cijfers" tab: colourful statistics overview (totals, per year/month, comparisons, trend, run days, records, fun facts) built from run-stats.ts
 src/app/goal/page.tsx                   Saved race goal, editable target and four-week calendar schedule
 src/app/goal/actions.ts                Session-protected Server Action for validated single-goal upsert and revalidation
 src/app/runs/actions.ts                 Authenticated Server Actions: manual Strava sync (syncRunsAction) and setRunKindAction (writes activities.kind_override)
 src/app/runs/[id]/page.tsx              Post-run coach: start/middle/finish/load story, body context card (morning before, load, morning after, Watch form), next step, adjustable chart and split tools
 src/components/AppLogo.tsx              Shared Pulse wordmark used throughout the UI
-src/components/CoachNav.tsx             Shared navigation (desktop top bar, mobile bottom tab bar, logout) for all five sections
+src/components/CoachNav.tsx             Shared navigation (desktop top bar, mobile bottom tab bar, logout) for all six sections
 src/components/CoachVerdict.tsx         Shared judgment card with textual status, reason and action
 src/components/RunLessonCard.tsx        Primary post-run coaching card with practical keep/change/next-run instructions
 src/components/LiveCoachRefresh.tsx     Refreshes authenticated dynamic pages on focus and at most once a minute while visible
 src/components/GoalEditor.tsx           Accessible client-side goal form with Server Action state
-src/components/DataRefreshButton.tsx    Dashboard refresh: on iPhone/iPad opens the "Pulse Health-sync" Shortcut (shortcuts:// URL), then re-syncs Strava on return; elsewhere Strava sync only
+src/components/DataRefreshButton.tsx    Dashboard refresh that stays in the app: Strava sync, then router refresh with a three-step animation (no Shortcuts link)
 src/components/TrendChart.tsx           Recharts ComposedChart (line/area; Area needs ComposedChart, not LineChart) with range-adaptive axes, optional manual Y-domain (chart-range.ts) and optional chartAside/chartFooter slots
 src/components/WeightChartPanel.tsx     Active overview weight chart: draggable X (period) and Y (kg) sliders, period presets, raw/smoothed toggle, collapsed exact inputs; settings persist in localStorage (pulse.weight-chart.v1)
 src/components/RangeSlider.tsx          Two-handle draggable/keyboard range slider (horizontal or vertical); handles stretch/shrink, the band pans
@@ -100,7 +103,9 @@ tests/run-story.test.mjs                Phase narrative and missing-split regres
 tests/coach.test.mjs                    Weekly load confidence, missing Health data, post-run recovery and same-day timing regression tests
 tests/coach-verdict.test.mjs            Judgment transitions and missing-data safeguards
 tests/run-lesson.test.mjs               Actionable lessons for fading, even and summary-only runs
+tests/run-stats.test.mjs                Totals, minimum-sample comparisons, Amsterdam day boundaries, streaks, trend, records, landmarks and heatmap
 tests/chart-range.test.mjs              Chart tick/label, saved-settings parsing and window resolution regression tests
+tests/weight-periods.test.mjs            Period averages, stable threshold, minimum samples, latest measurement
 tests/weight-trend.test.mjs            Smoothing dampens daily changes without adding unmeasured dates or bridging sparse gaps
 tests/training-health.test.mjs         Load model, 28-day balance gate, baseline/stale handling, fitness windows, response profile, correlation minimums, body alert, run body context
 vercel.json                             Daily cron hitting /api/strava/sync (05:00 UTC)
@@ -219,7 +224,7 @@ npm run db:studio     # Drizzle Studio GUI against the live DB
 8. **Vercel aliases can become stale.** The production deployment and `git-main` alias have diverged before. Compare deployment IDs after each merge and explicitly repair the alias before calling the work live.
 9. **Sleep is intentionally skipped.** Do not add sleep to Apple Shortcuts or Health Auto Export instructions or insights merely because nullable legacy columns still exist.
 10. **Sync must not clobber detailed splits.** The sync only has summary activities; writing `raw: <summary>` directly in the `onConflictDoUpdate` set would wipe `splits_metric` fetched via `/api/strava/activity/[id]` (this happened until the fix). Always set `raw` through `preserveDetailedRaw(activities.raw)`. Side effect: detail-only keys can go stale if an activity is edited/cropped on Strava after its detail was fetched — re-fetch detail on the run page to refresh them.
-11. **The iPhone refresh flow depends on the Shortcut name.** `DataRefreshButton` opens `shortcuts://run-shortcut?name=Pulse%20Health-sync`; renaming the Shortcut on the phone breaks the button silently.
+11. **The refresh button never opens Shortcuts.** A web app cannot read Apple Health or start a Shortcut in the background, so `DataRefreshButton` only syncs Strava and re-reads the database with a step animation. Health data arrives through iPhone automations (`docs/apple-shortcuts.md`, step 6).
 12. **Local branches can be stale.** PRs are squash-merged; always branch from a fresh `origin/main`, not from an old `codex/*` or `claude/*` branch.
 
 ## Not built yet (known gaps)

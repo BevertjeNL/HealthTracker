@@ -3,8 +3,9 @@
 import { useActionState, useMemo, useState, useSyncExternalStore } from "react";
 import { correctWeightAction, type WeightActionState } from "@/app/actions";
 import { RangeSlider } from "@/components/RangeSlider";
-import { TrendChart } from "@/components/TrendChart";
+import { TrendChart, type PeriodLine } from "@/components/TrendChart";
 import { smoothWeightPoints } from "@/lib/weight-trend";
+import { buildWeightPeriods, latestWeight, WEIGHT_PERIOD_WEEKS } from "@/lib/weight-periods";
 import {
   addChartDays,
   chartDaysBetween,
@@ -57,6 +58,8 @@ function saveSettings(next: ChartSettings) {
   listeners.forEach((listener) => listener());
 }
 
+const kgText = (value: number) => `${value.toLocaleString("nl-NL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} kg`;
+
 function shortDate(date: string) {
   return new Date(`${date}T12:00:00Z`).toLocaleDateString("nl-NL", { timeZone: "UTC", day: "numeric", month: "short", year: "2-digit" });
 }
@@ -64,6 +67,7 @@ function shortDate(date: string) {
 export function WeightChartPanel({ points, today }: { points: Point[]; today: string }) {
   const sorted = useMemo(() => [...points].sort((a, b) => a.date.localeCompare(b.date)), [points]);
   const [selectedDate, setSelectedDate] = useState("");
+  const [periodWeeks, setPeriodWeeks] = useState<number>(8);
   const [correctionState, correctionAction, correctionPending] = useActionState<WeightActionState, FormData>(correctWeightAction, { message: "", ok: false });
   const firstDate = sorted[0]?.date.slice(0, 10) ?? addChartDays(today, -89);
   const earliest = chartDaysBetween(firstDate, today) < MIN_CHART_SPAN_DAYS * 2 ? addChartDays(today, -MIN_CHART_SPAN_DAYS * 2) : firstDate;
@@ -80,6 +84,13 @@ export function WeightChartPanel({ points, today }: { points: Point[]; today: st
   const yAxis = manualValueDomain(trendVisible ?? visible ?? [], settings.lower == null ? "" : String(settings.lower), settings.upper == null ? "" : String(settings.upper));
   const bounds = valueSliderBounds(sorted, settings.lower, settings.upper);
   const customized = settings.preset !== "all" || settings.lower != null || settings.upper != null || settings.smooth;
+
+  const periods = useMemo(() => buildWeightPeriods(sorted, today, periodWeeks), [sorted, today, periodWeeks]);
+  const latest = useMemo(() => latestWeight(sorted), [sorted]);
+  const latestAge = latest ? chartDaysBetween(latest.date, today) : null;
+  const periodLines: PeriodLine[] = [];
+  if (periods.previous) periodLines.push({ start: periods.previous.start, end: periods.previous.end, value: periods.previous.average, color: "var(--text-muted)", label: "vorige periode" });
+  if (periods.recent) periodLines.push({ start: periods.recent.start, end: periods.recent.end, value: periods.recent.average, color: "var(--series-violet)", label: "recente periode" });
 
   function update(patch: Partial<ChartSettings>) {
     saveSettings({ ...settings, ...patch });
@@ -125,7 +136,18 @@ export function WeightChartPanel({ points, today }: { points: Point[]; today: st
   </div>;
 
   return <section className="w-section" aria-labelledby="weight-title"><div className="c-section-heading"><div><span className="c-overline">APPLE HEALTH · GEWICHT</span><h2 id="weight-title">Je gewicht in context.</h2></div></div>
-    <TrendChart title="Gewicht" subtitle="Sleep de handvatten om in of uit te zoomen" points={visible ?? []} displayPoints={trendVisible} displayLabel={settings.smooth ? "15-daagse trend" : undefined} color="var(--series-blue)" unit="kg" dateDomain={[start, end]} valueDomain={yAxis.error ? undefined : yAxis.domain} controls={controls} chartAside={aside} chartFooter={footer} />
+    <div className="w-periods" aria-labelledby="weight-periods-title">
+      <div className="w-periods-head"><h3 id="weight-periods-title">{periods.summary}</h3>
+        <div className="w-period-choice" role="group" aria-label="Periode voor het gemiddelde">{WEIGHT_PERIOD_WEEKS.map((weeks) => <button key={weeks} type="button" aria-pressed={periodWeeks === weeks} onClick={() => setPeriodWeeks(weeks)}>{weeks} wkn</button>)}</div>
+      </div>
+      <div className="w-period-grid">
+        <span className="w-period-recent"><small>Gemiddelde van {periods.weeks} weken</small><strong>{periods.recent ? kgText(periods.recent.average) : "—"}</strong><em>{periods.recent ? `${periods.recent.count} metingen` : "te weinig metingen"}</em></span>
+        <span className="w-period-previous"><small>Daarvoor, {periods.weeks * 2} weken</small><strong>{periods.previous ? kgText(periods.previous.average) : "—"}</strong><em>{periods.previous ? `${periods.previous.count} metingen` : "te weinig metingen"}</em></span>
+        <span className="w-period-delta"><small>Verschil</small><strong>{periods.deltaKg == null ? "—" : `${periods.deltaKg > 0 ? "+" : periods.deltaKg < 0 ? "−" : ""}${Math.abs(periods.deltaKg).toLocaleString("nl-NL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} kg`}</strong><em>{periods.direction === "lower" ? "lager" : periods.direction === "higher" ? "hoger" : periods.direction === "stable" ? "stabiel" : "geen vergelijking"}</em></span>
+      </div>
+      {latest && <p className={`w-latest ${latestAge != null && latestAge > 2 ? "stale" : ""}`}>Laatste meting in Pulse: {shortDate(latest.date)} · {kgText(latest.value)}{latestAge != null && latestAge > 2 ? ` (${latestAge} dagen geleden). Draait je gewicht-opdracht op de iPhone?` : "."}</p>}
+    </div>
+    <TrendChart title="Gewicht" subtitle="Sleep de handvatten om in of uit te zoomen" points={visible ?? []} displayPoints={trendVisible} displayLabel={settings.smooth ? "15-daagse trend" : undefined} color="var(--series-blue)" unit="kg" dateDomain={[start, end]} valueDomain={yAxis.error ? undefined : yAxis.domain} controls={controls} periodLines={periodLines} chartAside={aside} chartFooter={footer} />
     {selected && <form className="w-correction" action={correctionAction} onSubmit={(event) => {
       const submitter = (event.nativeEvent as SubmitEvent).submitter as HTMLButtonElement | null;
       if (submitter?.value === "remove" && !window.confirm(`Gewichtsmeting van ${selected.date} uit Pulse verwijderen?`)) event.preventDefault();
