@@ -34,7 +34,7 @@ export default async function StatsPage() {
   const rows = await db.select().from(activities).orderBy(desc(activities.startDate));
   const stats = buildRunStats(rows);
   return <div className="c-shell"><main className="c-container"><CoachNav active="stats" />
-    <header className="c-page-head"><div><span className="c-overline">JE LOOPCIJFERS</span><h1>Alles wat je liep,<br /><em>in cijfers.</em></h1><p>Kilometers per maand en jaar, loopdagen, series, records en een flinke dosis wetenswaardigheden.</p></div></header>
+    <header className="p-head"><div><span className="p-overline">JE LOOPCIJFERS</span><h1>Cijfers</h1><p>Kilometers per maand en jaar, loopdagen, series, records en een flinke dosis wetenswaardigheden.</p></div></header>
     {!stats ? <section className="c-empty"><h2>Nog geen runs gevonden.</h2><p>Verbind Strava en synchroniseer je runs om je cijfers te zien.</p><Link href="/runs" className="c-button">Naar mijn runs</Link></section> : <Stats stats={stats} />}
     <footer className="c-footer">PULSE / JOUW HARDLOOPCOACH <span>Strava × Apple Health</span></footer>
   </main></div>;
