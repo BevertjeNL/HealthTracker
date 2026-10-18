@@ -81,7 +81,7 @@ Een handmatige Apple Health-export kan rechtstreeks worden teruggevuld zonder ee
 node --env-file=.env.local scripts/import-apple-health-export.mjs /pad/naar/export.zip
 ```
 
-Het script leest alleen de elf uitgebreide signalen (zuurstofsaturatie, ademhalingsfrequentie, beweeg- en daglichtminuten, wandelsnelheid/-stabiliteit, zesminutenwandeltest, loopvermogen, paslengte, verticale oscillatie en grondcontacttijd), maakt dagsamenvattingen en vult bestaande kalenderdagen aan zonder andere waarden te wissen (`COALESCE`). HRV, rusthartslag, stappen, gewicht e.d. worden door dit script **niet** teruggevuld; gewichtshistorie kan eenmalig via een aparte Apple-opdracht worden aangevuld (zie `docs/apple-shortcuts.md`, stap 5). Het script print alleen aantallen, geen waarden.
+Het script leest alle 19 gekoppelde metingen (kernmetingen en uitgebreide signalen), maakt dagsamenvattingen en vult **alleen lege velden** aan: een bestaande waarde wordt nooit overschreven (`COALESCE`). Waarden gaan door dezelfde plausibiliteitscontrole en eenheidsomrekening als de ingest-route. Stappen en actieve energie nemen per dag de bron met het hoogste totaal, zodat iPhone en Apple Watch niet dubbel tellen. Met `--dry-run` zie je eerst hoeveel velden gevuld zouden worden, zonder iets te schrijven. Het script print alleen aantallen, geen waarden. Verwijder de export daarna: hij bevat al je Health-data.
 
 ### Aanbevolen Apple Health-selectie
 
