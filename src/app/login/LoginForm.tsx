@@ -8,6 +8,7 @@ const INITIAL_STATE: LoginState = {};
 export function LoginForm() {
   const [state, formAction, pending] = useActionState(login, INITIAL_STATE);
 
+  // No autoFocus: on iPhone it would open the keyboard immediately and hide the page behind it.
   return (
     <form action={formAction} className="mt-8 flex flex-col gap-4">
       <div>
@@ -23,9 +24,12 @@ export function LoginForm() {
           name="password"
           type="password"
           autoComplete="current-password"
+          enterKeyHint="go"
+          autoCapitalize="off"
+          autoCorrect="off"
+          spellCheck={false}
           required
-          autoFocus
-          className="w-full rounded-lg px-3 py-2 outline-none focus:ring-2"
+          className="c-login-input w-full rounded-lg px-3 py-2 outline-none focus:ring-2"
           style={{
             color: "var(--text-primary)",
             background: "var(--surface-2)",

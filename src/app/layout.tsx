@@ -1,9 +1,11 @@
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { LiveCoachRefresh } from "@/components/LiveCoachRefresh";
+import { PullToRefresh } from "@/components/PullToRefresh";
 import { hasAuthenticatedSession } from "@/lib/session-server";
 import "./globals.css";
 import "./pulse.css";
+import "./ios.css";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -52,14 +54,17 @@ export const metadata: Metadata = {
     title: "Pulse",
     statusBarStyle: "default",
   },
+  formatDetection: { telephone: false, date: false, address: false, email: false },
   robots: { index: false, follow: false },
 };
 
+// The UI is light only, so the status bar colour stays light as well (a dark theme-color on a light page looks broken).
 export const viewport: Viewport = {
-  themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#f4f6f2" },
-    { media: "(prefers-color-scheme: dark)", color: "#0d0d0d" },
-  ],
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+  colorScheme: "light",
+  themeColor: "#f5f4ef",
 };
 
 export default async function RootLayout({ children }: LayoutProps<"/">) {
@@ -72,6 +77,7 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
     >
       <body className="min-h-full flex flex-col">
         {authenticated && <LiveCoachRefresh />}
+        {authenticated && <PullToRefresh />}
         {children}
       </body>
     </html>
