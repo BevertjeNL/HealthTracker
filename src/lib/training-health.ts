@@ -412,7 +412,7 @@ export function buildTrainingHealth(runRows: RunRow[], health: HealthRow[], now 
   const sortedHealth = [...health].sort((a, b) => a.date.localeCompare(b.date));
   const loads = buildRunLoads(runRows, sortedHealth);
   const days = buildDaySeries(loads, sortedHealth, today);
-  const weeks = buildWeekSeries(loads, sortedHealth, today);
+  const weeks = buildWeekSeries(loads, sortedHealth, today, 104);
   const trends = Object.fromEntries([...BODY_KEYS, ...FORM_KEYS].map((key) => [key, healthTrend(sortedHealth, key, today)])) as Record<HealthKey, HealthTrend>;
   const latestHealthDate = sortedHealth.at(-1)?.date ?? null;
   return {
