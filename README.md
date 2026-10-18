@@ -12,13 +12,15 @@ Beide app-URL's horen naar dezelfde actuele productie-deployment te wijzen. De a
 
 ## Wat de app doet
 
-- **Vandaag (`/`)** zet je wedstrijddoel, de opdracht voor vandaag, de volgende geplande sessie en de redenen voor een aanpassing vooraan. Rust is een volwaardig advies. Tempo of kwaliteit wordt pas geadviseerd wanneer ritme, belasting en herstel dat dragen.
+- **Vandaag (`/`)** zet de opdracht voor vandaag, de volgende geplande sessie en de redenen voor een aanpassing vooraan, gevolgd door vier live signalen waar training en Apple Health samenkomen: belasting (7 dagen ÷ je normale week), HRV, rusthartslag en fitness. Een waarschuwing verschijnt wanneer meerdere lichaamssignalen tegelijk afwijken. Rust is een volwaardig advies. Tempo of kwaliteit wordt pas geadviseerd wanneer ritme, belasting en herstel dat dragen.
+- **Vorm (`/vorm`)** koppelt je runs aan Apple Health: kilometers per week naast je HRV of rusthartslag, de acuut/chronische belasting (Banister-TRIMP uit hartslag en duur), een fitnesstrend (zuinigheidsindex: meter per hartslagslag binnen hetzelfde runtype), je persoonlijke herstelprofiel (HRV en rusthartslag de ochtend na lichte, gemiddelde en zware runs) en drie verbanden: ochtend-HRV, rusthartslag en gewicht tegenover zuinig lopen. Een verband wordt alleen gemeld met minstens 8 gekoppelde runs en |r| ≥ 0,25.
+- **Lichaam (`/lichaam`)** toont elke Health-waarde tegenover je eigen basislijn (laatste 7 dagen tegenover de 28 dagen ervoor): HRV, rusthartslag, ademhaling, zuurstof, VO₂max, gewicht, stappen, trainingsminuten en de loopvorm van je Watch. Waarden die langer dan twee weken oud zijn, staan als verouderd; een tabel laat zien welke metingen daadwerkelijk binnenkomen.
 - **Laatste run op het startscherm** laat het verloop, maximaal drie concrete onderbouwingen en een leerpunt voor de volgende loop zien. De analyse per kilometer staat één klik verder.
-- **Gewicht op het startscherm** toont Apple Health-metingen in een grafiek waarvan je beide assen met schuifhandvatten rekt, krimpt of verschuift (periode en kilogrammen). Snelkeuzes en exacte invoer staan klaar, en je keuze blijft in je browser bewaard; bij minder dan drie metingen verschijnt geen trendclaim.
+- **Gewicht op de pagina Lichaam** toont Apple Health-metingen in een grafiek waarvan je beide assen met schuifhandvatten rekt, krimpt of verschuift (periode en kilogrammen). Snelkeuzes en exacte invoer staan klaar, en je keuze blijft in je browser bewaard; bij minder dan drie metingen verschijnt geen trendclaim.
 - **Vloeiende gewichtslijn** kun je onder de periodeknoppen inschakelen. De lijn gebruikt een gewogen gemiddelde over vijftien kalenderdagen rond elke echte weging, zodat dagschommelingen minder nadruk krijgen. De statistieken blijven op de oorspronkelijke metingen gebaseerd. De keuze blijft in je browser bewaard.
 - **Gewichtsmeting corrigeren**: kies onder de grafiek een meetdatum binnen de zichtbare periode. Je kunt de opgeslagen waarde aanpassen of een foutieve meting verwijderen. Dit verandert alleen het gewicht van die dag in Pulse; andere Health-waarden blijven bewaard. Verwijderde metingen in Apple Health worden niet automatisch uit Pulse gehaald, omdat de dagelijkse opdracht geen verwijderingen doorgeeft.
-- **Trainingsdagboek (`/runs`)** toont de huidige trainingsfase, de belasting ten opzichte van een persoonlijke weekbasis, de verdeling van recente runs en per run een kort oordeel. De oude tabellen, racevoorspellingen en verkenningspanelen staan niet meer in de hoofdflow.
-- **Runanalyse (`/runs/[id]`)** haalt ontbrekende Strava-details bij het openen op en beschrijft start, middenstuk, slot en totale belasting. Waar beschikbaar gebruikt de analyse kilometersplits, rondes, hartslag, hoogtecorrectie, vermogen, cadans, beweegtijd versus verstreken tijd, inspanningsscore en beste stukken. Apple Health plaatst het herstel in de context van je eigen basislijn. De grafiek laat je meetwaarde en het bereik van zowel X- als Y-as instellen; de X-as is afstand in km en tempo op de Y-as voer je in seconden per km in.
+- **Trainingsdagboek (`/runs`)** toont een samenvatting (km, belasting, fitness, lichaam), filters op runtype en per run een kort oordeel met de belasting en of je fris of vermoeid startte. De oude tabellen, racevoorspellingen en verkenningspanelen staan niet meer in de hoofdflow.
+- **Runanalyse (`/runs/[id]`)** haalt ontbrekende Strava-details bij het openen op en beschrijft start, middenstuk, slot en totale belasting. Waar beschikbaar gebruikt de analyse kilometersplits, rondes, hartslag, hoogtecorrectie, vermogen, cadans, beweegtijd versus verstreken tijd, inspanningsscore en beste stukken. Een kaart "Lichaam rond deze run" zet de ochtend ervoor (HRV, rusthartslag), de trainingsbelasting en de ochtend erna naast elkaar, plus de loopvorm van je Watch. De grafiek laat je meetwaarde en het bereik van zowel X- als Y-as instellen; de X-as is afstand in km en tempo op de Y-as voer je in seconden per km in.
 - **Praktische les na elke run** staat direct op het overzicht en bovenaan de runpagina: wat het tempoverloop betekent, wat je moet behouden, wat je concreet verbetert en hoe de volgende loop eruitziet. Als Strava geen splits levert, geeft de coach nog steeds een uitvoerbare instructie uit afstand en type training.
 - **Historische Strava-details** kun je in het trainingsdagboek per 20 runs aanvullen. Strava levert niet elke meting voor elke run; de runpagina noemt welke gegevens beschikbaar zijn. Bij minder dan drie volle kilometersplits trekt de coach geen conclusies over het tempoverloop.
 - **Wedstrijddoel (`/goal`)**: kies 5 km, 10 km of halve marathon, een wedstrijddatum en doeltempo per kilometer. Pulse slaat één actief doel op en berekent een kalenderplan met rustige trainingen, hoogstens één tempoprikkel per week, lange duurlopen, herstel en een lichtere laatste periode. Op het startscherm staat wat vandaag past en wanneer de volgende geplande training is. Nieuwe Strava-runs worden als gelogd in het schema getoond; recente loopomvang, beschikbare Apple Health-herstelmetingen en duidelijk tempoverlies of hartslagdrift in de laatste run kunnen een zware training vandaag vervangen door herstel. Een doeltempo is een ambitie en wordt niet als voorspelling gepresenteerd.
@@ -118,11 +120,12 @@ Apple Opdrachten ──POST──┘                  ▼
 
 | Pad | Inhoud |
 |---|---|
-| `src/app/page.tsx` | Doel, advies voor vandaag, post-run leermoment, gewichtsgrafiek en trainingsrichting |
+| `src/app/page.tsx` | Advies voor vandaag, lichaamssignalen, doel, laatste run met lichaamscontext |
+| `src/app/vorm/`, `src/app/lichaam/` | Koppeling training × Apple Health en de Health-trends met datakwaliteit |
 | `src/app/runs/` | Trainingsdagboek, post-run coachanalyse en handmatige sync-actie |
 | `src/app/api/` | Strava OAuth/sync/activity-detail en Health-ingest |
-| `src/lib/` | Pure logica: coach, runanalyse, import, herstel, inzichten, halve-marathonplan, sessies en security |
-| `src/components/` | UI-componenten (enkele oudere componenten zijn momenteel ongebruikt, zie CLAUDE.md) |
+| `src/lib/` | Pure logica: coach, runanalyse, training-health (belasting, fitness, herstelprofiel, verbanden), import, herstel, halve-marathonplan, sessies en security |
+| `src/components/` | UI-componenten; `src/app/pulse.css` is het ontwerpsysteem (p-* klassen) |
 | `scripts/` | Eenmalige backfill uit een Apple Health-export |
 | `tests/` | `node --test`-regressietests op `src/lib` |
 
@@ -229,11 +232,10 @@ Controleer daarna GitHub Actions, de Vercel-deployment, de publieke URL, de `mai
 - Cardio Recovery en Walking Heart Rate Average leveren pas conclusies nadat voldoende nieuwe metingen zijn verzameld.
 - De aanbevelingen zijn regelgebaseerd en herberekenen bij nieuwe Strava- en Health-data. Er is geen LLM-gegenereerde coachinglaag.
 - De elf uitgebreide Health-metrics blijven opgeslagen; de coach gebruikt voor herstel alleen signalen waarvoor voldoende betrouwbare dagmetingen bestaan.
-- Enkele historische grafiek- en verkenningscomponenten staan niet meer in de hoofdflow. De nieuwe gewichtsgrafiek staat op het overzicht; oudere componenten blijven voorlopig als broncode beschikbaar.
 
 ## Versiegeschiedenis (samengevat)
 
-| Huidige versie | Coacherervaring rond vandaag, trainingsdagboek en gecombineerde post-run analyse met Apple Health |
+| Huidige versie | Redesign: vijf pagina's (Vandaag, Vorm, Lichaam, Runs, Doel), mobiele tabbalk en koppeling tussen Strava-training en Apple Health |
 
 | PR | Wijziging |
 |---|---|

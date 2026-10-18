@@ -1,57 +1,127 @@
 import Link from "next/link";
-import { asc, desc, eq, gte, isNotNull, sql } from "drizzle-orm";
+import { desc, eq, gte, sql } from "drizzle-orm";
+import { BodyAlert } from "@/components/BodyAlert";
 import { CoachNav } from "@/components/CoachNav";
-import { RunLessonCard } from "@/components/RunLessonCard";
 import { DataRefreshButton } from "@/components/DataRefreshButton";
+import { MetricCard } from "@/components/MetricCard";
+import { RunBodyCard } from "@/components/RunBodyCard";
 import { RunDetailLoader } from "@/components/RunDetailLoader";
-import { WeightChartPanel } from "@/components/WeightChartPanel";
+import { RunLessonCard } from "@/components/RunLessonCard";
+import { Spark } from "@/components/Spark";
 import { db } from "@/db";
 import { activities, healthMetrics, trainingGoals } from "@/db/schema";
 import { buildCoachToday, buildPostRunCoach, postRunPlanWarning } from "@/lib/coach";
-import { fmtDate, fmtDuration, fmtKm, fmtPace } from "@/lib/format";
-import { buildHalfMarathonPlan } from "@/lib/half-marathon";
+import { fmtDate, fmtDay, fmtDuration, fmtKm, fmtNum, fmtPace, fmtSigned } from "@/lib/format";
 import { buildGoalPlan, dateText } from "@/lib/goal-plan";
 import { KIND_LABEL, toAnalysisRun } from "@/lib/run-analysis";
+import { amsterdamDay, buildRunBodyContext, buildTrainingHealth } from "@/lib/training-health";
 
 export const dynamic = "force-dynamic";
 
 export default async function Home() {
-  const [runs, health, savedGoals, weightRows] = await Promise.all([
+  const [runs, health, savedGoals] = await Promise.all([
     db.select().from(activities).where(gte(activities.startDate, sql<Date>`CURRENT_TIMESTAMP - INTERVAL '400 days'`)).orderBy(desc(activities.startDate)),
     db.select().from(healthMetrics).where(gte(healthMetrics.date, sql<string>`CURRENT_DATE - 400`)),
     db.select().from(trainingGoals).where(eq(trainingGoals.id, 1)).limit(1),
-    db.select({ date: healthMetrics.date, weightKg: healthMetrics.weightKg }).from(healthMetrics).where(isNotNull(healthMetrics.weightKg)).orderBy(asc(healthMetrics.date)),
   ]);
   const now = new Date();
   const coach = buildCoachToday(runs, health, now);
-  const plan = buildHalfMarathonPlan(runs, now);
+  const body = buildTrainingHealth(runs, health, now);
   const last = coach.lastRun;
   const review = last ? buildPostRunCoach(last, runs, health) : null;
-  const goalPlan = savedGoals[0] ? buildGoalPlan(savedGoals[0], runs, { recoveryScore: coach.recovery.score, loadChangePct: coach.load.changePct, generalAdvice: coach.advice, lastRunWarning: last && review ? postRunPlanWarning(review, last.startDate) : null }, now) : null;
-  const activeGoalPlan = goalPlan && goalPlan.daysUntilRace >= 0 ? goalPlan : null;
-  const todayAdvice = activeGoalPlan?.today ?? coach.advice;
-  const reason = activeGoalPlan ? [`Doel ${activeGoalPlan.distanceLabel.toLowerCase()} op ${dateText(savedGoals[0].raceDate)} · ${activeGoalPlan.targetPace}/km`, ...coach.reason] : coach.reason;
-  const latestAnalysis = last ? toAnalysisRun(last) : null;
-  const hrv = coach.recovery.signals.hrvMs;
-  const rhr = coach.recovery.signals.restingHeartRate;
+  const goal = savedGoals[0] ?? null;
+  const goalPlan = goal ? buildGoalPlan(goal, runs, { recoveryScore: coach.recovery.score, loadChangePct: coach.load.changePct, generalAdvice: coach.advice, lastRunWarning: last && review ? postRunPlanWarning(review, last.startDate) : null }, now) : null;
+  const activePlan = goalPlan && goalPlan.daysUntilRace >= 0 ? goalPlan : null;
+  const advice = activePlan?.today ?? coach.advice;
   const stale = coach.healthAgeDays == null || coach.healthAgeDays > 1;
-  const count28 = runs.filter((run) => run.startDate.getTime() >= now.getTime() - 28 * 86_400_000).length;
-  const weightPoints = weightRows.map((row) => ({ date: row.date, value: row.weightKg }));
-  const planAdjustedToday = activeGoalPlan?.weeks[0]?.days[0]?.status === "adjusted";
-  const todayTone = coach.recovery.score != null && coach.recovery.score < 58 || coach.load.changePct != null && coach.load.changePct > 30 ? "critical" : planAdjustedToday || todayAdvice.label.toLowerCase().includes("rust") || todayAdvice.label.toLowerCase().includes("herstel") || todayAdvice.label.toLowerCase().includes("geen loop") ? "warning" : "good";
+
+  // Health-signalen werken ook met enkele dagen oude data; zo blijft de koppeling zichtbaar na een late sync.
+  const reasons: string[] = [...coach.reason];
+  if (body.balance.ratio != null) reasons.push(`Belasting ${body.balance.label.toLowerCase()} · ${fmtNum(body.balance.ratio, 2)}× je normale week`);
+  for (const signal of body.alert.signals) reasons.push(signal);
+  if (!body.alert.signals.length && body.alert.level === "ok" && body.trends.hrvMs.deltaPct != null) reasons.push(`HRV en rusthartslag binnen je normale bandbreedte`);
+  if (body.fitness.verdict.tone !== "unknown") reasons.push(`Fitness: ${body.fitness.verdict.label.toLowerCase()}`);
+
+  const planAdjusted = activePlan?.weeks[0]?.days[0]?.status === "adjusted";
+  const label = advice.label.toLowerCase();
+  let tone: "good" | "warning" | "critical" = (coach.recovery.score != null && coach.recovery.score < 58) || (coach.load.changePct != null && coach.load.changePct > 30) ? "critical" : planAdjusted || label.includes("rust") || label.includes("herstel") || label.includes("geen loop") ? "warning" : "good";
+  if (body.alert.level === "stop") tone = "critical";
+  else if (body.alert.level === "let-op" && tone === "good") tone = "warning";
+  if (body.balance.tone === "critical") tone = "critical";
+
+  const lastLoad = last ? body.loads.find((item) => item.id === last.id) : undefined;
+  const lastContext = last ? buildRunBodyContext(lastLoad, amsterdamDay(last.startDate), health, body.loads) : null;
+  const latestAnalysis = last ? toAnalysisRun(last) : null;
+  const weekKm = body.days.slice(-7).reduce((sum, day) => sum + day.km, 0);
+  const fit = body.fitness.efficiency;
 
   return <div className="c-shell"><main className="c-container"><CoachNav active="today" />
-    <header className="c-page-head"><div><span className="c-overline">VANDAAG · {fmtDate(coach.today)}</span><h1>Jouw volgende<br /><em>goede stap.</em></h1><p>Een plan uit je runs en je herstel. Elke dag opnieuw berekend.</p></div><DataRefreshButton healthNeedsSync={stale} lastHealthDate={coach.latestHealthDate} /></header>
-    <section className="g-home-target"><div><span className="c-overline">JOUW WEDSTRIJDDOEL</span><h2>{activeGoalPlan ? activeGoalPlan.distanceLabel : "Kies je volgende wedstrijd"}</h2><p>{activeGoalPlan ? `${dateText(savedGoals[0].raceDate)} · ${activeGoalPlan.daysUntilRace} dagen · ${activeGoalPlan.targetPace}/km · richttijd ${activeGoalPlan.finishTime}` : "Stel een datum en doeltempo in; je coach maakt dan een schema vanuit je huidige loopbasis."}</p></div><Link href="/goal">{activeGoalPlan ? "Bekijk je schema →" : "Stel je doel in →"}</Link></section>
-    {!runs.length ? <><section className="c-empty"><span className="c-overline">BEGIN HIER</span><h2>Je coach leert van jouw runs.</h2><p>Verbind Strava om je loopgeschiedenis te laden. Apple Health voegt herstelcontext toe zodra je iPhone de metingen verstuurt.</p><a href="/api/strava/auth" className="c-button">Verbind Strava <span>↗</span></a></section><WeightChartPanel points={weightPoints} today={coach.today} /></> : <>
-      <section className="c-lead-grid" aria-label="Advies en onderbouwing">
-        <article className={`c-next-card c-next-${todayTone}`}><div className="c-card-top"><span><i className="c-live-dot" /> JOUW COACHBESLUIT VOOR VANDAAG</span><small>{planAdjustedToday ? "Schema aangepast aan je actuele ritme" : coach.recovery.confidence === "onvoldoende" ? "Voorzichtig advies" : `${coach.recovery.confidence} vertrouwen`}</small></div><div className="c-next-content"><span className="c-small-label">{todayTone === "critical" ? "NIET FORCEREN · DOE DIT" : todayTone === "warning" ? "BEWUST RUSTIG · DOE DIT" : "GOED MOMENT · DOE DIT"}</span><h2>{todayAdvice.label}</h2><p className="c-prescription">{todayAdvice.detail}</p><p className="c-coach-explain"><strong>Waarom:</strong> {todayAdvice.coach}</p>{activeGoalPlan?.nextSession && <p className="c-next-session"><strong>Daarna:</strong> {activeGoalPlan.nextSession.title} op {dateText(activeGoalPlan.nextSession.date)} · {activeGoalPlan.nextSession.detail}</p>}</div><div className="c-next-footer"><span>Opnieuw berekend uit je laatst ontvangen Strava- en Health-gegevens</span><a href="#waarom">Bekijk waarom ↓</a></div></article>
-        <aside className="c-reason-card" id="waarom"><span className="c-overline">WAAROM DIT ADVIES</span><h2>De signalen achter<br />je volgende stap.</h2><ol>{reason.map((item, index) => <li key={item}><span>0{index + 1}</span><p>{item}</p></li>)}</ol><div className="c-source-note"><strong>Apple Health</strong><span>{stale ? `Laatste gegevens: ${coach.latestHealthDate ? fmtDate(coach.latestHealthDate) : "nog niet ontvangen"}. Werk je Health-sync bij voor een actueel herstelbeeld.` : `Bijgewerkt t/m ${fmtDate(coach.latestHealthDate!)}. Dagwaarden worden vergeleken met je eigen basislijn.`}</span></div></aside>
+    <header className="p-head">
+      <div><span className="p-overline">VANDAAG · {fmtDate(coach.today).toUpperCase()}</span><h1>Jouw volgende stap</h1><p>Berekend uit je Strava-runs en je Apple Health-herstel.</p></div>
+      <DataRefreshButton healthNeedsSync={stale} lastHealthDate={coach.latestHealthDate} />
+    </header>
+
+    {!runs.length ? <section className="c-empty"><span className="c-overline">BEGIN HIER</span><h2>Je coach leert van jouw runs.</h2><p>Verbind Strava om je loopgeschiedenis te laden. Apple Health voegt herstelcontext toe zodra je iPhone de metingen verstuurt.</p><a href="/api/strava/auth" className="c-button">Verbind Strava <span>↗</span></a></section> : <>
+      <section className="p-lead" aria-label="Advies voor vandaag">
+        <article className={`p-decision p-decision-${tone}`}>
+          <div className="p-decision-top"><span><i className="p-dot" /> COACHBESLUIT VANDAAG</span><small>{planAdjusted ? "Schema aangepast aan je ritme" : coach.recovery.confidence === "onvoldoende" ? "Voorzichtig advies" : `${coach.recovery.confidence} vertrouwen`}</small></div>
+          <span className="p-decision-kicker">{tone === "critical" ? "Niet forceren" : tone === "warning" ? "Bewust rustig" : "Goed moment"}</span>
+          <h2>{advice.label}</h2>
+          <p className="p-decision-do">{advice.detail}</p>
+          <p className="p-decision-why"><b>Waarom:</b> {advice.coach}</p>
+          {activePlan?.nextSession && <p className="p-decision-next"><b>Daarna:</b> {activePlan.nextSession.title} op {dateText(activePlan.nextSession.date)} · {activePlan.nextSession.detail}</p>}
+        </article>
+        <aside className="p-signals" aria-label="Signalen achter het advies">
+          <span className="p-overline">DE SIGNALEN ERACHTER</span>
+          <ol>{reasons.map((item) => <li key={item}>{item}</li>)}</ol>
+          <p className="p-source"><b>Apple Health</b> {coach.latestHealthDate ? `bijgewerkt t/m ${fmtDay(coach.latestHealthDate, true)}${stale ? " — synchroniseer voor een actueel beeld." : "."}` : "nog niet ontvangen."}</p>
+        </aside>
       </section>
-      {last && review && <section className="c-last-run" aria-labelledby="last-run-title"><div className="c-section-heading"><div><span className="c-overline">NA JE LAATSTE RUN</span><h2 id="last-run-title">Wat zegt deze loop over je training?</h2></div><Link href={`/runs/${last.id}`}>Bekijk alle kilometers <span>↗</span></Link></div>{latestAnalysis && latestAnalysis.raw._coach_detail_loaded !== true && !Array.isArray(latestAnalysis.raw.splits_metric) && <RunDetailLoader activityId={last.id} />}<div className="c-last-grid"><div className="c-last-main"><div className="c-last-title"><span className="c-kind">{KIND_LABEL[review.kind]}</span><small>{fmtDate(last.startDate)}</small></div><h3>{last.name || "Hardlooptraining"}</h3><div className="c-run-numbers"><span><strong>{fmtKm(last.distanceM)}</strong><small>afstand</small></span><span><strong>{fmtPace(last.avgPaceMinPerKm)}</strong><small>tempo /km</small></span><span><strong>{fmtDuration(last.movingTimeS)}</strong><small>beweegtijd</small></span></div></div><RunLessonCard lesson={review.lesson} compact /></div></section>}
-      <WeightChartPanel points={weightPoints} today={coach.today} />
-      <section className="c-lower-grid"><article className="c-direction"><span className="c-overline">WAAR JE STAAT</span><h2>{activeGoalPlan?.level ?? plan.phase}</h2><p>{activeGoalPlan?.assessment ?? plan.phaseReason}</p><div className="c-direction-stats"><span><strong>{count28}</strong><small>runs / 28 dagen</small></span><span><strong>{plan.longestRunKm.toLocaleString("nl-NL", { maximumFractionDigits: 1 })} km</strong><small>langste run / 6 weken</small></span><span><strong>{coach.load.weeklyKm.toLocaleString("nl-NL", { maximumFractionDigits: 1 })} km</strong><small>laatste 7 dagen</small></span></div><div className="c-direction-action"><span><b>Focus voor de komende weken</b><small>{activeGoalPlan?.nextSession ? `${activeGoalPlan.nextSession.title} op ${dateText(activeGoalPlan.nextSession.date)}. ${activeGoalPlan.nextSession.detail}` : `${plan.adjustments[0].title}. ${plan.adjustments[1].title} als je goed herstelt.`}</small></span><Link href={activeGoalPlan ? "/goal" : "/runs"}>{activeGoalPlan ? "Volledig schema →" : "Bekijk je ritme →"}</Link></div></article><aside className="c-health-card"><span className="c-overline">LICHAAMSCONTEXT</span><h2>Herstel in perspectief.</h2><div className="c-health-line"><span>HRV</span><strong>{hrv?.fresh ? `${Math.round(hrv.value)} ms` : "—"}</strong><small>{hrv?.fresh && hrv.baselineCount >= 5 ? `Basis ${Math.round(hrv.baseline!)} ms` : "Geen actuele basislijn"}</small></div><div className="c-health-line"><span>Rusthartslag</span><strong>{rhr?.fresh ? `${Math.round(rhr.value)} bpm` : "—"}</strong><small>{rhr?.fresh && rhr.baselineCount >= 5 ? `Basis ${Math.round(rhr.baseline!)} bpm` : "Geen actuele basislijn"}</small></div><p>We beoordelen trends ten opzichte van jouw normale waarden. Eén meting is geen oordeel.</p></aside></section>
-      <section className="c-recent"><div className="c-section-heading"><div><span className="c-overline">TRAININGSDAGBOEK</span><h2>Terugkijken en bijsturen.</h2></div><Link href="/runs">Alle runs <span>↗</span></Link></div><div className="c-recent-list">{runs.slice(0, 4).map((run) => <Link href={`/runs/${run.id}`} className="c-recent-row" key={run.id}><span className="c-recent-date">{fmtDate(run.startDate)}</span><strong>{run.name || "Run"}</strong><span>{fmtKm(run.distanceM)}</span><span>{fmtPace(run.avgPaceMinPerKm)}</span><b>↗</b></Link>)}</div></section>
+
+      {body.alert.level !== "ok" && <BodyAlert alert={body.alert} healthAgeDays={body.healthAgeDays} />}
+
+      <section className="p-section" aria-labelledby="body-heading">
+        <div className="p-section-head"><div><span className="p-overline">TRAINING × LICHAAM</span><h2 id="body-heading">Wat je lichaam nu zegt</h2></div><Link href="/vorm">Alle verbanden →</Link></div>
+        <div className="p-tiles">
+          <Link href="/vorm#belasting" className={`p-tile p-tile-${body.balance.tone}`}>
+            <span className="p-metric-label">Belasting</span>
+            <div className="p-metric-value"><strong>{body.balance.ratio == null ? "—" : `${fmtNum(body.balance.ratio, 2)}×`}</strong><small>je normale week</small></div>
+            <p className="p-metric-meta"><b>{body.balance.label}</b></p>
+            <Spark points={body.days.slice(-42).map((day) => ({ date: day.date, value: day.acute }))} color="var(--series-run)" baseline={body.balance.chronic} />
+            <p className="p-metric-age">{fmtNum(weekKm, 1)} km in 7 dagen</p>
+          </Link>
+          <MetricCard trend={body.trends.hrvMs} color="var(--series-hrv)" href="/lichaam" />
+          <MetricCard trend={body.trends.restingHeartRate} color="var(--series-rhr)" href="/lichaam" />
+          <Link href="/vorm#fitness" className={`p-tile p-tile-${body.fitness.verdict.tone}`}>
+            <span className="p-metric-label">Fitness</span>
+            <div className="p-metric-value"><strong>{fit.deltaPct != null ? fmtSigned(fit.deltaPct, 1, "%") : fit.slopePct90 != null ? fmtSigned(fit.slopePct90, 1, "%") : "—"}</strong><small>{fit.deltaPct != null ? "zuiniger vs. vorige 2 mnd" : fit.slopePct90 != null ? "zuiniger per 3 mnd" : "nog onbekend"}</small></div>
+            <p className="p-metric-meta"><b>{body.fitness.verdict.label}</b></p>
+            <Spark points={fit.series.map((point) => ({ date: point.date, value: point.value }))} color="var(--series-vo2)" baseline={100} />
+            {body.trends.vo2Max.current != null && <p className="p-metric-age">VO₂max {fmtNum(body.trends.vo2Max.current, 1)}{body.trends.vo2Max.deltaPct != null ? ` (${fmtSigned(body.trends.vo2Max.deltaPct, 1, "%")})` : ""}</p>}
+          </Link>
+        </div>
+      </section>
+
+      {activePlan && goal && <section className="p-goalbar" aria-label="Wedstrijddoel">
+        <div><span className="p-overline">JE WEDSTRIJD</span><h2>{activePlan.distanceLabel} · {dateText(goal.raceDate)}</h2><p>{activePlan.daysUntilRace === 0 ? "Vandaag is het zover" : `Nog ${activePlan.daysUntilRace} dagen`} · doel {activePlan.targetPace}/km · richttijd {activePlan.finishTime} · fase: {activePlan.level}</p></div>
+        <Link href="/goal">Bekijk je schema →</Link>
+      </section>}
+      {!activePlan && <section className="p-goalbar" aria-label="Wedstrijddoel"><div><span className="p-overline">JE WEDSTRIJD</span><h2>Kies je volgende wedstrijd</h2><p>Met een datum en doeltempo maakt je coach een schema vanuit je huidige loopbasis.</p></div><Link href="/goal">Stel je doel in →</Link></section>}
+
+      {last && review && <section className="p-section" aria-labelledby="last-run-title">
+        <div className="p-section-head"><div><span className="p-overline">NA JE LAATSTE RUN</span><h2 id="last-run-title">{last.name || "Hardlooptraining"}</h2></div><Link href={`/runs/${last.id}`}>Alle kilometers →</Link></div>
+        {latestAnalysis && latestAnalysis.raw._coach_detail_loaded !== true && !Array.isArray(latestAnalysis.raw.splits_metric) && <RunDetailLoader activityId={last.id} />}
+        <div className="p-runhead"><span className="c-kind">{KIND_LABEL[review.kind]}</span><span>{fmtDate(last.startDate)}</span><b>{fmtKm(last.distanceM)}</b><b>{fmtPace(last.avgPaceMinPerKm)}</b><b>{fmtDuration(last.movingTimeS)}</b>{last.avgHeartRate != null && <b>{Math.round(last.avgHeartRate)} bpm</b>}</div>
+        <div className="p-two">
+          <RunLessonCard lesson={review.lesson} compact />
+          {lastContext && <RunBodyCard context={lastContext} loadBasis={lastLoad?.loadBasis} compact />}
+        </div>
+      </section>}
+
+      <section className="p-section" aria-labelledby="recent-title">
+        <div className="p-section-head"><div><span className="p-overline">TRAININGSDAGBOEK</span><h2 id="recent-title">Recente runs</h2></div><Link href="/runs">Alle runs →</Link></div>
+        <div className="p-list">{runs.slice(0, 5).map((run) => { const load = body.loads.find((item) => item.id === run.id); return <Link href={`/runs/${run.id}`} className="p-row" key={run.id}><span className="p-row-date">{fmtDate(run.startDate)}</span><strong>{run.name || "Run"}</strong><span>{fmtKm(run.distanceM)}</span><span>{fmtPace(run.avgPaceMinPerKm)}</span><span className="p-row-load">{load ? `belasting ${load.load}` : ""}</span><b>→</b></Link>; })}</div>
+      </section>
     </>}
     <footer className="c-footer">PULSE / JOUW HARDLOOPCOACH <span>Strava × Apple Health</span></footer>
   </main></div>;

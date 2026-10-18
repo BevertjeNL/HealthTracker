@@ -107,7 +107,7 @@ export function DataRefreshButton({
       </button>
       <span id="refresh-status" className={`refresh-status ${status === "error" ? "error" : ""}`} aria-live="polite">
         {message || (healthNeedsSync
-          ? `Apple Health loopt achter${lastHealthDate ? ` (laatste dag ${lastHealthDate})` : ""}.`
+          ? `Apple Health loopt achter${lastHealthDate ? ` (laatste dag ${new Date(`${lastHealthDate}T12:00:00Z`).toLocaleDateString("nl-NL", { day: "numeric", month: "short", timeZone: "UTC" })})` : ""}.`
           : "Apple Health is bijgewerkt tot en met gisteren.")}
       </span>
     </div>

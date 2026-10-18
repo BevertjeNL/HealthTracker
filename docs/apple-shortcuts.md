@@ -37,6 +37,22 @@ Voeg voor iedere gewenste categorie **Zoek gezondheidssteekproeven** toe. Voeg v
 | Actieve energie | Som | `active_energy` | kcal |
 | Gewicht | Laatste | `weight_body_mass` | kg |
 
+### Uitbreiding voor hardlopers (aanbevolen)
+
+Deze metingen staan in Apple Health, maar de basisopdracht stuurt ze niet mee. Zonder ze mist Pulse de koppeling tussen je loopvorm en je prestaties op de pagina's **Vorm** en **Lichaam**. Pulse accepteert ze al; voeg alleen de zoekacties en JSON-velden toe.
+
+| Apple Health-categorie | Bewerking | JSON-veld | Eenheid |
+|---|---|---|---|
+| Loopvermogen | Gemiddelde | `running_power` | W |
+| Looplengte (pasbreedte) | Gemiddelde | `running_stride_length` | m |
+| Verticale beweging bij hardlopen | Gemiddelde | `running_vertical_oscillation` | cm |
+| Grondcontacttijd | Gemiddelde | `running_ground_contact_time` | ms |
+| Trainingsminuten | Som | `exercise_minutes` | min |
+| Ademhalingsfrequentie | Gemiddelde | `respiratory_rate` | per min |
+| Zuurstofverzadiging | Gemiddelde | `oxygen_saturation` | % |
+
+Ademhaling en zuurstof helpen Pulse een naderende ziekte te herkennen. Loopvermogen, pasbreedte, grondcontact en verticale beweging worden alleen op hardloopdagen geregistreerd; een leeg veld op rustdagen is normaal.
+
 Geef ieder resultaat een herkenbare variabelenaam. Het is niet erg wanneer een categorie op een dag geen waarde heeft; een leeg JSON-veld wordt overgeslagen. Begin eventueel alleen met HRV, rusthartslag, stappen en actieve energie en voeg de rest later toe.
 
 Wanneer zowel de iPhone als Apple Watch stappen registreren, filter **Stappen** bij voorkeur op de bron die je meestal draagt. Anders kan een eenvoudige som overlappende steekproeven dubbel tellen. Pulse bewaart precies het dagtotaal dat de opdracht aanlevert.
