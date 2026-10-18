@@ -83,7 +83,7 @@ src/components/SplitsBackfill.tsx       Journal action to fetch missing detail f
 src/components/SyncButton.tsx           Manual Strava sync on /runs
 src/components/{Spark,MetricCard,BodyAlert,WeekChart,BalanceChart,DotTrend,ScatterLink,ResponseBars,RunBodyCard}.tsx
                                         New Training × Health UI: SVG sparkline, baseline metric card, body alert, Recharts week/balance charts, efficiency dots, correlation scatter, response bars, per-run body card
-scripts/import-apple-health-export.mjs  One-off backfill from an Apple Health export.zip; only fills the 11 extended metric columns (oxygen … ground contact time) with COALESCE, never core metrics
+scripts/import-apple-health-export.mjs  One-off gap fill from an Apple Health export.zip: all 19 mapped metrics, fills only NULL columns (COALESCE, existing values win), same plausibility ranges/unit normalisation as the ingest route, steps/energy take the highest single source per day (no phone+watch double count); --dry-run prints counts only
 public/icons/*                          SVG, PNG and maskable PWA icons
 public/favicon.ico                      Multi-size browser favicon
 public/apple-touch-icon.png             Apple home-screen/bookmark icon
