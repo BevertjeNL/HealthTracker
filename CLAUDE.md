@@ -14,7 +14,7 @@ Read the Next.js 16 docs relevant to what you're about to touch, resolved from `
 - **Neon Postgres**, accessed via `@neondatabase/serverless` HTTP driver + **Drizzle ORM** (`drizzle-orm/neon-http`) — one-shot HTTP queries, not a pooled/long-lived connection. No transactions spanning multiple round trips.
 - **Recharts** for trend charts; `jose` for session signing.
 - Single-user app: password login with a signed stateless session cookie; no accounts or multi-tenant concerns.
-- UI language is Dutch (nl-NL); product name in the UI is **Pulse**. The app is light-only (`colorScheme: "light"`, light `themeColor`); there is no dark mode yet. The UI design system is `src/app/pulse.css` (`p-*` classes, shared series colours so a colour always means the same signal, mobile bottom tab bar). `src/app/globals.css` keeps only the legacy `c-*`/`g-*`/`an-*`/`w-*` classes still used by run detail, goal, weight panel and login; remove a class there when its last user goes.
+- UI language is Dutch (nl-NL); product name in the UI is **Pulse**. Light and dark follow the system setting (`colorScheme: "light dark"`, a `themeColor` per scheme). Dark colours are never written by hand: `src/app/dark.css` is generated from the light stylesheets, so after changing a colour in `globals.css`, `pulse.css` or `ios.css` run `npm run theme:generate` (a test fails when it is stale). Only the root tokens and the Recharts overrides live in `scripts/generate-dark-css.mjs`. The UI design system is `src/app/pulse.css` (`p-*` classes, shared series colours so a colour always means the same signal, mobile bottom tab bar). `src/app/globals.css` keeps only the legacy `c-*`/`g-*`/`an-*`/`w-*` classes still used by run detail, goal, weight panel and login; remove a class there when its last user goes.
 
 Files:
 
@@ -57,6 +57,12 @@ src/app/manifest.ts                     PWA manifest and installable app icons
 src/app/globals.css                     Tailwind import plus the hand-written Pulse/coach design system
 src/app/ios.css                         iPhone/iPad layer loaded last: safe areas, dvh, floating tab bar (<900px) with sticky blurred top bar, 44px tap targets and pressed states on touch, no hover tricks, 16px inputs (no iOS focus zoom), scrollable chips, segmented controls, login on small screens, pull-to-refresh and skeleton styles
 src/app/loading.tsx                     Instant skeleton with navigation on every tab change
+src/app/dark.css                        GENERATED dark theme (prefers-color-scheme: dark) derived from globals/pulse/ios.css by colour role; never edit by hand
+scripts/generate-dark-css.mjs           Generator for dark.css: role-based colour mapping (background/text/border), hand-written dark root tokens and Recharts overrides; `npm run theme:generate`
+scripts/generate-splash.py              Draws the iOS launch images in public/splash (light and dark, portrait) with Pillow
+src/lib/splash-screens.ts               Device list and `appleWebApp.startupImage` entries for those launch images
+public/splash/*                         Generated launch images, one per device size and colour scheme
+tests/dark-theme.test.mjs               dark.css freshness, role mapping, contrast of pastel fills, launch images exist
 src/app/page.tsx                        Coach home: goal-aware daily advice, body signals (load, HRV, RHR, fitness) from training-health, race bar, latest run with body context (auto loads missing detail), recent runs, data refresh
 src/app/vorm/page.tsx                   Training × Health: weekly km vs HRV/RHR, load balance, fitness trend, response profile, performance links
 src/app/lichaam/page.tsx                Health trends vs. personal baseline, running form, adjustable weight chart with correction, data-coverage table

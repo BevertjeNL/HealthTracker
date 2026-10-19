@@ -2,10 +2,12 @@ import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { LiveCoachRefresh } from "@/components/LiveCoachRefresh";
 import { PullToRefresh } from "@/components/PullToRefresh";
+import { splashStartupImages } from "@/lib/splash-screens";
 import { hasAuthenticatedSession } from "@/lib/session-server";
 import "./globals.css";
 import "./pulse.css";
 import "./ios.css";
+import "./dark.css";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -53,18 +55,22 @@ export const metadata: Metadata = {
     capable: true,
     title: "Pulse",
     statusBarStyle: "default",
+    startupImage: splashStartupImages(),
   },
   formatDetection: { telephone: false, date: false, address: false, email: false },
   robots: { index: false, follow: false },
 };
 
-// The UI is light only, so the status bar colour stays light as well (a dark theme-color on a light page looks broken).
+// Light and dark follow the system setting; the status bar colour must match the page background of each.
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   viewportFit: "cover",
-  colorScheme: "light",
-  themeColor: "#f5f4ef",
+  colorScheme: "light dark",
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#f5f4ef" },
+    { media: "(prefers-color-scheme: dark)", color: "#0f1412" },
+  ],
 };
 
 export default async function RootLayout({ children }: LayoutProps<"/">) {
