@@ -292,3 +292,44 @@ a.p-tile:hover, a.p-metric:hover { transform: translateY(-2px); box-shadow: 0 12
 .p-resp-bar.rhr .p-resp-track i[data-neg="1"] { background: var(--series-hrv); }
 
 .p-tiles-4 + .c-detail-lesson, .p-tiles-4 + .c-run-story { margin-top: 18px; }
+
+/* ---------- interactive metric explorer ---------- */
+.p-badge-mild { background: #fdf0cf; color: #8a5a0a; }
+.p-muted { color: #7a8a80; font-weight: 500; }
+.p-explorer-bar { margin-top: 6px; display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: 14px; }
+.p-help { max-width: 720px; flex: 1 1 340px; padding: 12px 16px; border: 1px solid var(--p-line); border-radius: 14px; background: #fff; }
+.p-help summary { cursor: pointer; color: var(--p-ink); font-size: 14.5px; font-weight: 750; }
+.p-help dl { margin: 12px 0 2px; display: grid; gap: 4px 14px; grid-template-columns: max-content 1fr; font-size: 14px; line-height: 1.5; color: #46604f; }
+.p-help dt { color: var(--p-ink); font-weight: 750; }
+.p-help dd { margin: 0 0 8px; }
+.p-periods { display: inline-flex; flex-wrap: wrap; padding: 3px; gap: 2px; border-radius: 11px; background: var(--p-soft); }
+.p-periods button { padding: 8px 12px; border: 0; border-radius: 9px; background: transparent; color: #4b6155; font: inherit; font-size: 13px; font-weight: 700; cursor: pointer; }
+.p-periods button[aria-pressed="true"] { background: #fff; color: var(--p-ink); box-shadow: 0 1px 4px rgba(21, 60, 46, .15); }
+.p-metric-live.is-selected { border-color: var(--p-ink); box-shadow: 0 0 0 2px rgba(21, 60, 46, .12); }
+.p-ispark { margin-top: 6px; position: relative; touch-action: pan-y; cursor: crosshair; }
+.p-ispark svg { width: 100%; height: 56px; display: block; color: #6c8074; }
+.p-ispark-read { margin: 4px 0 0; color: #5d7366; font-size: 12.5px; }
+.p-ispark-read b { color: var(--p-ink); }
+.p-metric-more { margin-top: 8px; padding: 8px 10px; border: 1px solid var(--p-line); border-radius: 10px; background: var(--p-soft); color: var(--p-ink); font: inherit; font-size: 13px; font-weight: 700; cursor: pointer; }
+.p-metric-more:hover { background: #e4ecdc; }
+.p-detail { margin-top: 18px; padding: 22px 24px; border: 2px solid var(--p-ink); border-radius: 20px; background: #fff; }
+.p-detail-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; }
+.p-detail-head h3 { margin: 4px 0 0; color: var(--p-ink); font-size: 24px; letter-spacing: -.03em; }
+.p-detail-close { padding: 8px 12px; border: 1px solid var(--p-line); border-radius: 10px; background: transparent; color: #4b6155; font: inherit; font-size: 13px; font-weight: 700; cursor: pointer; white-space: nowrap; }
+.p-detail-grid { margin-top: 14px; display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 24px; }
+.p-detail-controls { margin-bottom: 8px; display: flex; flex-wrap: wrap; align-items: center; gap: 6px 16px; color: #6c8074; font-size: 13px; }
+.p-check { display: inline-flex; align-items: center; gap: 7px; color: var(--p-ink); font-weight: 700; }
+.p-detail-plot { width: 100%; height: 280px; }
+.p-detail-text h4 { margin: 14px 0 4px; color: var(--p-ink); font-size: 15px; }
+.p-detail-text h4:first-child { margin-top: 0; }
+.p-detail-text p, .p-detail-text li { margin: 0 0 6px; color: #46604f; font-size: 14.5px; line-height: 1.55; }
+.p-detail-text ul { margin: 0; padding-left: 18px; }
+.p-detail-verdict { padding: 12px 14px; border-radius: 12px; background: var(--p-soft); }
+.p-chart-legend span { --c: var(--p-muted); }
+.p-chart-legend span:not(.run):not(.hrv):not(.rhr):not(.chronic)::before { background: var(--c); }
+.p-chart-legend .strong::before { height: 4px; vertical-align: 3px; }
+.p-chart-legend .band::before { background: var(--series-chronic); opacity: .4; }
+.p-chart-legend .dash::before { background: transparent; border-top: 2px dashed var(--p-muted); height: 0; border-radius: 0; vertical-align: 3px; }
+@media (max-width: 980px) { .p-detail-grid { grid-template-columns: 1fr; } }
+@media (max-width: 700px) { .p-detail { padding: 18px 16px; } .p-help dl { grid-template-columns: 1fr; } .p-periods { width: 100%; } .p-periods button { flex: 1 1 auto; padding: 8px 6px; } }
+.p-metric-top { flex-wrap: wrap; row-gap: 6px; }

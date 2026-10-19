@@ -1,7 +1,7 @@
 import { asc, gte, sql } from "drizzle-orm";
 import { BodyAlert } from "@/components/BodyAlert";
 import { CoachNav } from "@/components/CoachNav";
-import { MetricCard } from "@/components/MetricCard";
+import { MetricExplorer, type ExplorerGroup } from "@/components/MetricExplorer";
 import { WeightChartPanel } from "@/components/WeightChartPanel";
 import { db } from "@/db";
 import { healthMetrics } from "@/db/schema";
@@ -20,7 +20,7 @@ export default async function BodyPage() {
   const rows = await db.select().from(healthMetrics).where(gte(healthMetrics.date, sql<string>`CURRENT_DATE - 800`)).orderBy(asc(healthMetrics.date));
   const weightRows = await db.select({ date: healthMetrics.date, weightKg: healthMetrics.weightKg }).from(healthMetrics).where(sql`${healthMetrics.weightKg} is not null`).orderBy(asc(healthMetrics.date));
   const today = amsterdamDay(new Date());
-  const trends = Object.fromEntries([...BODY_KEYS, ...FORM_KEYS].map((key) => [key, healthTrend(rows, key, today)])) as Record<HealthKey, HealthTrend>;
+  const trends = Object.fromEntries([...BODY_KEYS, ...FORM_KEYS].map((key) => [key, healthTrend(rows, key, today, { seriesDays: 730 })])) as Record<HealthKey, HealthTrend>;
   const alert = buildBodyAlert(BODY_KEYS.map((key) => trends[key]));
   const latest = rows.at(-1)?.date ?? null;
   const ageDays = latest ? daysApart(today, latest) : null;
@@ -32,31 +32,22 @@ export default async function BodyPage() {
   });
   const formStale = FORM_KEYS.every((key) => trends[key].current == null);
 
-  const grid = (keys: HealthKey[]) => keys.map((key) => <MetricCard key={key} trend={trends[key]} color={COLORS[key] ?? "var(--series-run)"} digits={DIGITS[key] ?? 0} />);
+  const items = (keys: HealthKey[]) => keys.map((key) => ({ trend: trends[key], color: COLORS[key] ?? "var(--series-run)", digits: DIGITS[key] ?? 0 }));
+  const groups: ExplorerGroup[] = [
+    { overline: "HERSTEL", title: "Hoe goed herstel je?", items: items(HERSTEL) },
+    { overline: "CONDITIE EN BEWEGING", title: "Je dagelijkse basis", items: items(CONDITIE) },
+    { overline: "LOOPVORM · APPLE WATCH", title: "Hoe je loopt", items: items(FORM_KEYS), notice: formStale ? <p className="p-notice">Er zijn de afgelopen twee maanden geen loopvorm-metingen ontvangen. Loopvermogen, pasbreedte, grondcontact en verticale beweging staan in Health, maar je Shortcut stuurt ze niet mee. Zie <b>docs/apple-shortcuts.md</b> om ze toe te voegen.</p> : undefined },
+  ];
 
   return <div className="c-shell"><main className="c-container"><CoachNav active="body" />
     <header className="p-head">
-      <div><span className="p-overline">APPLE HEALTH</span><h1>Je lichaam</h1><p>Elke waarde tegenover je eigen basislijn: het gemiddelde van de 7 dagen daarvoor ligt naast die van de 28 dagen ervoor. Eén meting is geen oordeel.</p></div>
+      <div><span className="p-overline">APPLE HEALTH</span><h1>Je lichaam</h1><p>Elke waarde naast je eigen gebruikelijke niveau. Pulse vergelijkt je laatste week met de vier weken ervoor en kijkt of het verschil groter is dan je normale schommeling. Eén meting is geen oordeel.</p></div>
       <div className="p-head-note">{latest ? <>Laatste data <b>{fmtDay(latest, true)}</b>{ageDays != null && ageDays >= 2 ? ` · ${ageDays} dagen oud` : ""}</> : "Geen Health-data ontvangen"}</div>
     </header>
 
     {alert.level !== "ok" && <BodyAlert alert={alert} healthAgeDays={ageDays} />}
 
-    <section className="p-section" aria-labelledby="herstel-title">
-      <div className="p-section-head"><div><span className="p-overline">HERSTEL</span><h2 id="herstel-title">Hoe goed herstel je?</h2></div></div>
-      <div className="p-tiles">{grid(HERSTEL)}</div>
-    </section>
-
-    <section className="p-section" aria-labelledby="conditie-title">
-      <div className="p-section-head"><div><span className="p-overline">CONDITIE EN BEWEGING</span><h2 id="conditie-title">Je dagelijkse basis</h2></div></div>
-      <div className="p-tiles">{grid(CONDITIE)}</div>
-    </section>
-
-    <section className="p-section" aria-labelledby="vorm-title">
-      <div className="p-section-head"><div><span className="p-overline">LOOPVORM · APPLE WATCH</span><h2 id="vorm-title">Hoe je loopt</h2></div></div>
-      {formStale && <p className="p-notice">Er zijn de afgelopen twee maanden geen loopvorm-metingen ontvangen. Loopvermogen, pasbreedte, grondcontact en verticale beweging staan in Health, maar je Shortcut stuurt ze niet mee. Zie <b>docs/apple-shortcuts.md</b> om ze toe te voegen.</p>}
-      <div className="p-tiles">{grid(FORM_KEYS)}</div>
-    </section>
+    <MetricExplorer today={today} groups={groups} />
 
     <section className="p-section" id="gewicht" aria-label="Gewicht">
       <WeightChartPanel points={weightRows.map((row) => ({ date: row.date, value: row.weightKg }))} today={today} />

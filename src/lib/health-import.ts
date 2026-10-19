@@ -114,7 +114,7 @@ const VALID_METRIC_RANGES: Record<string, { min: number; max: number }> = {
   weight_body_mass: { min: 20, max: 400 },
   "weight_&_body_mass": { min: 20, max: 400 },
   oxygen_saturation: { min: 70, max: 100 },
-  respiratory_rate: { min: 4, max: 60 },
+  respiratory_rate: { min: 4, max: 40 },
   exercise_minutes: { min: 0, max: 1_440 },
   daylight_minutes: { min: 0, max: 1_440 },
   walking_speed: { min: 0.5, max: 15 },
