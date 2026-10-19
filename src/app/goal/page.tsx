@@ -7,7 +7,10 @@ import { db } from "@/db";
 import { activities, healthMetrics, trainingGoals } from "@/db/schema";
 import { buildCoachToday, buildPostRunCoach, postRunPlanWarning } from "@/lib/coach";
 import { goalVerdict } from "@/lib/coach-verdict";
+import { buildGoalFeasibility } from "@/lib/goal-feasibility";
 import { addDays, buildGoalPlan, dateText, goalDate } from "@/lib/goal-plan";
+import { toAnalysisRun } from "@/lib/run-analysis";
+import { formatTime } from "@/lib/run-analysis";
 
 export const dynamic = "force-dynamic";
 
@@ -23,12 +26,14 @@ export default async function GoalPage() {
   const coach = buildCoachToday(runs, health, now);
   const review = coach.lastRun ? buildPostRunCoach(coach.lastRun, runs, health) : null;
   const plan = goal ? buildGoalPlan(goal, runs, { recoveryScore: coach.recovery.score, loadChangePct: coach.load.changePct, generalAdvice: coach.advice, lastRunWarning: coach.lastRun && review ? postRunPlanWarning(review, coach.lastRun.startDate) : null }, now) : null;
+  const feasibility = goal && plan && plan.daysUntilRace >= 0 ? buildGoalFeasibility(goal, runs.map(toAnalysisRun), plan.daysUntilRace, now) : null;
   return <div className="c-shell"><main className="c-container"><CoachNav active="goal" />
     <header className="p-head"><div><span className="p-overline">JOUW VOLGENDE WEDSTRIJD</span><h1>Doel</h1><p>Stel afstand, datum en doeltempo in. Je schema verandert mee met je Strava-runs en beschikbare Apple Health-hersteldata.</p></div><Link href="/" className="p-headlink">← Advies voor vandaag</Link></header>
     <section className="g-setup" aria-labelledby="goal-setup-title"><div className="g-setup-copy"><span className="c-overline">DOEL INSTELLEN</span><h2 id="goal-setup-title">{goal ? "Pas je wedstrijd aan." : "Maak je wedstrijd concreet."}</h2><p>{goal ? "Je schema wordt opnieuw berekend zodra je afstand, datum of tempo opslaat." : "Voor jouw voorbeeld staan een halve marathon over vier weken en 5:20/km alvast ingevuld."}</p></div><GoalEditor goal={goal} defaultDate={addDays(today, 28)} minDate={addDays(today, 1)} /></section>
     {plan && <>
       <section className="g-target" aria-label="Wedstrijddoel"><div><span className="c-overline">JE DOEL</span><h2>{plan.distanceLabel}</h2><p>{dateText(goal!.raceDate)} · {plan.daysUntilRace < 0 ? "datum voorbij" : `${plan.daysUntilRace} dagen te gaan`}</p></div><div className="g-target-numbers"><span><small>Doeltempo</small><strong>{plan.targetPace} /km</strong></span><span><small>Richttijd</small><strong>{plan.finishTime}</strong></span></div></section>
       {plan.daysUntilRace < 0 ? <p className="g-expired">Deze datum is voorbij. Kies hierboven je volgende wedstrijd om een nieuw schema te zien.</p> : <>
+        {feasibility && <section className={`p-card p-balance p-balance-${feasibility.tone}`} aria-label="Haalbaarheid van je doel"><span className="p-overline">IS JE DOEL HAALBAAR?</span><h2>{feasibility.label}</h2><p>{feasibility.detail}</p><dl><div><dt>Voorspelde tijd</dt><dd>{formatTime(feasibility.predictedTimeS)}</dd></div><div><dt>Je doeltijd</dt><dd>{plan.finishTime}</dd></div></dl><small>Gebaseerd op {feasibility.basis}. Riegel-formule; bandbreedte op een gewone dag {feasibility.range.fast}–{feasibility.range.slow} /km. Weer, parcours en dagvorm blijven onzeker.</small></section>}
         <section className="g-assessment"><div><span className="c-overline">WAT JE BASIS NU TOELAAT</span><h2>{plan.level}</h2><p>{plan.assessment}</p><CoachVerdict verdict={goalVerdict(plan.level, plan.daysUntilRace, plan.runsPerWeek)} compact /></div><ul>{plan.evidence.map((item) => <li key={item}>{item}</li>)}</ul></section>
         <section className="g-today"><div><span className="c-overline">VANDAAG · {dateText(today).toUpperCase()}</span><h2>{plan.today.label}</h2><p><b>Doe dit:</b> {plan.today.detail}</p><small><b>Waarom:</b> {plan.today.coach}</small></div>{plan.nextSession && <aside><span>VOLGENDE GEPLANDE TRAINING</span><strong>{plan.nextSession.title}</strong><p>{dateText(plan.nextSession.date)} · {plan.nextSession.detail}</p></aside>}</section>
         <section className="g-schedule" aria-labelledby="goal-schedule-title"><div className="c-section-heading"><div><span className="c-overline">JE SCHEMA</span><h2 id="goal-schedule-title">Van vandaag tot de start.</h2></div></div><p className="g-schedule-intro">{plan.weeks.some((week) => week.days.some((day) => day.tone === "quality")) ? "Elke week heeft een tempotraining, een rustige lange loop en herstel ertussen. De laatste week wordt lichter, maar bevat nog een korte tempoprikkel." : "Je begint met rustige loopdagen en korte vlotte versnellingen. Een lang blok op wedstrijdtempo past pas na meer regelmaat en afstand."} Bij een laag recent loopritme is de extra rustige loop optioneel. Je gelogde Strava-runs verschijnen automatisch in dit schema.</p>

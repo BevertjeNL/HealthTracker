@@ -4,6 +4,7 @@ import { CoachNav } from "@/components/CoachNav";
 import { db } from "@/db";
 import { activities } from "@/db/schema";
 import { fmtDate, fmtDuration, fmtPace } from "@/lib/format";
+import { buildEventAnalysis, findRaceCandidates, formatPaceSec, formatTime, toAnalysisRun, type EventGroup, type RaceCandidate } from "@/lib/run-analysis";
 import { buildRunStats, DAY_PARTS, WEEKDAYS, type RunStats } from "@/lib/run-stats";
 
 export const dynamic = "force-dynamic";
@@ -35,12 +36,25 @@ export default async function StatsPage() {
   const stats = buildRunStats(rows);
   return <div className="c-shell"><main className="c-container"><CoachNav active="stats" />
     <header className="p-head"><div><span className="p-overline">JE LOOPCIJFERS</span><h1>Cijfers</h1><p>Kilometers per maand en jaar, loopdagen, series, records en een flinke dosis wetenswaardigheden.</p></div></header>
-    {!stats ? <section className="c-empty"><h2>Nog geen runs gevonden.</h2><p>Verbind Strava en synchroniseer je runs om je cijfers te zien.</p><Link href="/runs" className="c-button">Naar mijn runs</Link></section> : <Stats stats={stats} />}
+    {!stats ? <section className="c-empty"><h2>Nog geen runs gevonden.</h2><p>Verbind Strava en synchroniseer je runs om je cijfers te zien.</p><Link href="/runs" className="c-button">Naar mijn runs</Link></section> : <Stats stats={stats} events={buildEventAnalysis(rows.map(toAnalysisRun))} candidates={findRaceCandidates(rows.map(toAnalysisRun))} />}
     <footer className="c-footer">PULSE / JOUW HARDLOOPCOACH <span>Strava × Apple Health</span></footer>
   </main></div>;
 }
 
-function Stats({ stats }: { stats: RunStats }) {
+function Races({ events, candidates }: { events: EventGroup[]; candidates: RaceCandidate[] }) {
+  const tone = { good: "better", watch: "worse", action: "worse", info: "flat" } as const;
+  return <section className="st-section" aria-labelledby="st-races"><div className="c-section-heading"><div><span className="c-overline">WEDSTRIJDEN</span><h2 id="st-races">Je wedstrijden en persoonlijke records.</h2></div></div>
+    {!events.length && <p className="st-note">Nog geen wedstrijden herkend. Markeer een run als wedstrijd op de runpagina, dan verschijnt hier je recordgeschiedenis per afstand.</p>}
+    {events.map((group) => <div className="p-card p-coverage" key={group.key}>
+      <h3 className="st-sub">{group.label}{group.prId != null && group.key !== "other" && (() => { const pr = group.events.find((event) => event.id === group.prId); return pr ? ` · PR ${formatTime(pr.timeS)} (${formatPaceSec(pr.paceSec)}/km)` : ""; })()}</h3>
+      <table><thead><tr><th>Datum</th><th>Wedstrijd</th><th>Tijd</th><th>Tempo</th><th>Vs. vorige</th><th>Voorbereiding</th></tr></thead><tbody>{group.events.map((event) => <tr key={event.id}><td>{fmtDate(event.date)}</td><td><Link href={`/runs/${event.id}`}>{event.name}</Link>{event.isPr && group.key !== "other" ? " 🏅" : ""}</td><td>{formatTime(event.timeS)}</td><td>{formatPaceSec(event.paceSec)}</td><td>{event.deltaPrevSec == null ? "—" : `${event.deltaPrevSec > 0 ? "+" : "−"}${Math.abs(Math.round(event.deltaPrevSec))} s/km`}</td><td>{event.prepWeeklyKm == null ? "—" : `${n0(event.prepWeeklyKm)} km/week · taper ${event.taperPct ?? "—"}%`}</td></tr>)}</tbody></table>
+      {group.advice.map((item) => <p key={item.title} className="p-footnote"><span className={`p-badge p-badge-${tone[item.tone]}`}>{item.tone === "good" ? "Goed" : item.tone === "info" ? "Info" : "Let op"}</span> <b>{item.title}.</b> {item.detail}</p>)}
+    </div>)}
+    {candidates.length > 0 && <div className="p-card p-coverage"><h3 className="st-sub">Was dit een wedstrijd?</h3><p className="p-footnote">Deze runs waren duidelijk sneller dan je andere runs in die weken. Bevestig of wijs af op de runpagina; bevestigde wedstrijden komen in je recordgeschiedenis.</p><table><tbody>{candidates.map((c) => <tr key={c.id}><td>{fmtDate(c.date)}</td><td><Link href={`/runs/${c.id}`}>{c.name}</Link></td><td>{c.band} · {formatTime(c.timeS)}</td><td>{c.reasons.join(" · ")}</td></tr>)}</tbody></table></div>}
+  </section>;
+}
+
+function Stats({ stats, events, candidates }: { stats: RunStats; events: EventGroup[]; candidates: RaceCandidate[] }) {
   const { journey, fun, records, streaks } = stats;
   const maxYear = Math.max(...stats.years.map((y) => Math.max(y.km, 1)));
   const current = stats.years[stats.years.length - 1];
@@ -105,6 +119,8 @@ function Stats({ stats }: { stats: RunStats }) {
         {records.bestDay && records.bestDay.km > (records.longest?.km ?? 0) + 0.05 && <article className="st-card st-trophy"><span className="st-emoji" aria-hidden>✌️</span><span className="st-card-label">Meeste km op één dag</span><strong className="st-big">{n1(records.bestDay.km)} <small>km</small></strong><p>{dayDate(records.bestDay.day)}, verdeeld over meerdere runs</p></article>}
       </div>
     </section>
+
+    <Races events={events} candidates={candidates} />
 
     <section className="st-section" aria-labelledby="st-fun"><div className="c-section-heading"><div><span className="c-overline">WETENSWAARDIGHEDEN</span><h2 id="st-fun">Nutteloos, maar leuk.</h2></div></div>
       <div className="st-grid st-grid-3">

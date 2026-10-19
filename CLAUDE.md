@@ -37,6 +37,7 @@ src/lib/coach.ts                        Pure coach orchestration: 7-day load ver
 src/lib/coach-verdict.ts                Pure colored judgments and concrete actions for load, recovery, goal readiness and each run
 src/lib/run-lesson.ts                   Plain-language post-run lesson: meaning, what to keep, correction and next run from splits and run type
 src/lib/run-analysis.ts                 Pure run analysis: classifyRun() (race/long/interval/easy), km-split and lap parsing, analyzePacing() (pattern, start/fade, HR drift, per-unit notes, advice), compareToSimilar(), buildRunAnalysis() (insights, training-vs-race, Riegel predictions, style profile), findRaceCandidates() (unmarked likely races), buildEventAnalysis() (per-distance race history with PR, preparation, taper, advice), buildRunDigest() (a verdict + advice for every run, from splits or from similar earlier runs). Min. 3 samples per aggregate
+src/lib/goal-feasibility.ts            Pure goal feasibility: Riegel prediction from the best race of the last 120 days (or, lacking one, ≥3 trainings in 8 weeks) vs. target pace → Ruim haalbaar/Haalbaar/Ambitieus/Te scherp; time = stored pace × distance (effortTimeS) so it matches the shown pace
 src/lib/run-story.ts                    Pure phase-by-phase run narrative and available-Strava-metrics summary (start, middle, finish, load, lap power, best efforts)
 src/lib/run-stats.ts                    Pure all-history run statistics: per year/month totals, comparisons with earlier periods (percentage only when the earlier period has min. 3 runs), 26-week trend, weekday/day-part spread, 53-week heatmap, streaks, records, distance mix and fun equivalents (Amsterdam calendar days)
 src/lib/chart-range.ts                  Range-adaptive chart ticks/labels, point summaries, manual X/Y range validation, and parse/resolve of the saved weight-chart settings (presets, custom window, Y limits)
@@ -56,14 +57,15 @@ src/app/layout.tsx                      Pulse metadata (noindex), favicon/Apple/
 src/app/manifest.ts                     PWA manifest and installable app icons
 src/app/globals.css                     Tailwind import plus the hand-written Pulse/coach design system
 src/app/ios.css                         iPhone/iPad layer loaded last: safe areas, dvh, floating tab bar (<900px) with sticky blurred top bar, 44px tap targets and pressed states on touch, no hover tricks, 16px inputs (no iOS focus zoom), scrollable chips, segmented controls, login on small screens, pull-to-refresh and skeleton styles
+src/app/error.tsx                       Generic Dutch error boundary (no stack/DB text) with retry; not-found.tsx is the matching 404
 src/app/loading.tsx                     Instant skeleton with navigation on every tab change
 src/app/page.tsx                        Coach home: goal-aware daily advice, body signals (load, HRV, RHR, fitness) from training-health, race bar, latest run with body context (auto loads missing detail), recent runs, data refresh
-src/app/vorm/page.tsx                   Training × Health: weekly km vs HRV/RHR, load balance, fitness trend, response profile, performance links
+src/app/vorm/page.tsx                   Training × Health (also “Wat valt op” patterns from buildRunAnalysis and a Riegel prediction): weekly km vs HRV/RHR, load balance, fitness trend, response profile, performance links
 src/app/lichaam/page.tsx                Health trends vs. personal baseline, running form, adjustable weight chart with correction, data-coverage table
 src/app/pulse.css                       Pulse design system v2 (p-* classes, shared series colours, mobile tab bar); globals.css keeps only legacy classes still in use
 src/app/actions.ts                     Authenticated Server Action to update or clear one day's weight while preserving its other Health metrics
 src/app/runs/page.tsx                   Training journal: summary tiles, type filter (?type=, ?alle=1), per-run verdict, load and morning readiness
-src/app/stats/page.tsx                  Read-only "Cijfers" tab: colourful statistics overview (totals, per year/month, comparisons, trend, run days, records, fun facts) built from run-stats.ts
+src/app/stats/page.tsx                  Read-only "Cijfers" tab: statistics overview (totals, per year/month, comparisons, trend, run days, records) plus per-distance race history with PRs, preparation/taper and “was this a race?” candidates (buildEventAnalysis/findRaceCandidates), fun facts
 src/app/goal/page.tsx                   Saved race goal, editable target and four-week calendar schedule
 src/app/goal/actions.ts                Session-protected Server Action for validated single-goal upsert and revalidation
 src/app/runs/actions.ts                 Authenticated Server Actions: manual Strava sync (syncRunsAction) and setRunKindAction (writes activities.kind_override)
@@ -104,6 +106,7 @@ tests/insights.test.mjs                 Insight thresholds, staleness and recomm
 tests/recovery.test.mjs                 Recovery baseline/freshness/score regression tests
 tests/half-marathon.test.mjs            Personal half-marathon phase and progression regression tests
 tests/goal-plan.test.mjs                Goal input, four-week schedule, taper, low-base and recovery adjustments, DST date arithmetic
+tests/goal-feasibility.test.mjs        Feasibility verdict thresholds, race vs. training basis, stored-pace source of truth
 tests/run-analysis.test.mjs             Classification, pacing patterns, comparison, predictions and minimum-sample regression tests
 tests/run-story.test.mjs                Phase narrative and missing-split regression tests
 tests/coach.test.mjs                    Weekly load confidence, missing Health data, post-run recovery and same-day timing regression tests

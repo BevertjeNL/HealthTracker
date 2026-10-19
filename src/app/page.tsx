@@ -12,6 +12,7 @@ import { db } from "@/db";
 import { activities, healthMetrics, trainingGoals } from "@/db/schema";
 import { buildCoachToday, buildPostRunCoach, postRunPlanWarning } from "@/lib/coach";
 import { fmtDate, fmtDay, fmtDuration, fmtKm, fmtNum, fmtPace, fmtSigned } from "@/lib/format";
+import { buildGoalFeasibility } from "@/lib/goal-feasibility";
 import { buildGoalPlan, dateText } from "@/lib/goal-plan";
 import { KIND_LABEL, toAnalysisRun } from "@/lib/run-analysis";
 import { amsterdamDay, buildRunBodyContext, buildTrainingHealth } from "@/lib/training-health";
@@ -32,6 +33,7 @@ export default async function Home() {
   const goal = savedGoals[0] ?? null;
   const goalPlan = goal ? buildGoalPlan(goal, runs, { recoveryScore: coach.recovery.score, loadChangePct: coach.load.changePct, generalAdvice: coach.advice, lastRunWarning: last && review ? postRunPlanWarning(review, last.startDate) : null }, now) : null;
   const activePlan = goalPlan && goalPlan.daysUntilRace >= 0 ? goalPlan : null;
+  const feasibility = activePlan && goal ? buildGoalFeasibility(goal, runs.map(toAnalysisRun), activePlan.daysUntilRace, now) : null;
   const advice = activePlan?.today ?? coach.advice;
   const stale = coach.healthAgeDays == null || coach.healthAgeDays > 1;
 
@@ -39,7 +41,8 @@ export default async function Home() {
   const reasons: string[] = [...coach.reason];
   if (body.balance.ratio != null) reasons.push(`Belasting ${body.balance.label.toLowerCase()} · ${fmtNum(body.balance.ratio, 2)}× je normale week`);
   for (const signal of body.alert.signals) reasons.push(signal);
-  if (!body.alert.signals.length && body.alert.level === "ok" && body.trends.hrvMs.deltaPct != null) reasons.push(`HRV en rusthartslag binnen je normale bandbreedte`);
+  if (!body.alert.signals.length && body.alert.level === "ok" && body.trends.hrvMs.severity === "normal" && body.trends.restingHeartRate.severity === "normal") reasons.push(`HRV en rusthartslag binnen je normale bandbreedte`);
+  else if (!body.alert.signals.length && body.trends.restingHeartRate.severity != null && body.trends.restingHeartRate.severity !== "normal" && body.trends.restingHeartRate.direction === "worse") reasons.push(`Rusthartslag ${body.trends.restingHeartRate.deltaPct != null ? fmtSigned(body.trends.restingHeartRate.deltaPct, 1, "%") : ""} t.o.v. je basis: volg of dit doorzet`);
   if (body.fitness.verdict.tone !== "unknown") reasons.push(`Fitness: ${body.fitness.verdict.label.toLowerCase()}`);
 
   const planAdjusted = activePlan?.weeks[0]?.days[0]?.status === "adjusted";
@@ -103,7 +106,7 @@ export default async function Home() {
       </section>
 
       {activePlan && goal && <section className="p-goalbar" aria-label="Wedstrijddoel">
-        <div><span className="p-overline">JE WEDSTRIJD</span><h2>{activePlan.distanceLabel} · {dateText(goal.raceDate)}</h2><p>{activePlan.daysUntilRace === 0 ? "Vandaag is het zover" : `Nog ${activePlan.daysUntilRace} dagen`} · doel {activePlan.targetPace}/km · richttijd {activePlan.finishTime} · fase: {activePlan.level}</p></div>
+        <div><span className="p-overline">JE WEDSTRIJD</span><h2>{activePlan.distanceLabel} · {dateText(goal.raceDate)}</h2><p>{activePlan.daysUntilRace === 0 ? "Vandaag is het zover" : `Nog ${activePlan.daysUntilRace} dagen`} · doel {activePlan.targetPace}/km · richttijd {activePlan.finishTime} · fase: {activePlan.level}</p>{feasibility && <p><b>{feasibility.label}:</b> je basis voorspelt {fmtPace(feasibility.predictedPaceSec / 60)}.</p>}</div>
         <Link href="/goal">Bekijk je schema →</Link>
       </section>}
       {!activePlan && <section className="p-goalbar" aria-label="Wedstrijddoel"><div><span className="p-overline">JE WEDSTRIJD</span><h2>Kies je volgende wedstrijd</h2><p>Met een datum en doeltempo maakt je coach een schema vanuit je huidige loopbasis.</p></div><Link href="/goal">Stel je doel in →</Link></section>}
