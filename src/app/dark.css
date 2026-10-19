@@ -278,6 +278,15 @@ a:focus-visible, button:focus-visible { outline: 3px solid rgba(243, 126, 101, 0
 .st-months > small { color: #b6c4bb; }
 .st-months-row b { color: #e0f2eb; }
 .st-month { color: #e0f2eb; }
+.st-month-total { color: #e0f2eb; }
+.st-month-total small { color: #b6c4bb; }
+.st-lv0 { background: #202623; }
+.st-lv1 { background: #2e3919; }
+.st-lv2 { background: #3a4a22; }
+.st-lv3 { background: #2f9457; color: #ffffff; }
+.st-lv4 { background: #1d7d4e; color: #ffffff; }
+.st-lv5 { background: #106344; color: #ffffff; }
+.st-month-legend { color: #b6c4bb; }
 .st-duo small { color: #b6c4bb; }
 .st-cur { background: #ee724e; }
 .st-prev { background: #1a3645; }

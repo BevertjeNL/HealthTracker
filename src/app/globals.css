@@ -551,11 +551,27 @@ a:focus-visible, button:focus-visible { outline: 3px solid rgba(255, 101, 69, .3
 .st-year-bar { position: absolute; inset: 0 auto 0 0; border-radius: 99px; background: linear-gradient(90deg, #7fcb5a, #3fae5f); }
 .st-year-ytd { position: absolute; inset: 0 auto 0 0; border-radius: 99px; background: #153c2e; opacity: .85; }
 .st-months-wrap { overflow-x: auto; }
-.st-months { min-width: 640px; display: grid; grid-template-columns: 48px repeat(12, 1fr); gap: 5px; }
-.st-months > small { text-align: center; color: #56705f; font-size: 12px; font-weight: 750; }
+.st-months { min-width: 700px; display: grid; grid-template-columns: 48px repeat(12, 1fr) 64px; gap: 5px; }
+.st-months > small { text-align: center; color: #56705f; font-size: 12px; font-weight: 750; text-transform: uppercase; letter-spacing: .04em; }
 .st-months-row { display: contents; }
 .st-months-row b { align-self: center; color: #153c2e; font-size: 14px; }
-.st-month { min-height: 42px; display: grid; place-items: center; border-radius: 10px; color: #153c2e; font-size: 12px; font-weight: 800; }
+.st-month { position: relative; min-height: 46px; display: grid; place-items: center; border-radius: 10px; color: #153c2e; font-size: 12px; font-weight: 800; }
+.st-month-total { align-self: center; text-align: right; color: #153c2e; font-size: 14px; }
+.st-month-total small { color: #56705f; font-size: 11px; font-weight: 750; }
+.st-lv0 { background: #eef1ea; }
+.st-lvx { background: transparent; box-shadow: inset 0 0 0 1.5px #dde3d6; }
+.st-lv1 { background: #e3f3c4; }
+.st-lv2 { background: #bfe38a; }
+.st-lv3 { background: #2f9356; color: #fff; }
+.st-lv4 { background: #1b7549; color: #fff; }
+.st-lv5 { background: #0e553a; color: #fff; }
+.st-best::after { content: ""; position: absolute; top: 4px; right: 4px; width: 8px; height: 8px; border-radius: 50%; background: #f5a524; box-shadow: 0 0 0 1.5px rgba(255,255,255,.85); }
+.st-now { box-shadow: 0 0 0 2.5px #ee7350; }
+.st-month-legend { margin-top: 12px; display: flex; align-items: center; flex-wrap: wrap; gap: 4px; color: #56705f; font-size: 12px; font-weight: 750; }
+.st-month-legend > span { margin: 0 4px; }
+.st-month-legend i { width: 18px; height: 14px; display: inline-block; border-radius: 4px; }
+.st-month-legend .st-month-key { margin-left: auto; display: inline-flex; align-items: center; gap: 6px; }
+.st-best-key { width: 10px !important; height: 10px !important; border-radius: 50% !important; background: #f5a524; }
 .st-duo { height: 190px; display: grid; grid-template-columns: repeat(12, 1fr); gap: 6px; align-items: end; }
 .st-duo-col { height: 100%; display: flex; flex-direction: column; justify-content: flex-end; gap: 6px; text-align: center; }
 .st-duo-bars { flex: 1; display: flex; align-items: flex-end; justify-content: center; gap: 3px; }
