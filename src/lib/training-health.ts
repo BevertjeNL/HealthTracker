@@ -156,6 +156,15 @@ export type HealthTrend = {
   baseline: number | null;
   deltaPct: number | null;
   samples: number;
+  /** Dagelijkse standaarddeviatie in de basisperiode: jouw normale schommeling rond je basis. */
+  baselineSd: number | null;
+  /** (huidig − basis) ÷ SD. Onder 0,5 is het verschil ruis, vanaf 1 is het duidelijk. */
+  zScore: number | null;
+  severity: "normal" | "mild" | "strong" | null;
+  recentDays: number;
+  baselineDays: number;
+  recentCount: number;
+  baselineCount: number;
   /** "better" = goede kant op voor een loper, "worse" = verkeerde kant op, "flat" = binnen ruis. */
   direction: "better" | "worse" | "flat" | "changed" | "unknown";
   series: { date: string; value: number | null }[];
@@ -192,15 +201,22 @@ export function healthTrend(rows: HealthRow[], key: HealthKey, today: string, op
   const current = recent.length >= 1 ? mean(recent.map((row) => row[key] as number)) : null;
   const baseline = base.length >= MIN_SAMPLES ? mean(base.map((row) => row[key] as number)) : null;
   const deltaPct = current != null && baseline ? round(((current - baseline) / baseline) * 100, 1) : null;
+  // Beoordeel het verschil tegen jouw eigen dagelijkse schommeling, niet tegen een vast percentage: HRV wisselt per dag
+  // veel meer dan bijvoorbeeld gewicht. De ondergrens voorkomt een SD van bijna nul bij weinig of gelijke metingen.
+  const baseValues = base.map((row) => row[key] as number);
+  const rawSd = baseline != null && baseValues.length >= MIN_SAMPLES ? Math.sqrt(baseValues.reduce((sum, value) => sum + (value - baseline) ** 2, 0) / (baseValues.length - 1)) : null;
+  const sd = rawSd != null && baseline ? Math.max(rawSd, Math.abs(baseline) * (spec.noise / 100) * 0.5) : null;
+  const zScore = current != null && baseline != null && sd ? round((current - baseline) / sd, 2) : null;
+  const severity: HealthTrend["severity"] = zScore == null ? null : Math.abs(zScore) < 0.5 ? "normal" : Math.abs(zScore) < 1 ? "mild" : "strong";
   let direction: HealthTrend["direction"] = "unknown";
-  if (deltaPct != null) {
-    if (Math.abs(deltaPct) < spec.noise) direction = "flat";
+  if (severity != null && zScore != null) {
+    if (severity === "normal") direction = "flat";
     else if (spec.higherIsBetter == null) direction = "changed";
-    else direction = (deltaPct > 0) === spec.higherIsBetter ? "better" : "worse";
+    else direction = (zScore > 0) === spec.higherIsBetter ? "better" : "worse";
   }
   const from = shiftDay(today, -(opts.seriesDays ?? 90));
   const series = valid.filter((row) => row.date >= from).map((row) => ({ date: row.date, value: row[key] as number }));
-  return { key, label: spec.label, unit: spec.unit, current: current == null ? null : round(current, spec.digits), currentAgeDays: latest ? daysApart(today, latest.date) : null, baseline: baseline == null ? null : round(baseline, spec.digits), deltaPct, samples: recent.length + base.length, direction, series };
+  return { key, label: spec.label, unit: spec.unit, baselineSd: sd == null ? null : round(sd, spec.digits + 1), zScore, severity, recentDays, baselineDays, recentCount: recent.length, baselineCount: base.length, current: current == null ? null : round(current, spec.digits), currentAgeDays: latest ? daysApart(today, latest.date) : null, baseline: baseline == null ? null : round(baseline, spec.digits), deltaPct, samples: recent.length + base.length, direction, series };
 }
 
 /* ---------- fitness: loop je zuiniger? ---------- */
@@ -351,16 +367,19 @@ export function buildBodyAlert(trends: HealthTrend[]): BodyAlert {
   const get = (key: HealthKey) => trends.find((trend) => trend.key === key);
   const hrv = get("hrvMs"); const rhr = get("restingHeartRate"); const resp = get("respiratoryRate"); const oxy = get("oxygenSaturationPct");
   const signals: string[] = [];
-  if (hrv?.deltaPct != null && hrv.deltaPct <= -10) signals.push(`HRV ${Math.abs(hrv.deltaPct).toLocaleString("nl-NL")}% onder je basis`);
-  if (rhr?.deltaPct != null && rhr.deltaPct >= 4) signals.push(`Rusthartslag ${rhr.deltaPct.toLocaleString("nl-NL")}% boven je basis`);
-  if (resp?.deltaPct != null && resp.deltaPct >= 8) signals.push(`Ademhaling ${resp.deltaPct.toLocaleString("nl-NL")}% hoger dan normaal`);
-  if (oxy?.deltaPct != null && oxy.deltaPct <= -1.5) signals.push(`Zuurstofsaturatie ${Math.abs(oxy.deltaPct).toLocaleString("nl-NL")}% lager dan normaal`);
+  // Een signaal telt pas bij een duidelijke afwijking (≥ 1 SD van je eigen schommeling) in de ongunstige richting.
+  const strongWorse = (trend: HealthTrend | undefined) => trend != null && trend.severity === "strong" && trend.direction === "worse" && trend.deltaPct != null;
+  const pct = (trend: HealthTrend) => Math.abs(trend.deltaPct!).toLocaleString("nl-NL");
+  if (hrv && strongWorse(hrv)) signals.push(`HRV ${pct(hrv)}% onder je basis`);
+  if (rhr && strongWorse(rhr)) signals.push(`Rusthartslag ${pct(rhr)}% boven je basis`);
+  if (resp && strongWorse(resp)) signals.push(`Ademhaling ${pct(resp)}% hoger dan normaal`);
+  if (oxy && strongWorse(oxy)) signals.push(`Zuurstofsaturatie ${pct(oxy)}% lager dan normaal`);
   const known = [hrv, rhr].filter((trend) => trend?.deltaPct != null).length;
   if (known === 0) return { level: "ok", title: "Nog geen lichaamsbeeld", detail: "Er is geen recente HRV of rusthartslag met eigen basislijn. Synchroniseer Apple Health om je herstel te kunnen volgen.", signals };
-  if (signals.length >= 3) return { level: "stop", title: "Je lichaam geeft meerdere waarschuwingen", detail: "Meerdere signalen wijken tegelijk af. Dat past bij ziekte of zware vermoeidheid. Sla intensiteit over en kies rust.", signals };
-  if (signals.length >= 2) return { level: "let-op", title: "Twee signalen wijken af", detail: "HRV en hartslag wijken allebei van je normaal af. Houd de training rustig tot ze terugkeren.", signals };
-  if (signals.length === 1) return { level: "let-op", title: "Eén signaal wijkt af", detail: "Eén meting is nog geen oordeel. Volg je schema, maar let op hoe je je voelt en kijk morgen opnieuw.", signals };
-  return { level: "ok", title: "Je lichaam is in balans", detail: "HRV en rusthartslag liggen binnen je normale bandbreedte.", signals };
+  if (signals.length >= 3) return { level: "stop", title: "Je lichaam geeft meerdere waarschuwingen", detail: "Meerdere signalen wijken tegelijk duidelijk af. Dat past bij ziekte of zware vermoeidheid. Sla intensiteit over en kies rust.", signals };
+  if (signals.length >= 2) return { level: "let-op", title: "Twee signalen wijken duidelijk af", detail: "HRV en hartslag wijken allebei duidelijk van je normaal af. Houd de training rustig tot ze terugkeren.", signals };
+  if (signals.length === 1) return { level: "let-op", title: "Eén signaal wijkt duidelijk af", detail: "Eén meting is nog geen oordeel. Volg je schema, maar let op hoe je je voelt en kijk morgen opnieuw.", signals };
+  return { level: "ok", title: "Je lichaam is in balans", detail: "HRV en rusthartslag liggen binnen je normale schommeling.", signals };
 }
 
 /* ---------- ochtend van een run: wat zei je lichaam vooraf en hoe reageerde het erna? ---------- */

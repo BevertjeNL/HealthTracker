@@ -123,3 +123,8 @@ test("parses long-term mobility and running metrics", () => {
   assert.equal(parsed.rows[0].values.exerciseMinutes, 30);
   assert.equal(parsed.rows[0].values.runningPowerW, 260);
 });
+
+test("rejects a respiratory rate that is really a heart rate", () => {
+  assert.equal(isValidHealthMetricValue("respiratory_rate", 59), false);
+  assert.equal(isValidHealthMetricValue("respiratory_rate", 17.5), true);
+});

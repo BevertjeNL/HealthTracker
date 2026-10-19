@@ -29,6 +29,7 @@ src/lib/health-import.ts                Apple Shortcuts/Health Auto Export paylo
 src/lib/weight-correction.ts            Validates date and weight for manual correction of an existing imported measurement
 src/lib/insights.ts                     Rule-based weight/run-performance summaries, buildTrainingAdvice() and buildInsights()
 src/lib/training-health.ts             Pure Strava × Apple Health link layer: per-run load (Banister TRIMP from heart rate, estimated without HR; max HR from the last 400 days), day/week series, acute vs. chronic load balance, health trends against a personal 7d-vs-28d baseline (newest value with its age, per-metric windows), efficiency index (m per beat vs. the median of the same run kind) fitness trend, next-morning response profile per load bucket, HRV/RHR/weight-vs-efficiency correlations (min. 8 pairs, |r| ≥ 0.25), body alert and per-run body context
+src/lib/metric-guide.ts               Pure plain-language guide per Health metric (what it is, how to read it, likely causes), badge labels/tones and describeTrend(): explains nu vs. basis vs. personal swing. Type-only imports so it is client-safe
 src/lib/recovery.ts                     Readiness/recovery score from HRV, resting HR, cardio recovery and walking HR vs. personal baseline (min. 5 baseline samples, freshness check)
 src/lib/half-marathon.ts                buildHalfMarathonPlan(): phase, progress towards 21.1 km, adjustments and example week from the last 28/42 days of runs
 src/lib/goal-plan.ts                    Pure race-goal validation, calendar-day arithmetic and rolling training schedule from goal, Strava history, recent split warning and recovery/load context
@@ -81,6 +82,8 @@ src/components/RunDetailLoader.tsx      Fetches missing Strava activity detail o
 src/components/RaceMarker.tsx           Mark a run as race / not a race on the run detail page
 src/components/SplitsBackfill.tsx       Journal action to fetch missing detail for 20 recent historical runs at a time
 src/components/SyncButton.tsx           Manual Strava sync on /runs
+src/components/{InteractiveSpark,MetricExplorer}.tsx
+                                        Lichaam page: shared period selector, pointer/touch readout per card, detail panel with large chart (7-day mean, normal band, baseline), explanation and tips
 src/components/{Spark,MetricCard,BodyAlert,WeekChart,BalanceChart,DotTrend,ScatterLink,ResponseBars,RunBodyCard}.tsx
                                         New Training × Health UI: SVG sparkline, baseline metric card, body alert, Recharts week/balance charts, efficiency dots, correlation scatter, response bars, per-run body card
 scripts/import-apple-health-export.mjs  One-off gap fill from an Apple Health export.zip: all 19 mapped metrics, fills only NULL columns (COALESCE, existing values win), same plausibility ranges/unit normalisation as the ingest route, steps/energy take the highest single source per day (no phone+watch double count); --dry-run prints counts only
@@ -107,6 +110,7 @@ tests/run-stats.test.mjs                Totals, minimum-sample comparisons, Amst
 tests/chart-range.test.mjs              Chart tick/label, saved-settings parsing and window resolution regression tests
 tests/weight-periods.test.mjs            Period averages, stable threshold, minimum samples, latest measurement
 tests/weight-trend.test.mjs            Smoothing dampens daily changes without adding unmeasured dates or bridging sparse gaps
+tests/metric-guide.test.mjs              Personal-swing severity, badge labels, explanations without baseline and for stale data
 tests/training-health.test.mjs         Load model, 28-day balance gate, baseline/stale handling, fitness windows, response profile, correlation minimums, body alert, run body context
 vercel.json                             Daily cron hitting /api/strava/sync (05:00 UTC)
 drizzle.config.ts                       Points at src/db/schema.ts, reads DATABASE_URL
