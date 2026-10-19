@@ -129,6 +129,21 @@ Tests are plain `node --test` `.mjs` files that import the TypeScript sources di
 
 When you add a file that a future agent would need to know about to orient itself (new route, new table, new page), update this list in the same change. An out-of-date file list is worse than none — don't let this section rot again.
 
+## UI conventions: iPhone, iPad and dark mode
+
+The app is used mostly as an iOS home-screen web app. Keep these rules when you touch any UI:
+
+- **Layers.** `pulse.css` and `globals.css` hold the design system, `ios.css` is the device layer loaded after them, `dark.css` is generated and loaded last (`layout.tsx` import order matters). Put touch, safe-area and breakpoint behaviour in `ios.css`, never in the page components.
+- **Navigation.** Top bar from 900px, floating tab bar below. The 700px breakpoint in `pulse.css` still drives phone layouts; do not move the nav switch back to 700px (iPad portrait would get a cramped top bar).
+- **Touch.** Interactive elements are at least 44px high under `@media (pointer: coarse)`, give pressed feedback with `:active`, and hover effects are neutralised under `@media (hover: none)`. Every `input`, `select` and `textarea` is 16px on touch; anything smaller makes iOS zoom the page on focus.
+- **Keyboards.** Use `inputMode="decimal"` for numbers with a comma. The iOS numeric keypad has no colon, so a `m:ss` pace field must stay `inputMode="text"`. No `autoFocus` on touch screens (the keyboard covers the page).
+- **Viewport.** `viewport-fit=cover` is on, so use `env(safe-area-inset-*)` for anything fixed or edge-to-edge, and `dvh` instead of `vh` for full-height shells.
+- **Gestures.** `PullToRefresh` must keep ignoring elements that scroll or drag on their own (charts, `RangeSlider`, inputs, scroll tables). When you add such an element, add its selector to `OWN_GESTURE`.
+- **Colours.** Write colours only in the light stylesheets, then run `npm run theme:generate` and commit `dark.css`. Role is derived from the property: `background*` goes deep, `color`/`fill`/`stroke` goes light, `border*` becomes a hairline. Use `var(--…)` tokens (not hex) in TSX and Recharts props so dark mode reaches them; the only hand-written dark values are the root tokens and Recharts overrides in `scripts/generate-dark-css.mjs`.
+- **Contrast.** Dark text on a light fill is fine, white text on a mid-tone fill stays white. Check both schemes visually before merging; the test only covers a few pastel pairs.
+- **Launch images.** Changing the logo or page colours means re-running `python3 scripts/generate-splash.py` (needs Pillow) and keeping `SPLASH_DEVICES` and the Python `DEVICES` list identical.
+- **Previewing without real data.** The local sandbox has no database. To look at pages, preload a script (`NODE_OPTIONS=--require …`) that answers the Neon HTTP `/sql` fetch with synthetic rows, and sign a session cookie with `jose` and the dummy `SESSION_SECRET`. Never put real values in such a script.
+
 ## Data definitions and timezone policy
 
 - `activities.start_date` is stored `timestamptz` — always in UTC as returned by Strava. Convert to local time (`Europe/Amsterdam`, via `src/lib/format.ts`) only at render time, never at write time.
@@ -220,6 +235,7 @@ npm run build        # production build
 npm run lint          # eslint
 npm run typecheck     # TypeScript without emitting files
 npm test              # regression tests
+npm run theme:generate # regenerate src/app/dark.css after changing light colours
 npm run db:push       # push schema changes to Neon
 npm run db:generate   # generate SQL migration files (not currently used)
 npm run db:studio     # Drizzle Studio GUI against the live DB
@@ -239,9 +255,14 @@ npm run db:studio     # Drizzle Studio GUI against the live DB
 10. **Sync must not clobber detailed splits.** The sync only has summary activities; writing `raw: <summary>` directly in the `onConflictDoUpdate` set would wipe `splits_metric` fetched via `/api/strava/activity/[id]` (this happened until the fix). Always set `raw` through `preserveDetailedRaw(activities.raw)`. Side effect: detail-only keys can go stale if an activity is edited/cropped on Strava after its detail was fetched — re-fetch detail on the run page to refresh them.
 11. **The refresh button never opens Shortcuts.** A web app cannot read Apple Health or start a Shortcut in the background, so `DataRefreshButton` only syncs Strava and re-reads the database with a step animation. Health data arrives through iPhone automations (`docs/apple-shortcuts.md`, step 6).
 12. **Local branches can be stale.** PRs are squash-merged; always branch from a fresh `origin/main`, not from an old `codex/*` or `claude/*` branch.
+13. **`dark.css` is generated; a stale file fails `npm test`.** Edit colours in the light CSS, then `npm run theme:generate`. Never patch `dark.css` by hand, the next run overwrites it.
+14. **`pkill -f "next start"` kills your own shell** when the pattern appears in the command line. Free the preview port with `fuser -k 3111/tcp` instead.
+15. **iOS caches launch images per home-screen install.** After changing `public/splash`, the app has to be removed and added to the home screen again before the new image shows.
+16. **Fixed elements and `fullPage` screenshots.** The floating tab bar is `position: fixed`, so full-page screenshots show it in the middle of the page. Judge the bar from viewport-sized shots.
 
 ## Not built yet (known gaps)
 
+- No manual light/dark switch (the system setting decides), no iOS Dynamic Type support (fixed px sizes), launch images exist for portrait only, and white text on the coral fills (`.st-persona`, `.st-delta-down`) is 2.9:1 in both schemes.
 - No AI-generated coaching/advice layer; current insights are deliberately rule-based observations.
 - Health payload parsing, unit conversion and insight rules have synthetic regression tests. Never add real health values as fixtures.
 - Database changes still use direct `db:push`; versioned migrations and a tested restore procedure remain future work.
