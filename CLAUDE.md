@@ -42,6 +42,7 @@ src/lib/run-stats.ts                    Pure all-history run statistics: per yea
 src/lib/chart-range.ts                  Range-adaptive chart ticks/labels, point summaries, manual X/Y range validation, and parse/resolve of the saved weight-chart settings (presets, custom window, Y limits)
 src/lib/weight-periods.ts              Recent-weeks versus previous-period weight averages (min. 3 measurements each), summary sentence and latest measurement
 src/lib/weight-trend.ts                Centered fifteen-day smoothing at real weight-measurement dates; isolated measurements keep their original values
+src/lib/backup.ts                       Pure backup envelope (format/version/counts) and filename
 src/lib/security.ts                     Constant-time secret comparison and Bearer parsing
 src/lib/session.ts                      Session signing/verification and password check
 src/lib/session-server.ts               Cookie-backed server-side session check
@@ -51,6 +52,7 @@ src/app/api/strava/auth/route.ts        GET → redirects to Strava OAuth consen
 src/app/api/strava/callback/route.ts    GET → validates OAuth state, exchanges code, saves tokens
 src/app/api/strava/sync/route.ts        GET/POST, requires Authorization: Bearer $CRON_SECRET → syncs runs
 src/app/api/strava/activity/[id]/route.ts POST, session-protected: fetches Strava activity detail and stores it in activities.raw with _coach_detail_loaded marker
+src/app/api/backup/route.ts              GET, session-protected: downloads activities (incl. raw), health_metrics and training_goals as one JSON file (no Strava tokens)
 src/app/api/health/ingest/route.ts      GET metric contract + protected POST ingest for Apple Shortcuts and legacy Health Auto Export payloads; upserts health_metrics
 src/app/layout.tsx                      Pulse metadata (noindex), favicon/Apple/Safari/PWA integration and authenticated shell
 src/app/manifest.ts                     PWA manifest and installable app icons
@@ -103,6 +105,7 @@ public/safari-pinned-tab.svg            Safari pinned-tab mask icon
 .github/workflows/quality.yml           Audit, lint, typecheck, tests and build in CI (Node 24, dummy env vars)
 docs/apple-shortcuts.md                 iPhone setup guide for the subscription-free Apple Shortcuts Health sync
 tests/activity-raw.test.mjs             Sync upsert keeps detailed raw (splits) instead of overwriting it
+tests/backup.test.mjs                   Backup envelope, counts and filename
 tests/security.test.mjs                 Shared-secret fail-closed regression tests
 tests/health-import.test.mjs            Health payload parsing and unit-normalization regression tests
 tests/weight-correction.test.mjs       Weight correction date, operation and value validation

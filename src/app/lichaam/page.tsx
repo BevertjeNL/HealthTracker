@@ -58,6 +58,11 @@ export default async function BodyPage() {
       <div className="p-card p-coverage"><table><thead><tr><th>Meting</th><th>Laatste waarde</th><th>Dagen met data (30 d)</th></tr></thead><tbody>{coverage.map((item) => <tr key={item.key} className={item.age == null || item.age > 14 ? "stale" : ""}><td>{item.label}</td><td>{item.lastDate ? `${fmtDay(item.lastDate, true)} (${item.age === 0 ? "vandaag" : `${item.age} d geleden`})` : "nooit ontvangen"}</td><td>{item.last30}</td></tr>)}</tbody></table>
       <p className="p-footnote">Metingen die langer dan twee weken geleden zijn, tellen niet mee in je herstelbeeld. Slaap wordt bewust niet gebruikt.</p></div>
     </section>
+    <section className="p-section" aria-labelledby="backup-title">
+      <div className="p-section-head"><div><span className="p-overline">BACK-UP</span><h2 id="backup-title">Download al je gegevens</h2></div></div>
+      <div className="p-card"><a className="refresh-button" href="/api/backup" download>Download back-up</a>
+      <p className="p-footnote">Eén JSON-bestand met al je runs (inclusief Strava-detail), Health-metingen en je doel. Strava-koppelingen zitten er bewust niet in. Bewaar het bestand op een veilige plek, want het bevat persoonlijke gezondheidsdata.</p></div>
+    </section>
     <footer className="c-footer">PULSE / JOUW HARDLOOPCOACH <span>Strava × Apple Health</span></footer>
   </main></div>;
 }
