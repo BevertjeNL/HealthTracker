@@ -335,7 +335,7 @@ export function pearson(pairs: { x: number; y: number }[]) {
   return sxx > 0 && syy > 0 ? sxy / Math.sqrt(sxx * syy) : null;
 }
 
-function linkInsight(id: string, title: string, xLabel: string, yLabel: string, points: { x: number; y: number; date: string }[], describe: (r: number) => string, minPairs = MIN_CORRELATION_PAIRS): LinkInsight {
+export function linkInsight(id: string, title: string, xLabel: string, yLabel: string, points: { x: number; y: number; date: string }[], describe: (r: number) => string, minPairs = MIN_CORRELATION_PAIRS): LinkInsight {
   const r = points.length >= minPairs ? pearson(points) : null;
   if (r == null) return { id, title, pairs: points.length, r: null, verdict: "onvoldoende", text: `Nog te weinig gekoppelde metingen (${points.length} van minimaal ${minPairs}) om dit eerlijk te beoordelen.`, points, xLabel, yLabel };
   if (Math.abs(r) < 0.25) return { id, title, pairs: points.length, r: round(r, 2), verdict: "geen-verband", text: `Geen duidelijk verband gevonden in ${points.length} runs. Dit is geen probleem: je prestatie hangt hier niet merkbaar van af.`, points, xLabel, yLabel };

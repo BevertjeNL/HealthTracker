@@ -126,3 +126,45 @@ De dagelijkse opdracht leest alleen gisteren. Een weging van vandaag, of een weg
 Pulse overschrijft per meetdatum, dus herhaald versturen geeft geen dubbele metingen en vult gaten van de afgelopen week vanzelf aan.
 
 Maak daarna in **Automatisering** meerdere persoonlijke automatiseringen, bijvoorbeeld om 07:00, 12:00 en 19:00, die `Pulse gewicht-sync` en `Pulse Health-sync` starten. Kies `Voer onmiddellijk uit` en zet `Melden bij uitvoeren` uit, dan draaien ze op de achtergrond. Een weging is in Pulse zichtbaar na de eerstvolgende uitvoering en een druk op **Gegevens verversen**.
+
+## 7. Slaap toevoegen (Pulse slaap-sync)
+
+Slaap gaat via een eigen opdracht, omdat een nacht bij de ochtend hoort waarop je wakker wordt en de andere opdracht gisteren leest. Pulse bewaart per `date` alleen de velden die je meestuurt, dus de slaap-opdracht overschrijft niets van de Health-sync.
+
+Je Apple Watch moet slaap registreren (Slaapfocus of de Slaap-app op de Watch) en je moet de Watch 's nachts dragen. Zonder Watch levert iOS alleen `In bed`-tijd en dan blijven de fasen leeg.
+
+Maak een opdracht `Pulse slaap-sync`:
+
+1. Voeg **Huidige datum** toe. Formatteer als `yyyy-MM-dd` en noem het `Datumtekst`. Dit is de ontwaakdatum, dus vandaag.
+2. Bereken `Begin nacht`: gisteren om 18:00. Gebruik **Pas datum aan** (trek 1 dag af van het begin van vandaag) en **Pas datum aan** (tel 18 uur op).
+3. Bereken `Einde nacht`: vandaag om 12:00 (begin van vandaag plus 12 uur).
+4. Zoek per fase **Zoek gezondheidssteekproeven** van het type **Slaap**, met einddatum tussen `Begin nacht` en `Einde nacht`, en filter op **Waarde** is `Diep`, `REM`, `Kern` of `Wakker`. Haal de **Duur** van de steekproeven op in minuten en tel ze op met **Bereken statistieken** (Som).
+5. Haal de **Begindatum** van de eerste steekproef met een slaapfase (diep, REM of kern) op, formatteer als `HH:mm` en noem het `Inslaaptijd`. Doe hetzelfde met de **Einddatum** van de laatste en noem het `Wektijd`.
+6. Voeg **Haal inhoud van URL op** toe: dezelfde URL, `POST`, header `x-ingest-secret`, JSON-body:
+
+| JSON-veld | Waarde | Eenheid |
+|---|---|---|
+| `source` | `apple-shortcuts` | tekst |
+| `date` | `Datumtekst` | `yyyy-MM-dd` |
+| `sleep_deep` | som diep | min |
+| `sleep_rem` | som REM | min |
+| `sleep_core` | som kern | min |
+| `sleep_awake` | som wakker | min |
+| `sleep_bedtime` | `Inslaaptijd` | `HH:mm` |
+| `sleep_wake` | `Wektijd` | `HH:mm` |
+
+`sleep_asleep` (totale slaap, zonder wakker) hoef je niet mee te sturen: Pulse telt diep, REM en kern bij elkaar op. Heeft je Watch geen fasen, stuur dan alleen `sleep_asleep` (de som van `Onbepaald`/`Slaap`), `sleep_bedtime` en `sleep_wake`.
+
+Een geslaagde reactie bevat `"upserted":1` en onder `importedMetrics` de `sleep_*`-velden. Staan ze onder `ignoredMetrics` of is `upserted` 0, dan zijn de waarden leeg of onrealistisch (een nacht korter dan 30 minuten telt niet).
+
+Automatiseer de opdracht met een persoonlijke automatisering die loopt wanneer je Wekker wordt uitgezet, of vast om 09:00. Pulse toont slaapadvies pas als de laatste nacht hoogstens drie dagen oud is.
+
+### Historie aanvullen uit een Apple Health-export
+
+Het importscript leest de slaapregistraties uit `export.zip` en vult per ontwaakdatum de lege slaapvelden aan (nooit een bestaande waarde overschrijven):
+
+```bash
+node --env-file=.env.local scripts/import-apple-health-export.mjs --dry-run /pad/naar/export.zip
+```
+
+Per nacht telt alleen de bron met de meeste slaap (meestal de Watch), dutjes tussen 12:00 en 18:00 tellen niet mee en `In bed`-registraties van de iPhone worden genegeerd. Controleer met `--dry-run` eerst hoeveel nachten erin zitten: bevat de export na een bepaalde datum alleen `In bed`, dan krijg je daarvoor geen slaapnachten.

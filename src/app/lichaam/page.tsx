@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { asc, gte, sql } from "drizzle-orm";
 import { BodyAlert } from "@/components/BodyAlert";
 import { CoachNav } from "@/components/CoachNav";
@@ -47,6 +48,8 @@ export default async function BodyPage() {
 
     {alert.level !== "ok" && <BodyAlert alert={alert} healthAgeDays={ageDays} />}
 
+    <Link href="/slaap" className="p-goalbar"><div><span className="p-overline">APPLE WATCH · SLAAP</span><h2>Je slaapmonitor</h2><p>Duur, slaapfasen, slaapschuld en regelmaat, met advies voor je training.</p></div><span>Bekijk slaap</span></Link>
+
     <MetricExplorer today={today} groups={groups} />
 
     <section className="p-section" id="gewicht" aria-label="Gewicht">
@@ -56,7 +59,7 @@ export default async function BodyPage() {
     <section className="p-section" aria-labelledby="coverage-title">
       <div className="p-section-head"><div><span className="p-overline">DATAKWALITEIT</span><h2 id="coverage-title">Wat komt er binnen uit Apple Health?</h2></div></div>
       <div className="p-card p-coverage"><table><thead><tr><th>Meting</th><th>Laatste waarde</th><th>Dagen met data (30 d)</th></tr></thead><tbody>{coverage.map((item) => <tr key={item.key} className={item.age == null || item.age > 14 ? "stale" : ""}><td>{item.label}</td><td>{item.lastDate ? `${fmtDay(item.lastDate, true)} (${item.age === 0 ? "vandaag" : `${item.age} d geleden`})` : "nooit ontvangen"}</td><td>{item.last30}</td></tr>)}</tbody></table>
-      <p className="p-footnote">Metingen die langer dan twee weken geleden zijn, tellen niet mee in je herstelbeeld. Slaap wordt bewust niet gebruikt.</p></div>
+      <p className="p-footnote">Metingen die langer dan twee weken geleden zijn, tellen niet mee in je herstelbeeld. Slaap staat op een eigen pagina.</p></div>
     </section>
     <footer className="c-footer">PULSE / JOUW HARDLOOPCOACH <span>Strava × Apple Health</span></footer>
   </main></div>;

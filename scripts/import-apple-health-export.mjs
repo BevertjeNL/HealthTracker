@@ -2,6 +2,7 @@ import { spawn } from "node:child_process";
 import { createInterface } from "node:readline";
 import { neon } from "@neondatabase/serverless";
 import { HEALTH_METRIC_MAP, isValidHealthMetricValue, normalizeHealthMetricValue } from "../src/lib/health-import.ts";
+import { buildSleepNights, sleepStageFromAppleValue } from "../src/lib/sleep-import.ts";
 
 // Eenmalige backfill uit een volledige Apple Health-export (export.zip).
 // Vult ALLEEN lege velden (COALESCE) en overschrijft nooit een bestaande waarde. Kernmetingen (HRV, rusthartslag,
@@ -44,12 +45,24 @@ const fields = Object.values(APPLE_TYPES).map((metric) => ({ metric, column: sna
 const byMetric = new Map(fields.map((field) => [field.metric, field]));
 const counts = Object.fromEntries(fields.map((field) => [field.column, 0]));
 const days = new Map();
+const sleepSamples = [];
+const SLEEP_COLUMNS = ["sleep_asleep_min", "sleep_deep_min", "sleep_rem_min", "sleep_core_min", "sleep_awake_min", "sleep_bedtime_min", "sleep_wake_min"];
+const SLEEP_FIELDS = { sleepAsleepMin: "sleep_asleep_min", sleepDeepMin: "sleep_deep_min", sleepRemMin: "sleep_rem_min", sleepCoreMin: "sleep_core_min", sleepAwakeMin: "sleep_awake_min", sleepBedtimeMin: "sleep_bedtime_min", sleepWakeMin: "sleep_wake_min" };
 
 const unzip = spawn("unzip", ["-p", zipPath, "apple_health_export/export.xml"]);
 const lines = createInterface({ input: unzip.stdout, crlfDelay: Infinity });
 
 for await (const line of lines) {
   if (!line.includes("<Record type=")) continue;
+  if (line.includes('type="HKCategoryTypeIdentifierSleepAnalysis"')) {
+    const stage = sleepStageFromAppleValue(line.match(/ value="([^"]+)"/)?.[1]);
+    const start = line.match(/ startDate="([^"]+)"/)?.[1];
+    const end = line.match(/ endDate="([^"]+)"/)?.[1];
+    if (!stage || !start || !end) continue;
+    const durationMin = (new Date(end.replace(" ", "T").replace(" ", "")).getTime() - new Date(start.replace(" ", "T").replace(" ", "")).getTime()) / 60000;
+    if (Number.isFinite(durationMin)) sleepSamples.push({ start: start.slice(0, 19), end: end.slice(0, 19), durationMin, stage, source: line.match(/ sourceName="([^"]*)"/)?.[1] ?? "?" });
+    continue;
+  }
   const metric = APPLE_TYPES[line.match(/ type="([^"]+)"/)?.[1]];
   if (!metric) continue;
   const startDate = line.match(/ startDate="([^"]+)"/)?.[1];
@@ -93,7 +106,22 @@ const rows = [...days.values()].sort((a, b) => a.date.localeCompare(b.date)).map
   return row;
 });
 
-const columns = fields.map((field) => field.column);
+// Slaap: een nacht per ontwaakdatum, uit de bron met de meeste slaap (de Watch). Zelfde plausibiliteitsranges als de ingest-route.
+const SLEEP_METRIC = { sleepAsleepMin: "sleep_asleep", sleepDeepMin: "sleep_deep", sleepRemMin: "sleep_rem", sleepCoreMin: "sleep_core", sleepAwakeMin: "sleep_awake", sleepBedtimeMin: "sleep_bedtime", sleepWakeMin: "sleep_wake" };
+const sleepNights = buildSleepNights(sleepSamples);
+const rowByDate = new Map(rows.map((row) => [row.date, row]));
+for (const night of sleepNights) {
+  const row = rowByDate.get(night.date) ?? { date: night.date };
+  for (const [field, column] of Object.entries(SLEEP_FIELDS)) {
+    const value = night[field];
+    if (value == null) continue;
+    if (isValidHealthMetricValue(SLEEP_METRIC[field], value)) { row[column] = value; counts[column] = (counts[column] ?? 0) + 1; } else rejected[column] = (rejected[column] ?? 0) + 1;
+  }
+  rowByDate.set(night.date, row);
+}
+rows.splice(0, rows.length, ...[...rowByDate.values()].sort((a, b) => a.date.localeCompare(b.date)));
+
+const columns = [...fields.map((field) => field.column), ...SLEEP_COLUMNS];
 const sql = neon(process.env.DATABASE_URL);
 
 if (dryRun) {

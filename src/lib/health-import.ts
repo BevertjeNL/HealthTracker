@@ -18,6 +18,13 @@ export type HealthMetricValues = {
   runningStrideLengthM: number | null;
   runningVerticalOscillationCm: number | null;
   runningGroundContactTimeMs: number | null;
+  sleepAsleepMin: number | null;
+  sleepDeepMin: number | null;
+  sleepRemMin: number | null;
+  sleepCoreMin: number | null;
+  sleepAwakeMin: number | null;
+  sleepBedtimeMin: number | null;
+  sleepWakeMin: number | null;
 };
 
 type Column = keyof HealthMetricValues;
@@ -45,7 +52,30 @@ export const HEALTH_METRIC_MAP: Record<string, { column: Column; aggregation: Ag
   running_stride_length: { column: "runningStrideLengthM", aggregation: "avg" },
   running_vertical_oscillation: { column: "runningVerticalOscillationCm", aggregation: "avg" },
   running_ground_contact_time: { column: "runningGroundContactTimeMs", aggregation: "avg" },
+  // Sleep: one night per wake-up date. The Shortcut sends nightly totals in minutes; bedtime/wake as "HH:mm".
+  sleep_asleep: { column: "sleepAsleepMin", aggregation: "sum" },
+  sleep_deep: { column: "sleepDeepMin", aggregation: "sum" },
+  sleep_rem: { column: "sleepRemMin", aggregation: "sum" },
+  sleep_core: { column: "sleepCoreMin", aggregation: "sum" },
+  sleep_awake: { column: "sleepAwakeMin", aggregation: "sum" },
+  sleep_bedtime: { column: "sleepBedtimeMin", aggregation: "last" },
+  sleep_wake: { column: "sleepWakeMin", aggregation: "last" },
 };
+
+// Clock-time metrics arrive as "HH:mm" and are stored as minutes. Bedtime counts from 18:00 the evening before, so
+// 23:30 → 330 and 01:00 → 420 and a normal bedtime never wraps around midnight.
+export const SLEEP_BEDTIME_ORIGIN_MIN = 18 * 60;
+export function clockToStoredMinutes(metricName: string, value: unknown): number | null {
+  if (typeof value === "number") return Number.isFinite(value) ? value : null;
+  if (typeof value !== "string") return null;
+  const match = value.trim().match(/^(\d{1,2}):(\d{2})(?::\d{2})?$/);
+  if (!match) return null;
+  const hours = Number(match[1]);
+  const minutes = Number(match[2]);
+  if (hours > 23 || minutes > 59) return null;
+  const clock = hours * 60 + minutes;
+  return metricName === "sleep_bedtime" ? (clock - SLEEP_BEDTIME_ORIGIN_MIN + 1440) % 1440 : clock;
+}
 
 export const RECOMMENDED_HEALTH_METRICS = [
   "heart_rate_variability",
@@ -124,6 +154,13 @@ const VALID_METRIC_RANGES: Record<string, { min: number; max: number }> = {
   running_stride_length: { min: 0.2, max: 3 },
   running_vertical_oscillation: { min: 2, max: 25 },
   running_ground_contact_time: { min: 80, max: 700 },
+  sleep_asleep: { min: 30, max: 1_000 },
+  sleep_deep: { min: 0, max: 600 },
+  sleep_rem: { min: 0, max: 600 },
+  sleep_core: { min: 0, max: 900 },
+  sleep_awake: { min: 0, max: 600 },
+  sleep_bedtime: { min: 0, max: 1_439 },
+  sleep_wake: { min: 0, max: 1_439 },
 };
 
 export function isValidHealthMetricValue(metricName: string, value: number) {
@@ -185,11 +222,19 @@ function parseShortcutPayload(payload: Record<string, unknown>): ParsedHealthPay
   const values: Partial<HealthMetricValues> = {};
 
   for (const metricName of lists.importedMetrics) {
-    const value = finiteNumber(metricFields[metricName]);
+    const value = metricName === "sleep_bedtime" || metricName === "sleep_wake"
+      ? clockToStoredMinutes(metricName, metricFields[metricName])
+      : finiteNumber(metricFields[metricName]);
     if (value === null) continue;
     const normalizedValue = normalizeHealthMetricValue(metricName, undefined, value);
     if (!isValidHealthMetricValue(metricName, normalizedValue)) continue;
     values[HEALTH_METRIC_MAP[metricName].column] = normalizedValue;
+  }
+
+  // Total sleep is the sum of the asleep stages when the Shortcut only sent the stages.
+  if (values.sleepAsleepMin == null && values.sleepDeepMin != null && values.sleepRemMin != null && values.sleepCoreMin != null) {
+    const total = values.sleepDeepMin + values.sleepRemMin + values.sleepCoreMin;
+    if (isValidHealthMetricValue("sleep_asleep", total)) values.sleepAsleepMin = total;
   }
 
   return {

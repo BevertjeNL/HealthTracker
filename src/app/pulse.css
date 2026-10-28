@@ -333,3 +333,19 @@ a.p-tile:hover, a.p-metric:hover { transform: translateY(-2px); box-shadow: 0 12
 @media (max-width: 980px) { .p-detail-grid { grid-template-columns: 1fr; } }
 @media (max-width: 700px) { .p-detail { padding: 18px 16px; } .p-help dl { grid-template-columns: 1fr; } .p-periods { width: 100%; } .p-periods button { flex: 1 1 auto; padding: 8px 6px; } }
 .p-metric-top { flex-wrap: wrap; row-gap: 6px; }
+
+/* ---------- sleep monitor ---------- */
+.p-sleep-chart { margin: 0; }
+.p-sleep-chart svg { width: 100%; height: auto; display: block; }
+.p-sleep-legend { margin-top: 8px; display: flex; flex-wrap: wrap; gap: 6px 16px; color: var(--p-muted); font-size: 13px; }
+.p-sleep-legend span { display: inline-flex; align-items: center; gap: 6px; }
+.p-sleep-legend i { width: 12px; height: 12px; border-radius: 3px; display: inline-block; }
+.p-sleep-legend .p-sleep-target { height: 0; border-top: 2px dashed var(--series-run); border-radius: 0; }
+.p-sleep-stack { height: 22px; display: flex; gap: 3px; overflow: hidden; border-radius: 8px; }
+.p-sleep-stack i { min-width: 3px; display: block; }
+.p-sleep-stages { margin: 16px 0 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 20px; }
+.p-sleep-stages div { display: flex; flex-direction: column; gap: 2px; }
+.p-sleep-stages dt { display: flex; align-items: center; gap: 7px; color: var(--p-muted); font-size: 13px; font-weight: 750; }
+.p-sleep-stages dt i { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+.p-sleep-stages dd { margin: 0; color: var(--p-ink); font-size: 20px; font-weight: 800; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
+.p-sleep-stages dd small { color: var(--p-muted); font-size: 13px; font-weight: 600; }

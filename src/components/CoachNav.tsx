@@ -31,6 +31,7 @@ function Icon({ name }: { name: NavKey }) {
 
 // Used while a page is still loading (loading.tsx), when the page itself has not told us which tab is active yet.
 function activeFromPath(pathname: string): NavKey {
+  if (pathname === "/slaap") return "body"; // sleep lives under the Lichaam tab
   const match = LINKS.filter((link) => link.href !== "/").find((link) => pathname === link.href || pathname.startsWith(`${link.href}/`));
   return match?.key ?? "today";
 }

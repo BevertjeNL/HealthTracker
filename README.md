@@ -70,9 +70,13 @@ Apple Opdrachten stuurt dagelijks een POST-verzoek naar `/api/health/ingest`. De
 
 Eenheden worden waar nodig genormaliseerd: kJ naar kcal en lb/lbs naar kg. Het endpoint retourneert alleen de namen van ontvangen, geïmporteerde en genegeerde metrics; er worden geen gezondheidswaarden gelogd.
 
+### Slaap (Apple Watch)
+
+Slaap komt per nacht binnen via een eigen Opdracht (`docs/apple-shortcuts.md`, stap 7) en staat onder `/slaap`, bereikbaar vanaf het tabblad Lichaam. Een nacht hoort bij de ontwaakdatum. Velden: `sleep_asleep`, `sleep_deep`, `sleep_rem`, `sleep_core`, `sleep_awake` (minuten) en `sleep_bedtime`, `sleep_wake` (`HH:mm`). De monitor toont de laatste nacht met score, fasen en efficiëntie, slaapschuld tegen een doel van 7,5 uur, regelmaat, een staafgrafiek per nacht, verbanden met HRV en zuinig lopen (minimaal 8 koppelingen) en regelgebaseerd advies dat belasting en slaapschuld combineert. Geen samenvatting zonder minimaal 3 nachten. Historie vul je aan met `scripts/import-apple-health-export.mjs`. Is de laatste nacht ouder dan drie dagen, dan geeft de pagina geen advies voor vandaag.
+
 ### Bewust niet geïmporteerd
 
-Slaapdata wordt momenteel bewust overgeslagen omdat de Apple-export vooral verouderde `InBed`-registraties bevat en na maart 2025 geen dekking meer heeft. Bloeddruk wordt niet automatisch geïnterpreteerd omdat de historie daarvoor te schaars is. `sleep_hours` en `sleep_score` bestaan nog als ongebruikte legacy-kolommen in het databaseschema, maar de ingest-route accepteert of vult ze niet en de analyse trekt er geen conclusies uit.
+Bloeddruk wordt niet automatisch geïnterpreteerd omdat de historie daarvoor te schaars is. `sleep_hours` en `sleep_score` bestaan nog als ongebruikte legacy-kolommen; de slaapmonitor gebruikt de nieuwe `sleep_*_min`-kolommen.
 
 ### Volledige Apple Health-export terugvullen
 
@@ -124,7 +128,7 @@ Apple Opdrachten ──POST──┘                  ▼
 | Pad | Inhoud |
 |---|---|
 | `src/app/page.tsx` | Advies voor vandaag, lichaamssignalen, doel, laatste run met lichaamscontext |
-| `src/app/vorm/`, `src/app/lichaam/` | Koppeling training × Apple Health en de Health-trends met datakwaliteit |
+| `src/app/vorm/`, `src/app/lichaam/`, `src/app/slaap/` | Koppeling training × Apple Health, Health-trends met datakwaliteit en de slaapmonitor |
 | `src/app/runs/` | Trainingsdagboek, post-run coachanalyse en handmatige sync-actie |
 | `src/app/api/` | Strava OAuth/sync/activity-detail en Health-ingest |
 | `src/lib/` | Pure logica: coach, runanalyse, training-health (belasting, fitness, herstelprofiel, verbanden), import, herstel, halve-marathonplan, sessies en security |

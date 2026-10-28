@@ -60,6 +60,15 @@ export const healthMetrics = pgTable(
     vo2Max: real("vo2_max"),
     sleepHours: real("sleep_hours"),
     sleepScore: real("sleep_score"),
+    // Sleep night, keyed by the wake-up date. Minutes per stage as estimated by the Apple Watch; times are minutes
+    // (bedtime: since 18:00 the evening before, wake: since midnight of `date`). All nullable and additive.
+    sleepAsleepMin: real("sleep_asleep_min"),
+    sleepDeepMin: real("sleep_deep_min"),
+    sleepRemMin: real("sleep_rem_min"),
+    sleepCoreMin: real("sleep_core_min"),
+    sleepAwakeMin: real("sleep_awake_min"),
+    sleepBedtimeMin: real("sleep_bedtime_min"),
+    sleepWakeMin: real("sleep_wake_min"),
     steps: real("steps"),
     activeEnergyKcal: real("active_energy_kcal"),
     weightKg: real("weight_kg"),
