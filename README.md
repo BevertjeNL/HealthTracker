@@ -103,7 +103,7 @@ Ontbrekende metrics blokkeren de import niet. De app toont de werkelijke dekking
 
 | Onderdeel | Keuze |
 |---|---|
-| Framework | Next.js 16.3.8, App Router, React 19.2, TypeScript, Tailwind CSS v4 |
+| Framework | Next.js 16.4.3, App Router, React 19.2, TypeScript, Tailwind CSS v4 |
 | Hosting | Vercel, automatisch vanaf GitHub |
 | Database | Neon serverless Postgres |
 | ORM | Drizzle ORM met Neon HTTP-driver |
