@@ -229,7 +229,7 @@ Controleer daarna GitHub Actions, de Vercel-deployment, de publieke URL, de `mai
 
 ## Bekende beperkingen en vervolgwerk
 
-- De persoonlijke Apple-automatisering moet dagelijks blijven draaien; het dashboard verwacht iedere ochtend gegevens van gisteren en toont anders een knop om de synchronisatie opnieuw te starten.
+- De persoonlijke Apple-automatisering moet dagelijks blijven draaien; de opdracht stuurt telkens de afgelopen 7 dagen mee, het dashboard verwacht iedere ochtend gegevens van gisteren en toont anders een knop om de synchronisatie opnieuw te starten.
 - De Health-import heeft synthetische regressietests voor zowel Apple Opdrachten als het compatibele Health Auto Export-formaat; echte gezondheidswaarden worden niet als fixtures bewaard.
 - Databasewijzigingen gebruiken nog directe `db:push`; versieerbare migraties en een geteste herstelprocedure ontbreken.
 - Cardio Recovery en Walking Heart Rate Average leveren pas conclusies nadat voldoende nieuwe metingen zijn verzameld.
