@@ -28,7 +28,7 @@ src/lib/format.ts                       Shared date/pace/duration/km formatters 
 src/lib/health-import.ts                Apple Shortcuts/Health Auto Export payload parsing, HEALTH_METRIC_MAP, plausibility ranges, daily aggregation and unit normalization
 src/lib/weight-correction.ts            Validates date and weight for manual correction of an existing imported measurement
 src/lib/insights.ts                     Rule-based weight/run-performance summaries, buildTrainingAdvice() and buildInsights()
-src/lib/training-health.ts             Pure Strava × Apple Health link layer: per-run load (Banister TRIMP from heart rate, estimated without HR; max HR from the last 400 days), day/week series, acute vs. chronic load balance, health trends against a personal 7d-vs-28d baseline (newest value with its age, per-metric windows), efficiency index (m per beat vs. the median of the same run kind) fitness trend, next-morning response profile per load bucket, HRV/RHR/weight-vs-efficiency correlations (min. 8 pairs, |r| ≥ 0.25), body alert and per-run body context
+src/lib/training-health.ts             Pure Strava × Apple Health link layer: per-run load (Banister TRIMP from heart rate, estimated without HR; max HR from the last 400 days), day/week series, acute vs. chronic load balance, health trends against a personal 7d-vs-28d baseline (newest value with its age, per-metric windows), efficiency index (m per beat vs. the median of the same run kind) fitness trend, next-morning response profile per load bucket, HRV/RHR/weight-vs-efficiency correlations (min. 8 pairs, |r| ≥ 0.25), body alert and per-run body context (readiness judges the DAY BEFORE the run against the 21 days before it in own daily swings, z ≤ −1 for HRV or ≥ +1 for resting HR; the run day's own daily value is never used because it contains post-run readings)
 src/lib/metric-guide.ts               Pure plain-language guide per Health metric (what it is, how to read it, likely causes), badge labels/tones and describeTrend(): explains nu vs. basis vs. personal swing. Type-only imports so it is client-safe
 src/lib/recovery.ts                     Readiness/recovery score from HRV, resting HR, cardio recovery and walking HR vs. personal baseline (min. 5 baseline samples, freshness check)
 src/lib/half-marathon.ts                buildHalfMarathonPlan(): phase, progress towards 21.1 km, adjustments and example week from the last 28/42 days of runs
@@ -36,7 +36,8 @@ src/lib/goal-plan.ts                    Pure race-goal validation, calendar-day 
 src/lib/coach.ts                        Pure coach orchestration: 7-day load versus a 4-week basis, today’s advice and reasons, per-run Strava/Health evidence, post-run recovery comparison, split warning and next step
 src/lib/coach-verdict.ts                Pure colored judgments and concrete actions for load, recovery, goal readiness and each run
 src/lib/run-lesson.ts                   Plain-language post-run lesson: meaning, what to keep, correction and next run from splits and run type
-src/lib/run-analysis.ts                 Pure run analysis: classifyRun() (race/long/interval/easy), km-split and lap parsing, analyzePacing() (pattern, start/fade, HR drift, per-unit notes, advice), compareToSimilar(), buildRunAnalysis() (insights, training-vs-race, Riegel predictions, style profile), findRaceCandidates() (unmarked likely races), buildEventAnalysis() (per-distance race history with PR, preparation, taper, advice), buildRunDigest() (a verdict + advice for every run, from splits or from similar earlier runs). Min. 3 samples per aggregate
+src/lib/run-analysis.ts                 Pure run analysis: classifyRun() (race/long/interval/easy), raceStatus() (confirmed = Strava race flag or your choice, probable = name only, none), km-split and lap parsing, analyzePacing() (pattern, start/fade, HR drift, per-unit notes, advice), compareToSimilar(), buildRunAnalysis() (insights, training-vs-race, Riegel predictions, style profile), findRaceCandidates() (unmarked likely races), buildEventAnalysis() (per-distance race history with PR, preparation, taper, advice), buildRunDigest() (a verdict + advice for every run, from splits or from similar earlier runs). Min. 3 samples per aggregate
+src/lib/half-time.ts                    Pure time at exactly 21.0975 km for runs of 20-22.5 km: read from Strava km splits when the run was longer (method 'splits'), otherwise Riegel (T×(D/d)^1.06, method 'geschat'); uses moving time
 src/lib/run-story.ts                    Pure phase-by-phase run narrative and available-Strava-metrics summary (start, middle, finish, load, lap power, best efforts)
 src/lib/run-stats.ts                    Pure all-history run statistics: per year/month totals, comparisons with earlier periods (percentage only when the earlier period has min. 3 runs), 26-week trend, weekday/day-part spread, 53-week heatmap, streaks, records, distance mix and fun equivalents (Amsterdam calendar days)
 src/lib/chart-range.ts                  Range-adaptive chart ticks/labels, point summaries, manual X/Y range validation, and parse/resolve of the saved weight-chart settings (presets, custom window, Y limits)
@@ -66,14 +67,14 @@ tests/dark-theme.test.mjs               dark.css freshness, role mapping, contra
 src/app/page.tsx                        Coach home: goal-aware daily advice, body signals (load, HRV, RHR, fitness) from training-health, race bar, latest run with body context (auto loads missing detail), recent runs, data refresh
 src/app/vorm/page.tsx                   Training × Health: weekly km vs HRV/RHR, load balance, fitness trend, response profile, performance links
 src/app/lichaam/page.tsx                Health trends vs. personal baseline, running form, adjustable weight chart with correction, data-coverage table
-src/app/pulse.css                       Pulse design system v2 (p-* classes, shared series colours, mobile tab bar); globals.css keeps only legacy classes still in use
+src/app/pulse.css                       Pulse design system v2 (p-* classes, shared series colours, mobile tab bar); globals.css keeps only legacy classes still in use Journal rows: .p-jwrap/.p-jrow with fixed metric columns, .p-racebadge (.maybe), .p-jrow-tag, .p-jrow-confirm, .p-halfcard; --p-on-ink is the text colour on --p-ink fills (white in light, dark in dark)
 src/app/actions.ts                     Authenticated Server Action to update or clear one day's weight while preserving its other Health metrics
-src/app/runs/page.tsx                   Training journal: summary tiles, type filter (?type=, ?alle=1), per-run verdict, load and morning readiness
+src/app/runs/page.tsx                   Training journal: summary tiles, filters (?type=, ?alle=1: Alles, Wedstrijd = confirmed only, Te bevestigen = name-only race guesses with confirm buttons, Rustig, Lange duur, Interval), one compact row per run (date, race badge, short verdict tag, distance, time, pace, heart rate, load, half-marathon time at 21.0975 km); coach text and 'Doe dit' live on the run page
 src/app/stats/page.tsx                  Read-only "Cijfers" tab: colourful statistics overview (totals, per year/month, comparisons, trend, run days, records, fun facts) built from run-stats.ts
 src/app/goal/page.tsx                   Saved race goal, editable target and four-week calendar schedule
 src/app/goal/actions.ts                Session-protected Server Action for validated single-goal upsert and revalidation
 src/app/runs/actions.ts                 Authenticated Server Actions: manual Strava sync (syncRunsAction) and setRunKindAction (writes activities.kind_override)
-src/app/runs/[id]/page.tsx              Post-run coach: start/middle/finish/load story, body context card (morning before, load, morning after, Watch form), next step, adjustable chart and split tools
+src/app/runs/[id]/page.tsx              Post-run coach: start/middle/finish/load story, body context card (morning before, load, morning after, Watch form), next step, adjustable chart and split tools Also shows the short verdict, 'Doe dit' and, for runs of 20-22.5 km, the half-marathon time at exactly 21.0975 km
 src/components/AppLogo.tsx              Shared Pulse wordmark used throughout the UI
 src/components/CoachNav.tsx             Client component: shared navigation (desktop top bar from 900px, floating bottom tab bar below, logout) for all six sections; falls back to the pathname when no `active` is passed (loading.tsx); re-tapping the active tab scrolls to top
 src/components/PullToRefresh.tsx        Touch-only pull-to-refresh for the authenticated app (Strava sync at most every 2 min, then router.refresh); leaves charts, sliders, inputs and scrollable tables alone
@@ -89,7 +90,7 @@ src/components/SplitAnalyzer.tsx        Client-side selection and analysis of de
 src/components/RunCoach.tsx             Client-side per-kilometer/per-lap coach with selectable metric, adjustable X/Y axes and detailed table
 src/components/RunDetailLoader.tsx      Fetches missing Strava activity detail once when a run detail page opens
 src/components/RaceMarker.tsx           Mark a run as race / not a race on the run detail page
-src/components/SplitsBackfill.tsx       Journal action to fetch missing detail for 20 recent historical runs at a time
+src/components/SplitsBackfill.tsx       Journal action to fetch missing detail for 20 recent historical runs at a time; runs near the half-marathon distance come first because only splits make the 21.0975 km time exact
 src/components/SyncButton.tsx           Manual Strava sync on /runs
 src/components/{InteractiveSpark,MetricExplorer}.tsx
                                         Lichaam page: shared period selector, pointer/touch readout per card, detail panel with large chart (7-day mean, normal band, baseline), explanation and tips
@@ -110,7 +111,8 @@ tests/insights.test.mjs                 Insight thresholds, staleness and recomm
 tests/recovery.test.mjs                 Recovery baseline/freshness/score regression tests
 tests/half-marathon.test.mjs            Personal half-marathon phase and progression regression tests
 tests/goal-plan.test.mjs                Goal input, four-week schedule, taper, low-base and recovery adjustments, DST date arithmetic
-tests/run-analysis.test.mjs             Classification, pacing patterns, comparison, predictions and minimum-sample regression tests
+tests/run-analysis.test.mjs             Classification, pacing patterns, comparison, predictions and minimum-sample regression tests, race status (confirmed/probable/none)
+tests/half-time.test.mjs                Half-marathon time from splits, fading pace, too-short runs, missing/broken splits, range limits
 tests/run-story.test.mjs                Phase narrative and missing-split regression tests
 tests/coach.test.mjs                    Weekly load confidence, missing Health data, post-run recovery and same-day timing regression tests
 tests/coach-verdict.test.mjs            Judgment transitions and missing-data safeguards
@@ -120,7 +122,7 @@ tests/chart-range.test.mjs              Chart tick/label, saved-settings parsing
 tests/weight-periods.test.mjs            Period averages, stable threshold, minimum samples, latest measurement
 tests/weight-trend.test.mjs            Smoothing dampens daily changes without adding unmeasured dates or bridging sparse gaps
 tests/metric-guide.test.mjs              Personal-swing severity, badge labels, explanations without baseline and for stale data
-tests/training-health.test.mjs         Load model, 28-day balance gate, baseline/stale handling, fitness windows, response profile, correlation minimums, body alert, run body context
+tests/training-health.test.mjs         Load model, 28-day balance gate, baseline/stale handling, fitness windows, response profile, correlation minimums, body alert, run body context, readiness from the day before in own swings (run-day readings ignored)
 vercel.json                             Daily cron hitting /api/strava/sync (05:00 UTC)
 drizzle.config.ts                       Points at src/db/schema.ts, reads DATABASE_URL
 ```

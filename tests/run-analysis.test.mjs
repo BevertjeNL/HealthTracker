@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { analyzePacing, buildRunAnalysis, classifyRun, compareToSimilar, distanceBand, findRaceCandidates, buildEventAnalysis, buildRunDigest, lapsAreDistinct, parseKmSplits, parseLaps } from "../src/lib/run-analysis.ts";
+import { analyzePacing, buildRunAnalysis, classifyRun, compareToSimilar, distanceBand, findRaceCandidates, buildEventAnalysis, buildRunDigest, lapsAreDistinct, parseKmSplits, parseLaps, raceStatus } from "../src/lib/run-analysis.ts";
 
 const now = new Date("2026-10-01T12:00:00Z");
 const day = 86_400_000;
@@ -173,4 +173,16 @@ test("marks the fastest race on a distance as PR only with at least two races", 
   assert.notEqual(solo[0].verdict, "Snelste wedstrijd op deze afstand");
   const rows = buildRunDigest([run(1, 5, 10, 5, { workoutType: 1 }), run(2, 100, 10, 5.4, { workoutType: 1 })]);
   assert.equal(rows.find((r) => r.id === 1).verdict, "Snelste wedstrijd op deze afstand");
+});
+
+test("race status separates confirmed races from name guesses and training", () => {
+  assert.equal(raceStatus({ name: "Ochtendloop", workoutType: 1, distanceM: 21000 }), "confirmed");
+  assert.equal(raceStatus({ name: "Halve marathon Oostland", kindOverride: "race" }), "confirmed");
+  assert.equal(raceStatus({ name: "Halve marathon oefening", distanceM: 21000 }), "probable");
+  assert.equal(raceStatus({ name: "Rotterdam Wedstrijd 10K", distanceM: 10000 }), "probable");
+  assert.equal(raceStatus({ name: "Training Halve marathon", distanceM: 21000 }), "none");
+  assert.equal(raceStatus({ name: "Ochtendloop", distanceM: 8000 }), "none");
+  // jouw afwijzing wint van de naam én van de Strava-markering
+  assert.equal(raceStatus({ name: "Halve marathon", kindOverride: "not_race" }), "none");
+  assert.equal(raceStatus({ name: "Ochtendloop", workoutType: 1, kindOverride: "not_race" }), "none");
 });

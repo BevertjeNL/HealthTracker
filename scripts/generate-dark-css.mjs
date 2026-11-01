@@ -210,6 +210,7 @@ const DARK_TOKENS = `  color-scheme: dark;
   --series-steps: #e0a81d;
   --series-chronic: #9db0a4;
   --p-ink: #e8f0ea;
+  --p-on-ink: #0f1412;
   --p-text: #cddad1;
   --p-muted: #9db0a4;
   --p-line: #29342e;
