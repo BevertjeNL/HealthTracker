@@ -10,6 +10,7 @@ import { WeekChart } from "@/components/WeekChart";
 import { db } from "@/db";
 import { activities, healthMetrics } from "@/db/schema";
 import { fmtDay, fmtNum } from "@/lib/format";
+import { buildRunAnalysis, formatTime, toAnalysisRun } from "@/lib/run-analysis";
 import { buildTrainingHealth } from "@/lib/training-health";
 
 export const dynamic = "force-dynamic";
@@ -20,6 +21,7 @@ export default async function FormPage() {
     db.select().from(healthMetrics).where(gte(healthMetrics.date, sql<string>`CURRENT_DATE - 400`)),
   ]);
   const body = buildTrainingHealth(runs, health, new Date());
+  const analysis = buildRunAnalysis(runs.map(toAnalysisRun), new Date());
   const weeks = body.weeks;
   const fit = body.fitness.efficiency;
   const recent4 = weeks.slice(-4);
@@ -43,6 +45,12 @@ export default async function FormPage() {
         </div>
       </div>
     </section>
+
+    {analysis.insights.length > 0 && <section className="p-section" aria-labelledby="notice-title">
+      <div className="p-section-head"><div><span className="p-overline">WAT VALT OP</span><h2 id="notice-title">Je training in patronen</h2></div></div>
+      <div className="p-list">{analysis.insights.slice(0, 5).map((item) => <div className="p-card" key={item.id}><span className={`p-badge p-badge-${item.tone === "good" ? "better" : item.tone === "info" ? "flat" : "worse"}`}>{item.area}</span> <b>{item.title}</b><p>{item.evidence}</p><p className="p-jrow-do"><b>Doe dit:</b> {item.advice}</p></div>)}</div>
+      {analysis.predictions && <p className="p-footnote">Voorspelling op basis van {analysis.predictions.basis}: {analysis.predictions.items.map((item) => `${item.label} ${formatTime(item.timeS)}`).join(" · ")}.</p>}
+    </section>}
 
     <section className="p-section" id="belasting" aria-labelledby="balance-title">
       <div className="p-section-head"><div><span className="p-overline">02 · BELASTING</span><h2 id="balance-title">Doe je meer dan je lichaam gewend is?</h2></div></div>

@@ -24,7 +24,7 @@ export function fmtDuration(seconds?: number | null) {
 
 export function fmtKm(meters?: number | null) {
   if (!meters) return "-";
-  return (meters / 1000).toFixed(2) + " km";
+  return (meters / 1000).toLocaleString("nl-NL", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " km";
 }
 
 export function fmtNum(value: number | null | undefined, digits = 0) {

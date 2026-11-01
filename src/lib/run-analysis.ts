@@ -119,6 +119,10 @@ export function formatTime(totalS: number) {
   return h > 0 ? `${h}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}` : `${m}:${String(s).padStart(2, "0")}`;
 }
 
+// Eén bron van waarheid voor tijd: het opgeslagen tempo × afstand. Strava rekent het gemiddelde tempo van sommige
+// wedstrijden over de verstreken tijd, waardoor moving_time alleen een te optimistische eindtijd zou geven naast het getoonde tempo.
+export const effortTimeS = (run: AnalysisRun) => (run.paceMinPerKm && run.paceMinPerKm > 2 && run.distanceM > 0 ? Math.max(run.movingTimeS, Math.round(run.paceMinPerKm * 60 * (run.distanceM / 1000))) : run.movingTimeS);
+
 const runPaceSec = (run: AnalysisRun) => (run.paceMinPerKm && run.paceMinPerKm > 2 ? run.paceMinPerKm * 60 : null);
 
 export type Tone = "good" | "watch" | "action" | "info";
@@ -507,17 +511,17 @@ export function buildRunAnalysis(runs: AnalysisRun[], now = new Date()): RunAnal
   let predictions: RunAnalysis["predictions"] = null;
   const raceCandidates = raceRuns.filter((run) => run.distanceM >= 3000 && run.movingTimeS > 0 && run.startDate.getTime() >= now.getTime() - 548 * DAY_MS);
   const bestBy = (list: AnalysisRun[]) => list.reduce<AnalysisRun | null>((best, run) => {
-    const target = riegel(run.movingTimeS, run.distanceM, 10000);
-    return best == null || target < riegel(best.movingTimeS, best.distanceM, 10000) ? run : best;
+    const target = riegel(effortTimeS(run), run.distanceM, 10000);
+    return best == null || target < riegel(effortTimeS(best), best.distanceM, 10000) ? run : best;
   }, null);
   const raceBasis = bestBy(raceCandidates);
   const trainingCandidates = since(56).filter((run) => run.distanceM >= 5000 && run.distanceM <= 25000 && run.movingTimeS > 0 && kindOf.get(run.id) !== "race");
   const trainingBasis = trainingCandidates.length >= MIN_SAMPLES ? bestBy(trainingCandidates) : null;
   const basis = raceBasis ?? trainingBasis;
   if (basis) {
-    const items = PREDICT_TARGETS.map((target) => { const timeS = riegel(basis.movingTimeS, basis.distanceM, target.m); return { label: target.label, timeS, paceSec: timeS / (target.m / 1000) }; });
+    const items = PREDICT_TARGETS.map((target) => { const timeS = riegel(effortTimeS(basis), basis.distanceM, target.m); return { label: target.label, timeS, paceSec: timeS / (target.m / 1000) }; });
     predictions = raceBasis
-      ? { source: "race", basis: `${raceBasis.name} (${(raceBasis.distanceM / 1000).toFixed(1)} km in ${formatTime(raceBasis.movingTimeS)})`, items }
+      ? { source: "race", basis: `${raceBasis.name} (${(raceBasis.distanceM / 1000).toFixed(1)} km in ${formatTime(effortTimeS(raceBasis))})`, items }
       : { source: "training", basis: `je snelste trainingsloop van de laatste 8 weken (${(basis.distanceM / 1000).toFixed(1)} km in ${formatTime(basis.movingTimeS)})`, items };
   }
 
@@ -622,7 +626,7 @@ export function buildEventAnalysis(runs: AnalysisRun[]): EventGroup[] {
   const order = ["5k", "10k", "10em", "half", "marathon", "other"];
   return [...groups.entries()].sort(([a], [b]) => order.indexOf(a) - order.indexOf(b)).map(([key, group]) => {
     const comparable = key !== "other";
-    const fastest = comparable ? group.runs.reduce((best, run) => (run.movingTimeS < best.movingTimeS ? run : best)) : null;
+    const fastest = comparable ? group.runs.reduce((best, run) => (effortTimeS(run) < effortTimeS(best) ? run : best)) : null;
     const events: EventRow[] = group.runs.map((run, position) => {
       const start = run.startDate.getTime();
       const prep = sorted.filter((other) => other.id !== run.id && other.startDate.getTime() < start && other.startDate.getTime() >= start - 42 * DAY_MS && classifyRun(other) !== "race");
@@ -633,7 +637,7 @@ export function buildEventAnalysis(runs: AnalysisRun[]): EventGroup[] {
       const previous = comparable && position > 0 ? runPaceSec(group.runs[position - 1]) : null;
       const analysis = analyzePacing(parseKmSplits(run.raw), "race", { maxHrObserved });
       return {
-        id: run.id, name: run.name, date: run.startDate, distanceKm: run.distanceM / 1000, timeS: run.movingTimeS, paceSec: pace, avgHr: run.avgHr,
+        id: run.id, name: run.name, date: run.startDate, distanceKm: run.distanceM / 1000, timeS: effortTimeS(run), paceSec: pace, avgHr: run.avgHr,
         isPr: fastest?.id === run.id, deltaPrevSec: pace != null && previous != null ? round(pace - previous, 1) : null,
         prepWeeklyKm: weekly != null ? round(weekly, 1) : null, prepLongestKm: prep.length ? round(Math.max(...prep.map((other) => other.distanceM / 1000)), 1) : null, prepRuns: prep.length,
         taperPct: weekly != null && weekly > 0 ? Math.round((lastWeekKm / weekly) * 100) : null,
