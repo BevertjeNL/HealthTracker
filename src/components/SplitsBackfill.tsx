@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 
 // Loads detailed Strava splits for runs that don't have them yet, one at a time through the
 // existing session-protected endpoint. Strava allows 100 requests per 15 minutes, so stay modest.
-export function SplitsBackfill({ runs }: { runs: Array<{ id: number; name: string }> }) {
+export function SplitsBackfill({ runs, halfCount = 0 }: { runs: Array<{ id: number; name: string }>; halfCount?: number }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState(0);
@@ -28,5 +28,5 @@ export function SplitsBackfill({ runs }: { runs: Array<{ id: number; name: strin
     if (count) router.refresh();
   };
 
-  return <div className="an-backfill"><div><b>{runs.length} runs zonder kilometergegevens</b><p>Haal de splits van de {batch.length} meest recente op voor een scherpere analyse van je loopstijl.</p>{message && <p className="split-error" role="alert">{message}</p>}</div><button type="button" onClick={start} disabled={busy}>{busy ? `Ophalen… ${done}/${batch.length}` : `Haal ${batch.length} runs op`}</button></div>;
+  return <div className="an-backfill"><div><b>{runs.length} runs zonder kilometergegevens</b><p>Haal de splits van {batch.length} runs op voor een scherpere analyse van je loopstijl.{halfCount > 0 ? ` ${halfCount} ${halfCount === 1 ? "run" : "runs"} rond de halve marathon staan bovenaan: daarmee wordt de eindtijd op exact 21,0975 km nauwkeurig.` : ""}</p>{message && <p className="split-error" role="alert">{message}</p>}</div><button type="button" onClick={start} disabled={busy}>{busy ? `Ophalen… ${done}/${batch.length}` : `Haal ${batch.length} runs op`}</button></div>;
 }

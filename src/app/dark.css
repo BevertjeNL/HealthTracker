@@ -34,6 +34,7 @@
   --series-steps: #e0a81d;
   --series-chronic: #9db0a4;
   --p-ink: #e8f0ea;
+  --p-on-ink: #0f1412;
   --p-text: #cddad1;
   --p-muted: #9db0a4;
   --p-line: #29342e;
@@ -357,7 +358,6 @@ a:focus-visible, button:focus-visible { outline: 3px solid rgba(243, 126, 101, 0
 .p-badge-flat { background: #212724; color: #c0c7ba; }
 .p-goalbar { border: 1px solid #373f32; background: #222825; }
 .p-goalbar p { color: #bccac2; }
-.p-goalbar > a { color: #ffffff; }
 .p-runhead { color: #b3c0b9; }
 .p-list { background: #1b201d; }
 .p-row { border-bottom: 1px solid #2b3630; }
@@ -396,13 +396,20 @@ a:focus-visible, button:focus-visible { outline: 3px solid rgba(243, 126, 101, 0
 .p-body-cell em { color: #acb7b1; }
 .p-body-cell span { color: #acb7b1; }
 .p-chips a { background: #1b201d; }
-.p-chips a[aria-current="true"] { color: #ffffff; }
 .p-journal { background: #1b201d; }
-.p-jrow { border-bottom: 1px solid #2b3630; }
+.p-jwrap { border-bottom: 1px solid #2b3630; }
 .p-jrow:hover { background: #1d2320; }
 .p-jrow-date { color: #acb6b0; }
-.p-jrow p { color: #b5c2bb; }
 .p-jrow-metrics small { color: #aab3ad; }
+.p-racebadge { background: #362214; color: #eabaa6; }
+.p-racebadge.maybe { border: 1px dashed #c7aa98; color: #d1b3a4; }
+.p-jrow-tag.good { color: #c4efda; }
+.p-jrow-tag.watch { color: #dd9692; }
+.p-jrow-tag.info { color: #efd4ab; }
+.p-jrow-confirm { color: #b5c2bb; }
+.p-halfcard { background: #1b201d; }
+.p-halfcard p { color: #b5c2bb; }
+.p-chips .p-chip-count { background: #362214; color: #eabaa6; }
 .p-more a { color: #d79884; }
 .p-coverage th { color: #acb7b1; }
 .p-coverage td { border-top: 1px solid #2b3630; color: #cbd7cf; }

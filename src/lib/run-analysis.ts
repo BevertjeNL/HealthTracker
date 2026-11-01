@@ -75,6 +75,19 @@ export function classifyRun(run: KindInput): RunKind {
 
 export const isRace = (run: KindInput) => classifyRun(run) === "race";
 
+// Hoe zeker is het dat dit een echte wedstrijd was? "confirmed" = jouw keuze of de wedstrijdmarkering van Strava,
+// "probable" = alleen op naam herkend (bijvoorbeeld "Halve marathon oefening") en nog niet door jou bevestigd.
+export type RaceStatus = "confirmed" | "probable" | "none";
+export const RACE_STATUS_LABEL: Record<RaceStatus, string> = { confirmed: "Wedstrijd", probable: "Mogelijk wedstrijd", none: "" };
+
+export function raceStatus(run: KindInput): RaceStatus {
+  if (run.kindOverride === "race") return "confirmed";
+  if (run.kindOverride === "not_race") return "none";
+  if (run.workoutType === 1) return "confirmed";
+  const name = (run.name ?? "").toLowerCase();
+  return RACE_NAME.test(name) && !NOT_RACE_NAME.test(name) ? "probable" : "none";
+}
+
 const DISTANCE_BANDS = [
   { key: "5k", label: "5 km", m: 5000, min: 4700, max: 5500 },
   { key: "10k", label: "10 km", m: 10000, min: 9600, max: 10900 },

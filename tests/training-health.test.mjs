@@ -97,16 +97,54 @@ test("body alert needs concurring signals and says so when there is no baseline"
   assert.match(buildBodyAlert([healthTrend([], "hrvMs", today)]).title, /Nog geen/);
 });
 
-test("run body context compares the morning to the personal baseline and the next morning's response", () => {
+test("run body context judges the day before the run and the next morning's response against the personal baseline", () => {
   const health = range("2026-09-01", 40).map((date) => hday(date));
   const day = "2026-10-05";
-  const patched = health.map((row) => row.date === day ? { ...row, hrvMs: 48 } : row.date === shiftDay(day, 1) ? { ...row, hrvMs: 42, restingHeartRate: 55 } : row);
+  const patched = health.map((row) => row.date === shiftDay(day, -1) ? { ...row, hrvMs: 48 } : row.date === shiftDay(day, 1) ? { ...row, hrvMs: 42, restingHeartRate: 55 } : row);
   const loads = buildRunLoads([run(1, day)], patched);
   const context = buildRunBodyContext(loads[0], day, patched, loads);
   assert.equal(context.readiness.tone, "warning");
   assert.equal(context.before.hrvDeltaPct, -20);
-  assert.equal(context.after.hrvDeltaPct, -30);
+  assert.ok(context.before.hrvZ <= -1);
+  // De dag ervoor (48) telt zelf mee in de basislijn van de ochtend erna: 42 tegenover gemiddeld 59,4.
+  assert.equal(context.after.hrvDeltaPct, -29.3);
   assert.equal(context.loadShareOfWeekPct, 100);
+});
+
+test("the run day's own readings do not make a run look unfresh", () => {
+  const health = range("2026-09-01", 40).map((date) => hday(date));
+  const day = "2026-10-05";
+  // Op de rundag zelf zijn HRV laag en rusthartslag hoog (gevolg van de run); de dag ervoor was normaal.
+  const patched = health.map((row) => row.date === day ? { ...row, hrvMs: 40, restingHeartRate: 60 } : row);
+  const loads = buildRunLoads([run(1, day)], patched);
+  const context = buildRunBodyContext(loads[0], day, patched, loads);
+  assert.equal(context.readiness.tone, "good");
+  assert.equal(context.readiness.label, "Je startte fris");
+  assert.equal(context.before.hrv, 60);
+});
+
+test("a normal day-to-day swing is not flagged but a clear drop is", () => {
+  // Schommelende basislijn (HRV ongeveer 60 ± 6): 57 is ruis, 40 is duidelijk laag.
+  const swing = [52, 68, 57, 63, 49, 70, 58, 66, 55, 61, 64, 51, 69, 56, 62, 59, 67, 53, 60, 65, 57, 63];
+  const day = "2026-10-05";
+  const dayBefore = shiftDay(day, -1);
+  const check = (value) => {
+    const health = [...range("2026-09-01", 33).map((date, i) => hday(date, { hrvMs: swing[i % swing.length] })), hday(dayBefore, { hrvMs: value })];
+    const loads = buildRunLoads([run(1, day)], health);
+    return buildRunBodyContext(loads[0], day, health, loads).readiness.tone;
+  };
+  assert.equal(check(57), "good");
+  assert.equal(check(40), "warning");
+});
+
+test("without a measurement the day before the readiness is unknown instead of a guess", () => {
+  const health = range("2026-09-01", 40).map((date) => hday(date)).filter((row) => row.date !== "2026-10-04");
+  const day = "2026-10-05";
+  const loads = buildRunLoads([run(1, day)], health);
+  const context = buildRunBodyContext(loads[0], day, health, loads);
+  assert.equal(context.readiness.tone, "unknown");
+  assert.equal(context.before.hrv, null);
+  assert.equal(context.before.hrvZ, null);
 });
 
 test("training-health bundle works with no health data at all", () => {

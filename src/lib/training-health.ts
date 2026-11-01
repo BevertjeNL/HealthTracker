@@ -283,6 +283,21 @@ function baselineBefore(rows: Map<string, HealthRow>, key: "hrvMs" | "restingHea
   return values.length >= 5 ? mean(values) : null;
 }
 
+// Zelfde ondergrens voor de schommeling als healthTrend(): een SD van bijna nul bij gelijke metingen zou elk verschil "duidelijk" maken.
+const SWING_NOISE_PCT = { hrvMs: 5, restingHeartRate: 2.5 } as const;
+
+// Beoordeelt één meting tegen de eigen 21 dagen daarvoor: procentueel verschil en afwijking in eigen schommelingen (z).
+function judgeAgainstBaseline(rows: Map<string, HealthRow>, key: "hrvMs" | "restingHeartRate", valueDate: string, value: number | null | undefined) {
+  const values: number[] = [];
+  for (let back = 1; back <= 21; back++) { const other = rows.get(shiftDay(valueDate, -back))?.[key]; if (finite(other)) values.push(other); }
+  if (!finite(value) || values.length < 5) return { deltaPct: null as number | null, z: null as number | null };
+  const base = mean(values)!;
+  if (!base) return { deltaPct: null, z: null };
+  const rawSd = Math.sqrt(values.reduce((sum, item) => sum + (item - base) ** 2, 0) / (values.length - 1));
+  const sd = Math.max(rawSd, Math.abs(base) * (SWING_NOISE_PCT[key] / 100) * 0.5);
+  return { deltaPct: round(((value - base) / base) * 100, 1), z: round((value - base) / sd, 2) };
+}
+
 // Per belastingklasse: wat doen HRV en rusthartslag de ochtend na de run, ten opzichte van de eigen basislijn?
 export function buildResponseProfile(loads: RunLoad[], health: HealthRow[]): ResponseProfile {
   const byDay = new Map(health.map((row) => [row.date, row]));
@@ -386,8 +401,10 @@ export function buildBodyAlert(trends: HealthTrend[]): BodyAlert {
 
 export type RunBodyContext = {
   day: string;
-  before: { hrv: number | null; hrvDeltaPct: number | null; rhr: number | null; rhrDeltaPct: number | null; weightKg: number | null; steps: number | null };
-  after: { hrv: number | null; hrvDeltaPct: number | null; rhr: number | null; rhrDeltaPct: number | null };
+  // `before` is de dag vóór de run: het dagcijfer van de rundag zelf bevat metingen ná de run (verhoogde rusthartslag, lagere HRV)
+  // en zou elke zware run er onfris laten uitzien. z = afwijking in eigen dagelijkse schommelingen (HRV ≤ −1 en rusthartslag ≥ +1 zijn duidelijk).
+  before: { hrv: number | null; hrvDeltaPct: number | null; hrvZ: number | null; rhr: number | null; rhrDeltaPct: number | null; rhrZ: number | null; weightKg: number | null; steps: number | null };
+  after: { hrv: number | null; hrvDeltaPct: number | null; hrvZ: number | null; rhr: number | null; rhrDeltaPct: number | null; rhrZ: number | null };
   load: number | null;
   loadShareOfWeekPct: number | null;
   form: { powerW: number | null; strideM: number | null; groundContactMs: number | null; verticalCm: number | null };
@@ -397,23 +414,26 @@ export type RunBodyContext = {
 export function buildRunBodyContext(run: RunLoad | undefined, day: string, health: HealthRow[], loads: RunLoad[]): RunBodyContext {
   const byDay = new Map(health.map((row) => [row.date, row]));
   const on = byDay.get(day);
-  const before = byDay.get(shiftDay(day, -1));
+  const dayBefore = shiftDay(day, -1);
+  const before = byDay.get(dayBefore);
   const next = byDay.get(shiftDay(day, 1));
+  const morningHrv = finite(before?.hrvMs) ? before.hrvMs : null;
+  const morningRhr = finite(before?.restingHeartRate) ? before.restingHeartRate : null;
+  const hrvBefore = judgeAgainstBaseline(byDay, "hrvMs", dayBefore, morningHrv);
+  const rhrBefore = judgeAgainstBaseline(byDay, "restingHeartRate", dayBefore, morningRhr);
   const hrvBase = baselineBefore(byDay, "hrvMs", day);
   const rhrBase = baselineBefore(byDay, "restingHeartRate", day);
+  const hrvAfter = judgeAgainstBaseline(byDay, "hrvMs", shiftDay(day, 1), next?.hrvMs);
+  const rhrAfter = judgeAgainstBaseline(byDay, "restingHeartRate", shiftDay(day, 1), next?.restingHeartRate);
   const delta = (value: number | null | undefined, base: number | null) => finite(value) && base ? round(((value - base) / base) * 100, 1) : null;
-  const morningHrv = finite(on?.hrvMs) ? on.hrvMs : finite(before?.hrvMs) ? before.hrvMs : null;
-  const morningRhr = finite(on?.restingHeartRate) ? on.restingHeartRate : finite(before?.restingHeartRate) ? before.restingHeartRate : null;
-  const hrvDelta = delta(morningHrv, hrvBase);
-  const rhrDelta = delta(morningRhr, rhrBase);
   const weekLoad = loads.filter((item) => item.day > shiftDay(day, -7) && item.day <= day).reduce((sum, item) => sum + item.load, 0);
   const weight = [0, 1, 2, 3, 4, 5, 6, 7].map((back) => byDay.get(shiftDay(day, -back))?.weightKg).find(finite) ?? null;
-  const warn = (hrvDelta != null && hrvDelta <= -10) || (rhrDelta != null && rhrDelta >= 5);
-  const readiness: RunBodyContext["readiness"] = hrvDelta == null && rhrDelta == null ? { tone: "unknown", label: "Geen ochtendmeting" } : warn ? { tone: "warning", label: "Je startte niet fris" } : { tone: "good", label: "Je startte fris" };
+  const warn = (hrvBefore.z != null && hrvBefore.z <= -1) || (rhrBefore.z != null && rhrBefore.z >= 1);
+  const readiness: RunBodyContext["readiness"] = hrvBefore.z == null && rhrBefore.z == null ? { tone: "unknown", label: "Geen ochtendmeting" } : warn ? { tone: "warning", label: "Je startte niet fris" } : { tone: "good", label: "Je startte fris" };
   return {
     day,
-    before: { hrv: morningHrv, hrvDeltaPct: hrvDelta, rhr: morningRhr, rhrDeltaPct: rhrDelta, weightKg: weight, steps: finite(on?.steps) ? on.steps : null },
-    after: { hrv: finite(next?.hrvMs) ? next.hrvMs : null, hrvDeltaPct: delta(next?.hrvMs, hrvBase), rhr: finite(next?.restingHeartRate) ? next.restingHeartRate : null, rhrDeltaPct: delta(next?.restingHeartRate, rhrBase) },
+    before: { hrv: morningHrv, hrvDeltaPct: hrvBefore.deltaPct, hrvZ: hrvBefore.z, rhr: morningRhr, rhrDeltaPct: rhrBefore.deltaPct, rhrZ: rhrBefore.z, weightKg: weight, steps: finite(on?.steps) ? on.steps : null },
+    after: { hrv: finite(next?.hrvMs) ? next.hrvMs : null, hrvDeltaPct: delta(next?.hrvMs, hrvBase), hrvZ: hrvAfter.z, rhr: finite(next?.restingHeartRate) ? next.restingHeartRate : null, rhrDeltaPct: delta(next?.restingHeartRate, rhrBase), rhrZ: rhrAfter.z },
     load: run?.load ?? null,
     loadShareOfWeekPct: run && weekLoad > 0 ? Math.round((run.load / weekLoad) * 100) : null,
     form: { powerW: on?.runningPowerW ?? null, strideM: on?.runningStrideLengthM ?? null, groundContactMs: on?.runningGroundContactTimeMs ?? null, verticalCm: on?.runningVerticalOscillationCm ?? null },
