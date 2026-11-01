@@ -14,22 +14,23 @@ Behandel `HEALTH_INGEST_SECRET` als een wachtwoord. Deel geen schermafbeelding v
 
 Maak in **Opdrachten** een nieuwe opdracht met de naam `Pulse Health-sync`.
 
-De opdracht verwerkt iedere keer de afgelopen 7 dagen en vandaag. Zo komt een weging van vandaag meteen mee en vult een gemiste automatisering zich de volgende keer vanzelf aan. Een opdracht die alleen gisteren verstuurt, laat een gat achter zodra een uitvoering wordt overgeslagen (iPhone vergrendeld, lege batterij, automatisering uit).
+De opdracht verwerkt iedere keer vandaag en de 7 dagen daarvoor. Zo komt een weging van vandaag meteen mee en vult een gemiste automatisering zich de volgende keer vanzelf aan. Een opdracht die alleen gisteren verstuurt, laat een gat achter zodra een uitvoering wordt overgeslagen (iPhone vergrendeld, lege batterij, automatisering uit).
 
-1. Voeg **Herhaal** toe en kies `8` keer.
-2. Voeg binnen de herhaling **Huidige datum** toe.
-3. Voeg **Pas datum aan** toe en trek `Herhaalindex` min 1 dagen af. Met **Bereken** maak je eerst `Herhaalindex - 1`. Noem het resultaat `Dag`. Herhaalindex 1 is vandaag, 8 is zeven dagen geleden.
-4. Voeg **Begin van dag ophalen** voor `Dag` toe. Noem dit `Start dag`.
-5. Voeg nogmaals **Pas datum aan** toe: tel bij `Start dag` precies `1 dag` op en trek daarna `1 seconde` af. Noem dit `Einde dag`.
-6. Voeg **Formatteer datum** toe voor `Dag`, kies **Aangepast** en gebruik `yyyy-MM-dd`. Noem het resultaat `Datumtekst`.
+Bouw bovenaan de opdracht deze acties. Alles wat daaronder staat (stap 2 en 3) hoort binnen de herhaling.
 
-Alle acties uit stap 2 en 3 hieronder staan binnen deze herhaling. Gebruik bij alle zoekacties het filter: begindatum is tussen `Start dag` en `Einde dag`.
+1. **Herhaal**, `8` keer. Binnen de herhaling bestaat de variabele **Herhaal index**: 1 bij de eerste ronde, 8 bij de laatste.
+2. **Bereken**: `Herhaal index` min `1`. Tik op het eerste vakje en kies de variabele **Herhaal index** (niet intypen). Het resultaat is 0 voor vandaag, 1 voor gisteren, tot en met 7.
+3. **Huidige datum**.
+4. **Pas datum aan**: **Trek af** `Resultaat berekening` **dagen** van `Datum`. Tik op het getal, kies **Selecteer variabele** en tik op het blauwe vakje met het rekenmachine-icoon onder de berekening. Datumvariabelen zijn hier fout: een datum kun je niet als aantal dagen aftrekken. De uitkomst van deze actie heet `Aangepaste datum`.
+5. **Formatteer datum** voor `Aangepaste datum`: klap de actie open, zet de datumnotatie op **Aangepast** en de formatteer-tekenreeks op `yyyy-MM-dd`. De uitkomst heet `Geformatteerde datum`.
 
-Stappen en actieve energie van vandaag zijn nog een tussenstand. De volgende uitvoering overschrijft ze met het volledige dagtotaal.
+Er hoeft geen aparte begin- en einddatum van de dag te worden gemaakt. Elke zoekactie in stap 2 vergelijkt met de datum zelf.
+
+Stappen en actieve energie van vandaag zijn een tussenstand. De volgende uitvoering overschrijft ze met het volledige dagtotaal.
 
 ## 2. Dagsamenvattingen ophalen
 
-Voeg binnen de herhaling voor iedere gewenste categorie **Zoek gezondheidssteekproeven** toe. Voeg voor gemiddelden en totalen daarna **Bereken statistieken** toe. Sorteer voor `Laatste` op begindatum (nieuwste eerst), beperk het resultaat tot één steekproef en haal daarvan de waarde op.
+Voeg binnen de herhaling voor iedere gewenste categorie **Zoek gezondheidssteekproeven** toe. Stel bij elke zoekactie twee filters in: het type (bijvoorbeeld Steps) en **Begindatum** **is aan** `Aangepaste datum`. Controleer dat dit bij elke zoekactie dezelfde datumvariabele is. Een vaste datum of een andere variabele laat die metriek op de verkeerde dag ophalen. Voeg voor gemiddelden en totalen daarna **Bereken statistieken** toe. Sorteer voor `Laatste` op begindatum (nieuwste eerst), beperk het resultaat tot één steekproef en haal daarvan de waarde op.
 
 | Apple Health-categorie | Bewerking | JSON-veld | Eenheid |
 |---|---|---|---|
@@ -70,7 +71,7 @@ Wanneer zowel de iPhone als Apple Watch stappen registreren, filter **Stappen** 
 4. Voeg de header `x-ingest-secret` toe met de waarde van `HEALTH_INGEST_SECRET`.
 5. Kies voor de aanvraagbody `JSON`.
 6. Voeg `source` toe als tekst met waarde `apple-shortcuts`.
-7. Voeg `date` toe met de variabele `Datumtekst`.
+7. Voeg `date` toe met de variabele `Geformatteerde datum`.
 8. Voeg de JSON-velden uit de tabel toe met hun berekende variabele. Pulse accepteert zowel kale getallen als waarden met de verwachte eenheid, bijvoorbeeld `48` en `48 ms`.
 
 Een volledige body heeft deze vorm; de getallen hieronder zijn uitsluitend een vormvoorbeeld:
@@ -90,11 +91,13 @@ Een volledige body heeft deze vorm; de getallen hieronder zijn uitsluitend een v
 }
 ```
 
+Zet **Stop en genereer uitvoer** niet binnen de herhaling. Die actie beëindigt de hele opdracht zodra hij wordt bereikt, dus er gaat dan alleen vandaag naar Pulse en de andere zeven dagen worden nooit verstuurd. Zet de actie weg of onder het einde van de herhaling (in iOS heet dat blok **Stop herhalen**). `Haal inhoud van URL op` blijft het laatste in de herhaling.
+
 ## 4. Testen en automatiseren
 
 1. Voer de opdracht eenmaal handmatig uit.
 2. Geef bij de eerste uitvoering toestemming voor alle gekozen Health-categorieën en netwerktoegang.
-3. Een geslaagde reactie bevat `"source":"apple-shortcuts"` en `"upserted":1`. Een dag zonder enige waarde geeft `"upserted":0`; dat is normaal.
+3. Een geslaagde reactie bevat `"source":"apple-shortcuts"` en `"upserted":1`. Een dag zonder enige waarde geeft `"upserted":0`; dat is normaal. De reactie hoort bij één dag. Of alle acht dagen zijn aangekomen, zie je in Pulse onder **Lichaam**.
 4. Open Pulse opnieuw. De Health-datum hoort nu op vandaag of gisteren te staan.
 5. Open in Opdrachten het tabblad **Automatisering** en maak een persoonlijke automatisering voor iedere ochtend, nadat de iPhone normaal gesproken is ontgrendeld.
 6. Kies `Voer onmiddellijk uit` en laat de automatisering `Pulse Health-sync` starten.
@@ -138,4 +141,6 @@ Pulse toont geen melding als de iPhone niets stuurt. Controleer het zo:
 
 - Een geslaagde reactie op `Haal inhoud van URL op` bevat `upserted` en de lijst `importedMetrics`. De reactie bevat geen datum en geen waarden.
 - Staat de datum van vandaag of gisteren niet in Pulse, dan heeft de opdracht die dag niet gedraaid of waren de velden leeg. Draai hem met ontgrendelde iPhone handmatig.
-- Bij `upserted:0` voor een dag mét metingen klopt het datumfilter niet. Controleer `Start dag` en `Einde dag`.
+- Bij `upserted:0` voor een dag mét metingen klopt het datumfilter niet. Controleer of elke zoekactie **Begindatum is aan** `Aangepaste datum` gebruikt.
+- Komt alleen vandaag binnen en geen eerdere dag, dan staat er waarschijnlijk **Stop en genereer uitvoer** binnen de herhaling (zie stap 3).
+- Een dag zonder meting blijft leeg in Pulse. Bij een test kreeg een dag zonder gewicht geen gewicht van een andere dag.
