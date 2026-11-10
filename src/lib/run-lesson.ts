@@ -1,15 +1,19 @@
-import type { DigestRow, PacingAnalysis, RunKind } from "./run-analysis.ts";
+import { formatPaceSec, type DigestRow, type PacingAnalysis, type RunKind } from "./run-analysis.ts";
+import type { PaceReserve } from "./run-prescription.ts";
 
 export type RunLesson = { headline: string; meaning: string; keep: string; improve: string; nextRun: string; tone: "good" | "warning" | "critical" };
 
-export function buildRunLesson(kind: RunKind, digest: DigestRow | null | undefined, pacing: PacingAnalysis | null, nextStep: string): RunLesson {
+export function buildRunLesson(kind: RunKind, digest: DigestRow | null | undefined, pacing: PacingAnalysis | null, nextStep: string, reserve: PaceReserve | null = null): RunLesson {
   const start = pacing?.firstUnitDeltaSec;
   const fade = pacing?.splitDiffSec;
+  const even = pacing ? formatPaceSec((pacing.firstHalfPaceSec + pacing.secondHalfPaceSec) / 2) : "";
+  const evenSlower = pacing ? formatPaceSec((pacing.firstHalfPaceSec + pacing.secondHalfPaceSec) / 2 + 3) : "";
+  const subject = kind === "race" ? "wedstrijd" : kind === "long" ? "lange duurloop" : "loop";
   if (pacing && fade != null && fade >= 15 && kind !== "interval") return {
     headline: "Je tempo zakte fors in de tweede helft",
     meaning: `De tweede helft was ${Math.round(fade)} seconden per kilometer langzamer. Je snelheid aan het begin was niet vol te houden tot de finish.`,
     keep: "Je hebt de afstand afgemaakt. Die duurcapaciteit is een sterke basis.",
-    improve: "Open de volgende vergelijkbare loop rustiger: de eerste 2 kilometer 10–15 seconden per kilometer langzamer. Zoek daarna een tempo dat je tot het einde gelijk kunt houden.",
+    improve: `Gelijk verdelen had betekend: beide helften op ongeveer ${even}/km. Je liep ${formatPaceSec(pacing.firstHalfPaceSec)} en daarna ${formatPaceSec(pacing.secondHalfPaceSec)}. Start de volgende ${subject} op ${even}–${evenSlower}/km en bewaar je versnelling voor het laatste derde.`,
     nextRun: nextStep,
     tone: "critical",
   };
@@ -17,7 +21,7 @@ export function buildRunLesson(kind: RunKind, digest: DigestRow | null | undefin
     headline: "Je startte te snel",
     meaning: `De eerste kilometer was ${Math.abs(Math.round(start))} seconden per kilometer sneller dan de kilometers erna. Dat maakte een gelijkmatige loop moeilijker.`,
     keep: "Je snelle opening laat zien dat je snelheid hebt.",
-    improve: "Loop de eerste 10 minuten bewust rustig. Kijk pas daarna op je doeltempo en verhoog stap voor stap.",
+    improve: `Start op ongeveer ${formatPaceSec(pacing.avgPaceSec)}/km, je gemiddelde van deze loop. Kijk na 10 minuten of ademhaling en hartslag stabiel zijn en bouw dan pas verder op.`,
     nextRun: nextStep,
     tone: "warning",
   };
@@ -33,24 +37,28 @@ export function buildRunLesson(kind: RunKind, digest: DigestRow | null | undefin
     headline: "Je verloor wat tempo richting de finish",
     meaning: `De tweede helft was ${Math.round(fade)} seconden per kilometer langzamer. Dat is een teken om de verdeling te verbeteren.`,
     keep: "Je liep de volledige afstand; behoud die regelmaat.",
-    improve: "Start de volgende vergelijkbare loop iets rustiger en controleer halverwege of je ademhaling nog beheerst is.",
+    improve: `Een gelijk tempo had rond ${even}/km gelegen. Start daar en controleer halverwege of je ademhaling nog beheerst is.`,
     nextRun: nextStep,
     tone: "warning",
   };
-  if (pacing && (pacing.pattern === "negative" || pacing.pattern === "even")) return {
-    headline: pacing.pattern === "negative" ? "Je bouwde de loop sterk op" : "Je hield je tempo goed vast",
-    meaning: pacing.pattern === "negative" ? "Je tweede helft was sneller dan de eerste. Je had je inspanning goed verdeeld." : "Je eerste en tweede helft bleven dicht bij elkaar. Dat is precies wat je bij een beheerste loop zoekt.",
-    keep: "Herhaal deze rustige start en gelijkmatige verdeling in je volgende vergelijkbare training.",
-    improve: "Ga niet harder starten om tijd te winnen. Versnel pas in het laatste deel als je nog controle hebt.",
-    nextRun: nextStep,
-    tone: "good",
-  };
+  if (pacing && (pacing.pattern === "negative" || pacing.pattern === "even")) {
+    const negative = pacing.pattern === "negative";
+    const base = { keep: negative ? "Herhaal deze beheerste start: je kwam sterker terug." : "Herhaal deze gelijkmatige verdeling: je hield het vol.", nextRun: nextStep };
+    if (reserve?.hasReserve && reserve.push) {
+      const push = `${formatPaceSec(reserve.push.fast)}–${formatPaceSec(reserve.push.slow)}/km`;
+      const improve = kind === "race" ? `Loop de eerste helft opnieuw op ${formatPaceSec(reserve.firstHalfPaceSec)}/km en versnel vanaf de helft naar ${push}. Is je hartslag daarbij stabiel, dan houd je die versnelling vast tot de finish.`
+        : kind === "long" ? `Maak het laatste derde progressief: ${push}. Hou de eerste twee derde op hetzelfde tempo als nu.`
+        : `Houd de rustige kilometers zoals nu en sluit de laatste 1–2 kilometer vlotter af op ${push}. Dat blijft ruim onder je drempel en traint je om moe snel te lopen.`;
+      return { headline: "Je had ruimte voor een snellere tweede helft", meaning: `Je tweede helft lag op ${formatPaceSec(reserve.secondHalfPaceSec)}/km en ${reserve.reason}. Dat is reserve die je nog niet gebruikte.`, ...base, improve, tone: "good" };
+    }
+    return { headline: negative ? "Je bouwde de loop sterk op" : "Je hield je tempo goed vast", meaning: negative ? "Je tweede helft was sneller dan de eerste." : "Je eerste en tweede helft bleven dicht bij elkaar.", ...base, improve: kind === "race" ? "Herhaal deze verdeling. Je cijfers laten geen duidelijke reserve zien, dus een snellere tweede helft is nu geen aanbeveling. Winst komt uit training, niet uit een snellere start." : "Herhaal deze verdeling. Er is geen aanwijzing dat je meer had, dus houd het tempo gelijk.", tone: "good" };
+  }
   if (kind === "interval") return {
     headline: "Je deed een snelheidstraining",
     meaning: digest?.detail || "Snelle blokken geven een andere prikkel dan een rustige duurloop.",
     keep: "Houd de herstelstukken echt rustig, zodat de snelle blokken technisch netjes blijven.",
     improve: "Maak de eerste snelle herhaling niet de snelste. Probeer je laatste herhaling even vlot en beheerst te lopen.",
-    nextRun: "Loop je volgende training rustig op praattempo; herhaal geen zware sessie op opeenvolgende dagen.",
+    nextRun: nextStep,
     tone: digest?.tone === "watch" ? "warning" : "good",
   };
   return {

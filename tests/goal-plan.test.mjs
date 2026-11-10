@@ -107,3 +107,10 @@ test("calendar arithmetic stays correct across the Amsterdam daylight-saving cha
   assert.equal(daysBetween("2026-11-04", "2026-10-07"), 28);
   assert.equal(addDays("2026-10-24", 2), "2026-10-26");
 });
+
+test("race day gives a pace plan from the goal pace with a controlled push at the end", () => {
+  const plan = buildGoalPlan(goal, runs, context, now);
+  assert.match(plan.raceDay.detail, /Km 1–5: 5:23–5:25\/km/);
+  assert.match(plan.raceDay.detail, /Km 6–17: 5:20\/km/);
+  assert.match(plan.raceDay.detail, /Vanaf km 18: 5:15–5:20\/km/);
+});

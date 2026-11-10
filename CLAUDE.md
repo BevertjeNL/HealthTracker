@@ -35,6 +35,7 @@ src/lib/half-marathon.ts                buildHalfMarathonPlan(): phase, progress
 src/lib/goal-plan.ts                    Pure race-goal validation, calendar-day arithmetic and rolling training schedule from goal, Strava history, recent split warning and recovery/load context
 src/lib/coach.ts                        Pure coach orchestration: 7-day load versus a 4-week basis, today’s advice and reasons, per-run Strava/Health evidence, post-run recovery comparison, split warning and next step
 src/lib/coach-verdict.ts                Pure colored judgments and concrete actions for load, recovery, goal readiness and each run
+src/lib/run-prescription.ts           Pure prescription: pace zones from the best recent effort (race-equivalent 10 km via Riegel, Daniels-style ratios; flagged unreliable without a race/tempo/hard-HR run), rest days per run type, prescribeNextRun() (rest/recovery/easy/long/quality with distance and pace, restart after a long break, hard-easy and weekly rest rules), assessPaceReserve() (only advises a faster second half with even/negative split, no HR drift/decoupling and a strong finish or low HR)
 src/lib/run-lesson.ts                   Plain-language post-run lesson: meaning, what to keep, correction and next run from splits and run type
 src/lib/run-analysis.ts                 Pure run analysis: classifyRun() (race/long/interval/easy), raceStatus() (confirmed = Strava race flag or your choice, probable = name only, none), km-split and lap parsing, analyzePacing() (pattern, start/fade, HR drift, per-unit notes, advice), compareToSimilar(), buildRunAnalysis() (insights, training-vs-race, Riegel predictions, style profile), findRaceCandidates() (unmarked likely races), buildEventAnalysis() (per-distance race history with PR, preparation, taper, advice), buildRunDigest() (a verdict + advice for every run, from splits or from similar earlier runs). Min. 3 samples per aggregate
 src/lib/half-time.ts                    Pure time at exactly 21.0975 km for runs of 20-22.5 km: read from Strava km splits when the run was longer (method 'splits'), otherwise Riegel (T×(D/d)^1.06, method 'geschat'); uses moving time
@@ -116,6 +117,7 @@ tests/half-time.test.mjs                Half-marathon time from splits, fading p
 tests/run-story.test.mjs                Phase narrative and missing-split regression tests
 tests/coach.test.mjs                    Weekly load confidence, missing Health data, post-run recovery and same-day timing regression tests
 tests/coach-verdict.test.mjs            Judgment transitions and missing-data safeguards
+tests/run-prescription.test.mjs        Zones need an effort, rest per run type, distance and pace after rest, restart after a break, faster second half only with evidence
 tests/run-lesson.test.mjs               Actionable lessons for fading, even and summary-only runs
 tests/run-stats.test.mjs                Totals, minimum-sample comparisons, Amsterdam day boundaries, streaks, trend, records, landmarks and heatmap
 tests/chart-range.test.mjs              Chart tick/label, saved-settings parsing and window resolution regression tests

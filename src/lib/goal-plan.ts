@@ -31,6 +31,13 @@ export function parseGoalInput(distance: unknown, date: unknown, pace: unknown, 
   return { goal: { distanceM: meters, raceDate: date, targetPaceSecPerKm: seconds } };
 }
 
+function raceDetail(distanceKm: number, paceSec: number) {
+  const first = Math.max(1, Math.round(distanceKm * (distanceKm >= 20 ? 0.25 : 0.2)));
+  const last = Math.max(1, Math.round(distanceKm * 0.2));
+  const midEnd = Math.round(distanceKm) - last;
+  return `Km 1–${first}: ${paceText(paceSec + 3)}–${paceText(paceSec + 5)}/km, bewust niet sneller. Km ${first + 1}–${midEnd}: ${paceText(paceSec)}/km. Vanaf km ${midEnd + 1}: ${paceText(paceSec - 5)}–${paceText(paceSec)}/km als ademhaling en benen gecontroleerd voelen; zo niet, houd ${paceText(paceSec)}/km vast.`;
+}
+
 type SessionContext = { level: GoalPlan["level"]; longestKm: number; runsPerWeek: number | null; paceSupported: boolean; sustainedPace: boolean; qualityEligible: boolean; recentFullDistanceAt: string | null; trainingPaceSec: number };
 function sessionForDate(date: string, raceDate: string, distanceM: number, paceSec: number, context: SessionContext): PlanDay {
   const until = daysBetween(raceDate, date);
@@ -45,7 +52,7 @@ function sessionForDate(date: string, raceDate: string, distanceM: number, paceS
   const baseLongKm = roundHalf(Math.min(maxLong, Math.max(4, context.longestKm + (until >= 22 ? 1 : 1.5))));
   const longKm = recentRaceRecovery ? roundHalf(Math.min(baseLongKm, distanceKm >= 20 ? 12 : distanceKm * .65)) : baseLongKm;
   const rest: PlanDay = { date, title: "Herstel", detail: "Rust of wandelen. Sla een gemiste training over; haal haar niet dubbel in.", tone: "rest", status: "planned", actualKm: null };
-  if (until === 0) return { date, title: GOAL_DISTANCES.find((item) => item.meters === distanceM)?.label ?? "Wedstrijd", detail: `Start de eerste kilometers circa 5–10 s/km rustiger dan ${pace}/km. Zoek daarna je doeltempo als het gecontroleerd voelt.`, tone: "race", status: "planned", actualKm: null };
+  if (until === 0) return { date, title: GOAL_DISTANCES.find((item) => item.meters === distanceM)?.label ?? "Wedstrijd", detail: raceDetail(distanceKm, paceSec), tone: "race", status: "planned", actualKm: null };
   if (until <= 7) {
     if (until === 6) return { date, title: "Rustig loslopen", detail: "30–35 min op praattempo. Houd de benen fris.", tone: "easy", status: "planned", actualKm: null };
     if (until === 4 && context.qualityEligible) return { date, title: "Korte doeltempo-prikkel", detail: `10 min rustig inlopen · 2 × 4 min rond ${trainingPace}/km met 3 min heel rustig dribbelen · 10 min uitlopen. Je moet na elk blok nog een blok kunnen doen.`, tone: "quality", status: "planned", actualKm: null };

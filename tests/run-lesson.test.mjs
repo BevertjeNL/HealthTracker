@@ -9,7 +9,7 @@ test("a severe second-half slowdown becomes a clear running correction", () => {
   const analysis = analyzePacing(units([300, 302, 304, 320, 324, 326]), "race");
   const lesson = buildRunLesson("race", { tone: "good", verdict: "Snelle wedstrijd", detail: "Sterke tijd" }, analysis, "Loop rustig.");
   assert.equal(lesson.tone, "critical");
-  assert.match(lesson.improve, /eerste 2 kilometer/);
+  assert.match(lesson.improve, /5:13/);
   assert.match(lesson.keep, /afstand/);
 });
 
