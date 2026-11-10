@@ -31,6 +31,22 @@ const range = (lo: number, hi: number) => (lo === hi ? `${km(lo)}` : `${km(lo)}�
 const paceRangeText = (zone: PaceRange) => `${formatPaceSec(round5(zone.fast))}–${formatPaceSec(round5(zone.slow))}/km`;
 export { paceRangeText };
 
+/** Own pace-versus-heart-rate line from the last 12 weeks (least squares). Needs 8 runs, a 15 bpm spread and a clear link (r <= -0.5). */
+function hrPaceModel(runs: AnalysisRun[], now: Date) {
+  const since = now.getTime() - 84 * DAY;
+  const points = runs.flatMap((run) => { const pace = paceOf(run); return run.startDate.getTime() >= since && run.startDate.getTime() <= now.getTime() && run.distanceM >= 3000 && run.avgHr != null && run.avgHr >= 90 && pace != null && pace >= 170 && pace <= 720 ? [{ hr: run.avgHr, pace }] : []; });
+  if (points.length < 8) return null;
+  const n = points.length, mx = points.reduce((a, p) => a + p.hr, 0) / n, my = points.reduce((a, p) => a + p.pace, 0) / n;
+  const sxx = points.reduce((a, p) => a + (p.hr - mx) ** 2, 0), syy = points.reduce((a, p) => a + (p.pace - my) ** 2, 0), sxy = points.reduce((a, p) => a + (p.hr - mx) * (p.pace - my), 0);
+  const minHr = Math.min(...points.map((p) => p.hr)), maxHr = Math.max(...points.map((p) => p.hr));
+  if (sxx === 0 || syy === 0 || maxHr - minHr < 15) return null;
+  const r = sxy / Math.sqrt(sxx * syy);
+  if (r > -0.5) return null;
+  const slope = sxy / sxx;
+  const at = (hr: number) => my + slope * (Math.min(Math.max(hr, minHr - 5), maxHr + 5) - mx);
+  return { at, n, covers: (hr: number) => hr >= minHr - 5 && hr <= maxHr + 5 };
+}
+
 /** Race-equivalent 10 km pace from the best qualifying run of the last 12 weeks (Riegel, exponent 1.06). Needs three runs of 4+ km. */
 export function estimatePaceZones(runs: AnalysisRun[], now = new Date()): PaceZones | null {
   const since = now.getTime() - 84 * DAY;
@@ -50,18 +66,28 @@ export function estimatePaceZones(runs: AnalysisRun[], now = new Date()): PaceZo
   const best = (reliable ? efforts : scored).reduce((a, b) => (b.tenK < a.tenK ? b : a));
   // Without a real effort the fastest run says little about fitness: assume it was a steady run, not a race.
   const t = reliable ? best.tenK : best.tenK / 1.2;
-  return {
-    tenKPaceSec: t,
-    reliable,
-    basis: reliable ? `Je beste recente inspanning (${km(Math.round(best.run.distanceM / 100) / 10)} km in ${formatPaceSec(paceOf(best.run))}/km) komt overeen met ongeveer ${formatPaceSec(t)}/km op 10 km` : `Er staat geen wedstrijd, tempoloop of hartslag-inspanning in je laatste 12 weken. Deze zones zijn een voorzichtige schatting uit je snelste run (${formatPaceSec(paceOf(best.run))}/km); een echte test van 5 km maakt ze nauwkeuriger`,
+  const effortBasis = reliable ? `Je beste recente inspanning (${km(Math.round(best.run.distanceM / 100) / 10)} km in ${formatPaceSec(paceOf(best.run))}/km) komt overeen met ongeveer ${formatPaceSec(t)}/km op 10 km` : `Er staat geen wedstrijd, tempoloop of hartslag-inspanning in je laatste 12 weken. Deze zones zijn een voorzichtige schatting uit je snelste run (${formatPaceSec(paceOf(best.run))}/km); een echte test van 5 km maakt ze nauwkeuriger`;
+  const zones: PaceZones = {
+    tenKPaceSec: t, reliable, basis: effortBasis,
     recovery: { fast: t * 1.3, slow: t * 1.42 },
     easy: { fast: t * 1.22, slow: t * 1.34 },
     long: { fast: t * 1.2, slow: t * 1.32 },
-    marathon: t * 1.14,
-    threshold: t * 1.035,
-    interval: t * 0.96,
+    marathon: t * 1.14, threshold: t * 1.035, interval: t * 0.96,
     easyHrCap: maxHr >= 150 ? Math.round(maxHr * 0.8) : null,
   };
+  // Own values first: your pace at your heart rate, as a share of your own observed max heart rate.
+  const model = maxHr >= 150 ? hrPaceModel(runs, now) : null;
+  if (model && model.covers(maxHr * 0.7) && model.covers(maxHr * 0.8)) {
+    const fast = model.at(maxHr * 0.8), slow = Math.max(model.at(maxHr * 0.7), fast + 15);
+    zones.easy = { fast, slow };
+    zones.long = { fast: fast - 5, slow: slow - 8 };
+    zones.recovery = { fast: slow, slow: slow + 15 };
+    if (model.covers(maxHr * 0.9)) zones.threshold = model.at(maxHr * 0.9);
+    if (model.covers(maxHr * 0.85)) zones.marathon = model.at(maxHr * 0.85);
+    zones.reliable = true;
+    zones.basis = `Jouw eigen tempo bij jouw hartslag, uit ${model.n} runs en je maximale hartslag van ${Math.round(maxHr)} slagen per minuut (rustig = 70–80% daarvan)${reliable ? `; drempel en wedstrijdtempo steunen op je beste recente inspanning (${formatPaceSec(t)}/km op 10 km)` : ""}`;
+  }
+  return zones;
 }
 
 /* ---------- reserve in the second half ---------- */

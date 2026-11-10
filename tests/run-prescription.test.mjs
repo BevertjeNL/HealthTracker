@@ -87,3 +87,13 @@ test("with only easy runs the zones are flagged as a cautious guess and no quali
   const plan = prescribeNextRun({ runs: easy, now: NOW, daysSinceLast: 4, readiness: 85, loadChangePct: 0 });
   assert.notEqual(plan.kind, "quality");
 });
+
+test("zones follow your own pace at your own heart rate when the data shows the link", () => {
+  // pace falls 4 s/km per bpm: 150 bpm = 330 s/km, 170 bpm = 250 s/km, max 180
+  const pts = [128, 134, 140, 146, 152, 158, 164, 170].map((hr, i) => run(i * 7 + 2, 8, 330 - (hr - 150) * 4, { avgHr: hr, maxHr: 180 }));
+  const zones = estimatePaceZones(pts, NOW);
+  assert.match(zones.basis, /eigen tempo bij jouw hartslag/);
+  assert.ok(Math.abs(zones.easy.fast - (330 - (144 - 150) * 4)) < 2, "80% of 180 = 144 bpm");
+  assert.ok(Math.abs(zones.easy.slow - (330 - (126 - 150) * 4)) < 12, "70% of 180 = 126 bpm, clamped to the lowest observed + margin");
+  assert.ok(Math.abs(zones.threshold - (330 - (162 - 150) * 4)) < 2, "90% of 180 = 162 bpm");
+});
