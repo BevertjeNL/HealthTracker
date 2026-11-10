@@ -52,3 +52,17 @@ test("post-run signals from different calendar days do not become a paired recov
   assert.match(response.recoveryText, /verschillende dagen/i);
   assert.doesNotMatch(response.nextStep, /signalen normaliseren/i);
 });
+
+test("post-run next step names rest, distance and pace instead of a generic easy run", () => {
+  const history = [20, 17, 14, 11, 8].map((daysAgo, index) => run(30 + index, `2026-09-${String(30 - daysAgo).padStart(2, "0")}`, 8000 + index * 500));
+  const target = run(10, "2026-10-01", 16000, { name: "Lange duurloop" });
+  const response = buildPostRunCoach(target, [...history, target], []);
+  assert.match(response.nextStep, /Neem één rustdag/);
+  assert.match(response.nextStep, /km op \d:\d\d–\d:\d\d\/km/);
+});
+
+test("today's advice after rest names distance and pace", () => {
+  const runs = [1, 4, 7, 10, 13, 16, 19].map((daysAgo, index) => run(index + 1, new Date(now.getTime() - daysAgo * 86_400_000).toISOString().slice(0, 10), 8000));
+  const view = buildCoachToday(runs, [], new Date("2026-10-07T12:00:00Z"));
+  assert.match(view.advice.detail, /\d:\d\d–\d:\d\d\/km|min/);
+});
