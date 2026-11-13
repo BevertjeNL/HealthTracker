@@ -3,7 +3,7 @@ import { buildTrainingAdvice } from "./insights.ts";
 import { buildRecoverySummary, dayDifference, isUsableRecoveryValue } from "./recovery.ts";
 import { analyzePacing, buildRunDigest, classifyRun, compareToSimilar, KIND_LABEL, parseKmSplits, toAnalysisRun } from "./run-analysis.ts";
 import { buildRunLesson } from "./run-lesson.ts";
-import { assessPaceReserve, estimatePaceZones, prescribeNextRun, restDaysAfter } from "./run-prescription.ts";
+import { assessPaceReserve, estimatePaceZones, paceRangeText, prescribeNextRun, restDaysAfter } from "./run-prescription.ts";
 import { analyzeSleep } from "./sleep.ts";
 
 type Activity = typeof activities.$inferSelect;
@@ -47,8 +47,9 @@ export function buildCoachToday(runs: Activity[], health: Health[], now = new Da
   const lastPacing = lastAnalysis && lastKind ? analyzePacing(parseKmSplits(lastAnalysis.raw), lastKind, { maxHrObserved: maxHr }) : null;
   const prescription = prescribeNextRun({ runs: analysisRuns, now, daysSinceLast: lastAgeDays, readiness: recovery.score, loadChangePct: load.changePct, pacing: lastPacing });
   const sleepAdjusted = sleep.concern && (prescription.kind === "quality" || prescription.kind === "long");
+  const easyZone = sleepAdjusted ? estimatePaceZones(analysisRuns, now)?.easy : null;
   const prescribed = sleepAdjusted
-    ? { label: "Vandaag rustig lopen", detail: "30–35 min op gesprekstempo", coach: sleep.detail, rhythm: advice.rhythm, kind: "easy" as const, distanceKm: null, paceSec: null }
+    ? { label: "Vandaag rustig lopen", detail: `30–35 min op ${easyZone ? paceRangeText(easyZone) : "gesprekstempo"}`, coach: sleep.detail, rhythm: advice.rhythm, kind: "easy" as const, distanceKm: null, paceSec: easyZone ?? null }
     : { label: prescription.title, detail: prescription.detail, coach: prescription.why, rhythm: advice.rhythm, kind: prescription.kind, distanceKm: prescription.distanceKm, paceSec: prescription.paceSec };
   return { today, advice: prescribed, recovery, sleep, load, latestHealthDate, healthAgeDays, reason, lastRun: last };
 }

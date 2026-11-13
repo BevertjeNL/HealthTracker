@@ -174,7 +174,7 @@ export type HealthTrend = {
 type Spec = { label: string; unit: string; higherIsBetter: boolean | null; digits: number; noise: number; recent?: number; baseline?: number; maxAge?: number };
 const TREND_SPEC: Record<string, Spec> = {
   hrvMs: { label: "HRV", unit: "ms", higherIsBetter: true, digits: 0, noise: 5 },
-  sleepHours: { label: "Slaapduur", unit: "uur", higherIsBetter: true, digits: 1, noise: 7, recent: 7, baseline: 28, maxAge: 3 },
+  sleepHours: { label: "Slaapduur", unit: "uur", higherIsBetter: null, digits: 1, noise: 7, recent: 7, baseline: 28, maxAge: 3 },
   restingHeartRate: { label: "Rusthartslag", unit: "bpm", higherIsBetter: false, digits: 0, noise: 2.5 },
   vo2Max: { label: "VO₂max", unit: "ml/kg/min", higherIsBetter: true, digits: 1, noise: 1, recent: 30, baseline: 90, maxAge: 45 },
   weightKg: { label: "Gewicht", unit: "kg", higherIsBetter: null, digits: 1, noise: 0.8, recent: 14, baseline: 60, maxAge: 30 },
