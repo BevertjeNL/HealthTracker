@@ -128,3 +128,13 @@ test("rejects a respiratory rate that is really a heart rate", () => {
   assert.equal(isValidHealthMetricValue("respiratory_rate", 59), false);
   assert.equal(isValidHealthMetricValue("respiratory_rate", 17.5), true);
 });
+
+test("imports actual sleep duration and ignores time in bed", () => {
+  const shortcut = parseHealthPayload({ source: "apple-shortcuts", date: "2026-11-12", sleep_hours: 7.25, time_in_bed: 9 });
+  assert.equal(shortcut.rows[0].values.sleepHours, 7.25);
+  assert.deepEqual(shortcut.ignoredMetrics, ["time_in_bed"]);
+  const minutes = parseHealthPayload({ source: "apple-shortcuts", date: "2026-11-12", asleep_minutes: 435 });
+  assert.equal(minutes.rows[0].values.sleepHours, 7.25);
+  const bad = parseHealthPayload({ source: "apple-shortcuts", date: "2026-11-12", sleep_hours: 20 });
+  assert.equal(bad.rows.length, 0);
+});

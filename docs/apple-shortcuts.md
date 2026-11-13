@@ -42,6 +42,9 @@ Voeg binnen de herhaling voor iedere gewenste categorie **Zoek gezondheidssteekp
 | Stappen | Som | `step_count` | aantal |
 | Actieve energie | Som | `active_energy` | kcal |
 | Gewicht | Laatste | `weight_body_mass` | kg |
+| Slaap (alleen daadwerkelijk geslapen tijd) | Som van de niet overlappende slaapfasen van de nacht die op `Aangepaste datum` eindigde | `asleep_minutes` | minuten |
+
+Voor slaap geldt binnen elke herhaling een apart datumbereik: van de avond vóór `Aangepaste datum` tot het einde van `Aangepaste datum`. Neem alleen de slaapregistratie van de nacht die op die datum eindigde. Tel `In slaap / Kern / Diep / REM` mee en stuur de totale minuten als `asleep_minutes` (of uren als `sleep_hours`). Tel overlappende registraties van meerdere bronnen niet dubbel. `In bed` is geen slaaptijd. Koppel de meting aan de datum waarop je wakker werd. Als je Watch geen slaapfasen of duur vastlegt, laat dit veld leeg; Pulse verzint geen slaapuren.
 
 ### Uitbreiding voor hardlopers (aanbevolen)
 
@@ -87,6 +90,7 @@ Een volledige body heeft deze vorm; de getallen hieronder zijn uitsluitend een v
   "vo2_max": 45,
   "step_count": 10000,
   "active_energy": 500,
+  "asleep_minutes": 435,
   "weight_body_mass": 70
 }
 ```

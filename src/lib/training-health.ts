@@ -18,6 +18,7 @@ export type HealthRow = {
   activeEnergyKcal?: number | null;
   exerciseMinutes?: number | null;
   weightKg?: number | null;
+  sleepHours?: number | null;
   respiratoryRate?: number | null;
   oxygenSaturationPct?: number | null;
   runningPowerW?: number | null;
@@ -173,6 +174,7 @@ export type HealthTrend = {
 type Spec = { label: string; unit: string; higherIsBetter: boolean | null; digits: number; noise: number; recent?: number; baseline?: number; maxAge?: number };
 const TREND_SPEC: Record<string, Spec> = {
   hrvMs: { label: "HRV", unit: "ms", higherIsBetter: true, digits: 0, noise: 5 },
+  sleepHours: { label: "Slaapduur", unit: "uur", higherIsBetter: true, digits: 1, noise: 7, recent: 7, baseline: 28, maxAge: 3 },
   restingHeartRate: { label: "Rusthartslag", unit: "bpm", higherIsBetter: false, digits: 0, noise: 2.5 },
   vo2Max: { label: "VO₂max", unit: "ml/kg/min", higherIsBetter: true, digits: 1, noise: 1, recent: 30, baseline: 90, maxAge: 45 },
   weightKg: { label: "Gewicht", unit: "kg", higherIsBetter: null, digits: 1, noise: 0.8, recent: 14, baseline: 60, maxAge: 30 },
@@ -444,7 +446,7 @@ export function buildRunBodyContext(run: RunLoad | undefined, day: string, healt
 /* ---------- alles bijeen voor de pagina's ---------- */
 
 export const FORM_KEYS: HealthKey[] = ["runningPowerW", "runningStrideLengthM", "runningGroundContactTimeMs", "runningVerticalOscillationCm"];
-export const BODY_KEYS: HealthKey[] = ["hrvMs", "restingHeartRate", "vo2Max", "weightKg", "respiratoryRate", "oxygenSaturationPct", "steps", "exerciseMinutes"];
+export const BODY_KEYS: HealthKey[] = ["hrvMs", "restingHeartRate", "sleepHours", "vo2Max", "weightKg", "respiratoryRate", "oxygenSaturationPct", "steps", "exerciseMinutes"];
 
 export function buildTrainingHealth(runRows: RunRow[], health: HealthRow[], now = new Date()) {
   const today = amsterdamDay(now);

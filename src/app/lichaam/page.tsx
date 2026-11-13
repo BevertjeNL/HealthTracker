@@ -8,18 +8,20 @@ import { healthMetrics } from "@/db/schema";
 import { fmtDay } from "@/lib/format";
 import { amsterdamDay, buildBodyAlert, daysApart, healthTrend, shiftDay, trendSpec, type HealthKey, type HealthTrend } from "@/lib/training-health";
 import { BODY_KEYS, FORM_KEYS } from "@/lib/training-health";
+import { analyzeSleep } from "@/lib/sleep";
 
 export const dynamic = "force-dynamic";
 
 const COLORS: Partial<Record<HealthKey, string>> = { hrvMs: "var(--series-hrv)", restingHeartRate: "var(--series-rhr)", vo2Max: "var(--series-vo2)", weightKg: "var(--series-weight)", respiratoryRate: "var(--series-rhr)", oxygenSaturationPct: "var(--series-vo2)", steps: "var(--series-steps)", exerciseMinutes: "var(--series-run)", runningPowerW: "var(--series-run)", runningStrideLengthM: "var(--series-vo2)", runningGroundContactTimeMs: "var(--series-weight)", runningVerticalOscillationCm: "var(--series-steps)" };
 const DIGITS: Partial<Record<HealthKey, number>> = { vo2Max: 1, weightKg: 1, respiratoryRate: 1, oxygenSaturationPct: 1, runningStrideLengthM: 2, runningVerticalOscillationCm: 1 };
-const HERSTEL: HealthKey[] = ["hrvMs", "restingHeartRate", "respiratoryRate", "oxygenSaturationPct"];
+const HERSTEL: HealthKey[] = ["sleepHours", "hrvMs", "restingHeartRate", "respiratoryRate", "oxygenSaturationPct"];
 const CONDITIE: HealthKey[] = ["vo2Max", "weightKg", "steps", "exerciseMinutes"];
 
 export default async function BodyPage() {
   const rows = await db.select().from(healthMetrics).where(gte(healthMetrics.date, sql<string>`CURRENT_DATE - 800`)).orderBy(asc(healthMetrics.date));
   const weightRows = await db.select({ date: healthMetrics.date, weightKg: healthMetrics.weightKg }).from(healthMetrics).where(sql`${healthMetrics.weightKg} is not null`).orderBy(asc(healthMetrics.date));
   const today = amsterdamDay(new Date());
+  const sleep = analyzeSleep(rows, today);
   const trends = Object.fromEntries([...BODY_KEYS, ...FORM_KEYS].map((key) => [key, healthTrend(rows, key, today, { seriesDays: 730 })])) as Record<HealthKey, HealthTrend>;
   const alert = buildBodyAlert(BODY_KEYS.map((key) => trends[key]));
   const latest = rows.at(-1)?.date ?? null;
@@ -47,6 +49,8 @@ export default async function BodyPage() {
 
     {alert.level !== "ok" && <BodyAlert alert={alert} healthAgeDays={ageDays} />}
 
+    <section className="p-section" aria-labelledby="sleep-title"><div className="p-section-head"><div><span className="p-overline">SLAAP · APPLE HEALTH</span><h2 id="sleep-title">Hoe slaap je?</h2></div></div><div className="p-card"><p className="p-sleep-current">{sleep.latestHours == null ? "Nog geen slaapdata" : `${sleep.latestHours.toFixed(1).replace(".", ",")} uur daadwerkelijk geslapen`}</p><p>{sleep.detail}</p>{sleep.recentAverage != null && sleep.baselineAverage != null && <p className="p-footnote">7 dagen: {sleep.recentAverage.toFixed(1).replace(".", ",")} uur per nacht ({sleep.recentCount} nachten) · eigen basis: {sleep.baselineAverage.toFixed(1).replace(".", ",")} uur ({sleep.baselineCount} nachten). Een korte slaapnacht verlaagt alleen de intensiteit van het advies als de meting actueel is.</p>}</div></section>
+
     <MetricExplorer today={today} groups={groups} />
 
     <section className="p-section" id="gewicht" aria-label="Gewicht">
@@ -56,7 +60,7 @@ export default async function BodyPage() {
     <section className="p-section" aria-labelledby="coverage-title">
       <div className="p-section-head"><div><span className="p-overline">DATAKWALITEIT</span><h2 id="coverage-title">Wat komt er binnen uit Apple Health?</h2></div></div>
       <div className="p-card p-coverage"><table><thead><tr><th>Meting</th><th>Laatste waarde</th><th>Dagen met data (30 d)</th></tr></thead><tbody>{coverage.map((item) => <tr key={item.key} className={item.age == null || item.age > 14 ? "stale" : ""}><td>{item.label}</td><td>{item.lastDate ? `${fmtDay(item.lastDate, true)} (${item.age === 0 ? "vandaag" : `${item.age} d geleden`})` : "nooit ontvangen"}</td><td>{item.last30}</td></tr>)}</tbody></table>
-      <p className="p-footnote">Metingen die langer dan twee weken geleden zijn, tellen niet mee in je herstelbeeld. Slaap wordt bewust niet gebruikt.</p></div>
+      <p className="p-footnote">Voor slaap gebruikt Pulse alleen daadwerkelijk geslapen tijd, nooit alleen tijd in bed. Oude of ontbrekende slaapmetingen veranderen het loopadvies niet.</p></div>
     </section>
     <footer className="c-footer">PULSE / JOUW HARDLOOPCOACH <span>Strava × Apple Health</span></footer>
   </main></div>;

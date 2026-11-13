@@ -7,6 +7,7 @@ export type HealthMetricValues = {
   steps: number | null;
   activeEnergyKcal: number | null;
   weightKg: number | null;
+  sleepHours: number | null;
   oxygenSaturationPct: number | null;
   respiratoryRate: number | null;
   exerciseMinutes: number | null;
@@ -33,6 +34,8 @@ export const HEALTH_METRIC_MAP: Record<string, { column: Column; aggregation: Ag
   step_count: { column: "steps", aggregation: "sum" },
   active_energy: { column: "activeEnergyKcal", aggregation: "sum" },
   weight_body_mass: { column: "weightKg", aggregation: "last" },
+  sleep_hours: { column: "sleepHours", aggregation: "last" },
+  asleep_minutes: { column: "sleepHours", aggregation: "last" },
   "weight_&_body_mass": { column: "weightKg", aggregation: "last" },
   oxygen_saturation: { column: "oxygenSaturationPct", aggregation: "avg" },
   respiratory_rate: { column: "respiratoryRate", aggregation: "avg" },
@@ -56,6 +59,7 @@ export const RECOMMENDED_HEALTH_METRICS = [
   "step_count",
   "active_energy",
   "weight_body_mass",
+  "sleep_hours",
 ] as const;
 
 type DailyHealthRow = {
@@ -96,7 +100,7 @@ function finiteNumber(value: unknown) {
   if (typeof value === "number") return Number.isFinite(value) ? value : null;
   if (typeof value !== "string") return null;
   const normalized = value.trim().replace(",", ".");
-  const match = normalized.match(/^(-?\d+(?:\.\d+)?)(?:\s*(?:ms|bpm|kcal|kg|ml\/kg\/min|count|%|min|km\/h|m|w|cm|ademhalingen\/min))?$/i);
+  const match = normalized.match(/^(-?\d+(?:\.\d+)?)(?:\s*(?:ms|bpm|kcal|kg|ml\/kg\/min|count|%|min|km\/h|m|w|cm|ademhalingen\/min|h|uur|hours))?$/i);
   if (!match) return null;
   const parsed = Number(match[1]);
   return Number.isFinite(parsed) ? parsed : null;
@@ -112,6 +116,8 @@ const VALID_METRIC_RANGES: Record<string, { min: number; max: number }> = {
   step_count: { min: 0, max: 200_000 },
   active_energy: { min: 0, max: 10_000 },
   weight_body_mass: { min: 20, max: 400 },
+  sleep_hours: { min: 0.5, max: 16 },
+  asleep_minutes: { min: 0.5, max: 16 },
   "weight_&_body_mass": { min: 20, max: 400 },
   oxygen_saturation: { min: 70, max: 100 },
   respiratory_rate: { min: 4, max: 40 },
@@ -137,6 +143,8 @@ export function normalizeHealthMetricValue(
   value: number,
 ) {
   const normalizedUnits = units?.trim().toLowerCase();
+  if (metricName === "asleep_minutes") return value / 60;
+  if (metricName === "sleep_hours" && (normalizedUnits === "min" || normalizedUnits === "minutes")) return value / 60;
   if (metricName === "active_energy" && normalizedUnits === "kj") {
     return value / 4.184;
   }
