@@ -59,6 +59,7 @@ Apple Opdrachten stuurt dagelijks een POST-verzoek naar `/api/health/ingest`. De
 | `step_count` | Dagelijkse activiteit en datadekking | Som |
 | `active_energy` | Actieve energie in kcal | Som |
 | `weight_&_body_mass` / `weight_body_mass` | Gewicht in kg en gewichtstrend | Laatste meting |
+| `sleep_hours` / `asleep_minutes` | Werkelijk geslapen uren; vergelijking met eigen slaapbasis en context voor het volgende loopadvies | Laatste dagtotaal |
 | `oxygen_saturation` / `respiratory_rate` | Persoonlijke ademhalings- en zuurstoftrend | Gemiddelde |
 | `exercise_minutes` / `daylight_minutes` | Dagelijkse beweeg- en herstelcontext | Som |
 | `walking_speed` / `walking_steadiness` | Functionele mobiliteit | Gemiddelde |
@@ -72,7 +73,7 @@ Eenheden worden waar nodig genormaliseerd: kJ naar kcal en lb/lbs naar kg. Het e
 
 ### Bewust niet geïmporteerd
 
-Slaapdata wordt momenteel bewust overgeslagen omdat de Apple-export vooral verouderde `InBed`-registraties bevat en na maart 2025 geen dekking meer heeft. Bloeddruk wordt niet automatisch geïnterpreteerd omdat de historie daarvoor te schaars is. `sleep_hours` en `sleep_score` bestaan nog als ongebruikte legacy-kolommen in het databaseschema, maar de ingest-route accepteert of vult ze niet en de analyse trekt er geen conclusies uit.
+De app gebruikt alleen daadwerkelijk geslapen uren die de iPhone-opdracht als `sleep_hours` of `asleep_minutes` aanlevert. Oude `InBed`-registraties worden niet als slaap geïmporteerd. `sleep_score` blijft ongebruikt; er wordt geen kunstmatige score berekend. Bloeddruk wordt niet automatisch geïnterpreteerd omdat de historie daarvoor te schaars is.
 
 ### Volledige Apple Health-export terugvullen
 
@@ -96,6 +97,7 @@ Selecteer bij voorkeur:
 6. Step Count
 7. Active Energy
 8. Weight & Body Mass
+9. Slaapduur (werkelijk geslapen tijd)
 
 Ontbrekende metrics blokkeren de import niet. De app toont de werkelijke dekking en maakt alleen een conclusie wanneer voldoende metingen beschikbaar zijn.
 

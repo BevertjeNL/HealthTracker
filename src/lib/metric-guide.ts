@@ -13,6 +13,13 @@ export type MetricGuide = {
 };
 
 export const METRIC_GUIDE: Partial<Record<HealthKey, MetricGuide>> = {
+  sleepHours: {
+    what: "Het aantal uren dat Apple Health als daadwerkelijk geslapen registreert. Tijd in bed telt niet mee.",
+    read: "Vergelijk vooral je laatste nachten met je eigen gebruikelijke slaapduur. Een korte nacht kan herstel en loopgevoel beïnvloeden; een enkele nacht is geen diagnose.",
+    tips: ["Draag je Watch tijdens het slapen en zet Slaap bijhouden aan.", "Kijk ook naar hoe uitgerust je je voelt."],
+    lowWord: "korter",
+    highWord: "langer",
+  },
   hrvMs: {
     what: "Hartslagvariabiliteit (HRV) meet hoeveel de tijd tussen twee hartslagen van slag tot slag verschilt. Het zegt hoe flexibel je zenuwstelsel schakelt tussen inspanning en rust.",
     read: "Hoger is meestal beter: je lichaam herstelt goed en heeft ruimte voor belasting. HRV is erg persoonlijk. Vergelijk jezelf alleen met jezelf, nooit met een ander. Een enkele lage dag zegt weinig, een aanhoudende daling wel.",

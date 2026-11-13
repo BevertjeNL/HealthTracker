@@ -4,6 +4,7 @@ import { buildRecoverySummary, dayDifference, isUsableRecoveryValue } from "./re
 import { analyzePacing, buildRunDigest, classifyRun, compareToSimilar, KIND_LABEL, parseKmSplits, toAnalysisRun } from "./run-analysis.ts";
 import { buildRunLesson } from "./run-lesson.ts";
 import { assessPaceReserve, estimatePaceZones, prescribeNextRun, restDaysAfter } from "./run-prescription.ts";
+import { analyzeSleep } from "./sleep.ts";
 
 type Activity = typeof activities.$inferSelect;
 type Health = typeof healthMetrics.$inferSelect;
@@ -30,6 +31,7 @@ export function buildCoachToday(runs: Activity[], health: Health[], now = new Da
   const latestHealthDate = health.map((row) => row.date).sort().at(-1) ?? null;
   const healthAgeDays = latestHealthDate ? dayDifference(today, latestHealthDate) : null;
   const advice = buildTrainingAdvice(sorted, recovery.score, load.changePct, now);
+  const sleep = analyzeSleep(health, today);
   const last = sorted[0] ?? null;
   const lastKind = last ? classifyRun(toAnalysisRun(last)) : null;
   const lastAgeDays = last ? dayDifference(today, dateInAmsterdam(last.startDate)) : null;
@@ -38,13 +40,17 @@ export function buildCoachToday(runs: Activity[], health: Health[], now = new Da
   if (load.changePct != null) reason.push(`7 dagen ${oneDecimal(load.weeklyKm)} km · ${Math.abs(load.changePct)}% ${load.changePct >= 0 ? "boven" : "onder"} je 4-weekse basis`);
   else reason.push(`7 dagen ${oneDecimal(load.weeklyKm)} km · weekbasis wordt opgebouwd`);
   if (recovery.score != null) reason.push(`Herstel ${recovery.score}/100 op basis van ${recovery.scoredSignalCount} actuele signalen`);
+  if (sleep.latestHours != null && sleep.ageDays != null && sleep.ageDays <= 1) reason.push(`Slaap: ${sleep.latestHours.toFixed(1).replace(".", ",")} uur afgelopen nacht${sleep.concern ? " · minder dan normaal" : ""}`);
   const analysisRuns = sorted.map(toAnalysisRun);
   const lastAnalysis = last ? toAnalysisRun(last) : null;
   const maxHr = analysisRuns.reduce((max, item) => Math.max(max, item.maxHr ?? 0), 0) || null;
   const lastPacing = lastAnalysis && lastKind ? analyzePacing(parseKmSplits(lastAnalysis.raw), lastKind, { maxHrObserved: maxHr }) : null;
   const prescription = prescribeNextRun({ runs: analysisRuns, now, daysSinceLast: lastAgeDays, readiness: recovery.score, loadChangePct: load.changePct, pacing: lastPacing });
-  const prescribed = { label: prescription.title, detail: prescription.detail, coach: prescription.why, rhythm: advice.rhythm, kind: prescription.kind, distanceKm: prescription.distanceKm, paceSec: prescription.paceSec };
-  return { today, advice: prescribed, recovery, load, latestHealthDate, healthAgeDays, reason, lastRun: last };
+  const sleepAdjusted = sleep.concern && (prescription.kind === "quality" || prescription.kind === "long");
+  const prescribed = sleepAdjusted
+    ? { label: "Vandaag rustig lopen", detail: "30–35 min op gesprekstempo", coach: sleep.detail, rhythm: advice.rhythm, kind: "easy" as const, distanceKm: null, paceSec: null }
+    : { label: prescription.title, detail: prescription.detail, coach: prescription.why, rhythm: advice.rhythm, kind: prescription.kind, distanceKm: prescription.distanceKm, paceSec: prescription.paceSec };
+  return { today, advice: prescribed, recovery, sleep, load, latestHealthDate, healthAgeDays, reason, lastRun: last };
 }
 
 function healthSignal(rows: Health[], date: string, key: "hrvMs" | "restingHeartRate") {

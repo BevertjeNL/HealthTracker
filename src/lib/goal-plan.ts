@@ -2,7 +2,7 @@ import type { activities, trainingGoals } from "@/db/schema";
 
 export type TrainingGoal = Pick<typeof trainingGoals.$inferSelect, "distanceM" | "raceDate" | "targetPaceSecPerKm">;
 type Activity = Pick<typeof activities.$inferSelect, "startDate" | "distanceM" | "movingTimeS" | "avgPaceMinPerKm" | "name">;
-export type GoalContext = { recoveryScore: number | null; loadChangePct: number | null; generalAdvice: { label: string; detail: string; coach: string }; lastRunWarning?: { at: Date; reason: string } | null };
+export type GoalContext = { recoveryScore: number | null; loadChangePct: number | null; sleepConcern?: boolean; generalAdvice: { label: string; detail: string; coach: string }; lastRunWarning?: { at: Date; reason: string } | null };
 export type PlanDay = { date: string; title: string; detail: string; tone: "rest" | "easy" | "quality" | "long" | "race"; status: "planned" | "run-recorded" | "extra-run" | "adjusted"; actualKm: number | null };
 export type GoalPlan = { daysUntilRace: number; finishTime: string; distanceLabel: string; targetPace: string; level: "basis opbouwen" | "afstand uitbreiden" | "gericht voorbereiden"; assessment: string; evidence: string[]; weeks: Array<{ label: string; days: PlanDay[] }>; raceDay: PlanDay; today: { label: string; detail: string; coach: string }; nextSession: PlanDay | null; last42LongestKm: number; runsPerWeek: number | null };
 
@@ -113,7 +113,7 @@ export function buildGoalPlan(goal: TrainingGoal, runs: Activity[], context: Goa
   if (raceActual?.length) { raceDay.status = "run-recorded"; raceDay.actualKm = roundHalf(raceActual.reduce((sum, run) => sum + km(run), 0)); }
   const todayDay = allDays[0];
   const general = context.generalAdvice;
-  const recoveryOverride = context.recoveryScore != null && context.recoveryScore < 58 || context.loadChangePct != null && context.loadChangePct > 30;
+  const recoveryOverride = context.recoveryScore != null && context.recoveryScore < 58 || context.loadChangePct != null && context.loadChangePct > 30 || context.sleepConcern === true;
   const lastRunAge = recent.length ? daysBetween(today, goalDate([...recent].sort((a, b) => b.startDate.getTime() - a.startDate.getTime())[0].startDate)) : null;
   const generalRest = lastRunAge != null && lastRunAge <= 1 && /niet nogmaals|rustdag|geen looptraining|herstel boven/i.test(general.label);
   const recentRunWarning = context.lastRunWarning && daysBetween(today, goalDate(context.lastRunWarning.at)) <= 2 && daysBetween(today, goalDate(context.lastRunWarning.at)) >= 0 ? context.lastRunWarning : null;
@@ -122,7 +122,7 @@ export function buildGoalPlan(goal: TrainingGoal, runs: Activity[], context: Goa
   else if (daysUntilRace === 0) todayAdvice = { label: "Wedstrijddag", detail: raceDay.detail, coach: "Je schema is afgerond. Stem het tempo af op hoe je je vandaag voelt." };
   else if (todayDay?.status === "run-recorded" || todayDay?.status === "extra-run") todayAdvice = { label: "Vandaag herstellen", detail: "Je hebt vandaag al gelopen. Wandelen is optioneel.", coach: "De run staat in je schema. De volgende training wordt getoond zodra je hersteld bent." };
   else if (generalRest || ((recoveryOverride || recentRunWarning) && (todayDay?.tone === "quality" || todayDay?.tone === "long"))) {
-    todayAdvice = { label: "Herstel krijgt voorrang", detail: generalRest ? general.detail : "Rust of 20–30 min heel rustig wandelen", coach: `${recentRunWarning?.reason ?? general.coach} De geplande zware sessie schuift niet automatisch naar morgen.` };
+    todayAdvice = { label: "Herstel krijgt voorrang", detail: generalRest ? general.detail : "Rust of 20–30 min heel rustig wandelen", coach: `${recentRunWarning?.reason ?? (context.sleepConcern ? "Je recente slaap vraagt om een rustige dag." : general.coach)} De geplande zware sessie schuift niet automatisch naar morgen.` };
     if (todayDay && todayDay.tone !== "rest") { todayDay.status = "adjusted"; todayDay.title = "Aangepast: herstel"; todayDay.detail = todayAdvice.detail; todayDay.tone = "rest"; }
   } else if (todayDay?.tone === "rest") todayAdvice = { label: "Vandaag herstel", detail: todayDay.detail, coach: "Deze rustdag is onderdeel van je schema richting de wedstrijd." };
   else todayAdvice = { label: todayDay.title, detail: todayDay.detail, coach: todayDay.tone === "quality" ? "Houd de eerste herhaling gecontroleerd. De laatste moet even goed gaan; zo train je tempo zonder jezelf leeg te lopen." : todayDay.tone === "long" ? "Loop op een tempo waarop je volledige zinnen kunt spreken. De lange loop traint volhouden, niet racen." : "Dit is een rustige training die je klaar maakt voor de volgende tempoprikkel." };

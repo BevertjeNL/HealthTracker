@@ -331,6 +331,7 @@ a:focus-visible, button:focus-visible { outline: 3px solid rgba(243, 126, 101, 0
 .p-decision-kicker { color: rgba(255, 255, 255, 0.72); }
 .p-decision p { color: rgba(255, 255, 255, 0.88); }
 .p-decision-next { border-top: 1px solid rgba(255, 255, 255, 0.14); }
+.p-watch { border: 1px solid rgba(255, 255, 255, 0.14); background: rgba(255, 255, 255, 0.1); }
 .p-signals { border: 1px solid #3f3b31; background: #1e2421; }
 .p-signals li { border-top: 1px solid #3d3930; color: #cbd7cf; }
 .p-signals li::before { color: #d49d82; }

@@ -72,6 +72,8 @@ export async function GET() {
           step_count: "count",
           active_energy: "kcal",
           weight_body_mass: "kg",
+          sleep_hours: "uur daadwerkelijk geslapen",
+          asleep_minutes: "minuten daadwerkelijk geslapen",
           oxygen_saturation: "%",
           respiratory_rate: "ademhalingen/min",
           exercise_minutes: "min",

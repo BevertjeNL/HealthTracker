@@ -15,6 +15,7 @@ import { fmtDate, fmtDay, fmtDuration, fmtKm, fmtNum, fmtPace, fmtSigned } from 
 import { buildGoalPlan, dateText } from "@/lib/goal-plan";
 import { KIND_LABEL, toAnalysisRun } from "@/lib/run-analysis";
 import { amsterdamDay, buildRunBodyContext, buildTrainingHealth } from "@/lib/training-health";
+import { watchWorkout } from "@/lib/watch-workout";
 
 export const dynamic = "force-dynamic";
 
@@ -30,9 +31,11 @@ export default async function Home() {
   const last = coach.lastRun;
   const review = last ? buildPostRunCoach(last, runs, health) : null;
   const goal = savedGoals[0] ?? null;
-  const goalPlan = goal ? buildGoalPlan(goal, runs, { recoveryScore: coach.recovery.score, loadChangePct: coach.load.changePct, generalAdvice: coach.advice, lastRunWarning: last && review ? postRunPlanWarning(review, last.startDate) : null }, now) : null;
+  const goalPlan = goal ? buildGoalPlan(goal, runs, { recoveryScore: coach.recovery.score, loadChangePct: coach.load.changePct, sleepConcern: coach.sleep.concern, generalAdvice: coach.advice, lastRunWarning: last && review ? postRunPlanWarning(review, last.startDate) : null }, now) : null;
   const activePlan = goalPlan && goalPlan.daysUntilRace >= 0 ? goalPlan : null;
   const advice = activePlan?.today ?? coach.advice;
+  const watchSteps = watchWorkout(advice.detail);
+  const nextWatchSteps = !watchSteps && activePlan?.nextSession ? watchWorkout(activePlan.nextSession.detail) : null;
   const stale = coach.healthAgeDays == null || coach.healthAgeDays > 1;
 
   // Health-signalen werken ook met enkele dagen oude data; zo blijft de koppeling zichtbaar na een late sync.
@@ -69,11 +72,13 @@ export default async function Home() {
           <h2>{advice.label}</h2>
           <p className="p-decision-do">{advice.detail}</p>
           <p className="p-decision-why"><b>Waarom:</b> {advice.coach}</p>
+          {watchSteps && <div className="p-watch"><b>Stel in op je Apple Watch · Hardlopen → Maak workout aan → Aangepast</b><ol>{watchSteps.map((step) => <li key={step}>{step}</li>)}</ol></div>}
           {activePlan?.nextSession && <p className="p-decision-next"><b>Daarna:</b> {activePlan.nextSession.title} op {dateText(activePlan.nextSession.date)} · {activePlan.nextSession.detail}</p>}
+          {nextWatchSteps && <div className="p-watch"><b>Voor die intervaltraining op je Watch</b><ol>{nextWatchSteps.map((step) => <li key={step}>{step}</li>)}</ol></div>}
         </article>
         <aside className="p-signals" aria-label="Signalen achter het advies">
           <span className="p-overline">DE SIGNALEN ERACHTER</span>
-          <ol>{reasons.map((item) => <li key={item}>{item}</li>)}</ol>
+          <ol>{reasons.slice(0, 5).map((item) => <li key={item}>{item}</li>)}</ol>
           <p className="p-source"><b>Apple Health</b> {coach.latestHealthDate ? `bijgewerkt t/m ${fmtDay(coach.latestHealthDate, true)}${stale ? " — synchroniseer voor een actueel beeld." : "."}` : "nog niet ontvangen."}</p>
         </aside>
       </section>
@@ -92,6 +97,7 @@ export default async function Home() {
           </Link>
           <MetricCard trend={body.trends.hrvMs} color="var(--series-hrv)" href="/lichaam" />
           <MetricCard trend={body.trends.restingHeartRate} color="var(--series-rhr)" href="/lichaam" />
+          <MetricCard trend={body.trends.sleepHours} color="var(--series-vo2)" href="/lichaam" />
           <Link href="/vorm#fitness" className={`p-tile p-tile-${body.fitness.verdict.tone}`}>
             <span className="p-metric-label">Fitness</span>
             <div className="p-metric-value"><strong>{fit.deltaPct != null ? fmtSigned(fit.deltaPct, 1, "%") : fit.slopePct90 != null ? fmtSigned(fit.slopePct90, 1, "%") : "—"}</strong><small>{fit.deltaPct != null ? "zuiniger vs. vorige 2 mnd" : fit.slopePct90 != null ? "zuiniger per 3 mnd" : "nog onbekend"}</small></div>

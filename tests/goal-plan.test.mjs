@@ -81,6 +81,14 @@ test("low recovery replaces today's quality session with rest", () => {
   assert.equal(plan.weeks[0].days[0].tone, "rest");
 });
 
+test("a fresh sleep concern postpones today's quality session", () => {
+  const thursday = new Date("2026-10-08T12:00:00Z");
+  const plan = buildGoalPlan(goal, runs, { ...context, sleepConcern: true }, thursday);
+  assert.equal(plan.today.label, "Herstel krijgt voorrang");
+  assert.match(plan.today.coach, /slaap/);
+  assert.equal(plan.weeks[0].days[0].status, "adjusted");
+});
+
 test("recent split deterioration postpones a hard session even when recovery score is normal", () => {
   const thursday = new Date("2026-10-08T12:00:00Z");
   const plan = buildGoalPlan(goal, runs, { ...context, lastRunWarning: { at: new Date("2026-10-07T08:00:00Z"), reason: "Tempoverlies in de tweede helft." } }, thursday);
