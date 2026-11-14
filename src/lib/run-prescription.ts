@@ -125,6 +125,8 @@ export type PrescriptionInput = {
   readiness: number | null;
   loadChangePct: number | null;
   recoveryAdverse?: boolean;
+  /** Herstel- of lichaamssignalen vragen om rustig: geen lange duurloop of kwaliteitssessie, wel een rustige duurloop. */
+  easyOnly?: boolean;
   pacing?: PacingAnalysis | null;
   zones?: PaceZones | null;
 };
@@ -199,13 +201,13 @@ export function prescribeNextRun(input: PrescriptionInput): RunPrescription {
     return { kind: "easy", title: "Rustig herstarten", detail: `Na ${daysSinceLast} dagen rust: ${range(lo, hi)} km op ${paceRangeText(zones.easy)}, zonder tempoversnelling. Bouw eerst drie runs in een week op voordat je tempo toevoegt.${hrNote}`, why: `${zones.basis}. Fitness zakt na ${Math.round(daysSinceLast / 7)} weken zonder lopen; pezen en spieren herstellen langzamer dan je conditie aanvoelt.`, distanceKm: [lo, hi], paceSec: zones.easy };
   }
 
-  if (zones && runs28.length >= 6 && !longRecent && daysSinceLast >= 2 && longest42 >= 6) {
+  if (zones && !input.easyOnly && runs28.length >= 6 && !longRecent && daysSinceLast >= 2 && longest42 >= 6) {
     const lo = roundHalf(longest42), hi = roundHalf(longest42 + Math.max(1, Math.min(2, longest42 * 0.1)));
     const finish = progressive ? ` Loop het laatste derde 10–15 s/km sneller (${paceRangeText({ fast: zones.long.fast - 15, slow: zones.long.fast - 5 })}); je laatste training liet geen hartslagdrift zien, dus daar is ruimte voor.` : " Houd het tempo gelijk of laat de tweede helft licht versnellen als je hartslag stabiel blijft.";
     return { kind: "long", title: "Lange duurloop", detail: `${gapText}: ${range(lo, hi)} km (ongeveer ${Math.round(lo * zones.long.slow / 60)}–${Math.round(hi * zones.long.slow / 60)} min) op ${paceRangeText(zones.long)}.${finish}${hrNote}`, why: `Je laatste lange loop is langer dan 10 dagen geleden. ${zones.basis}.`, distanceKm: [lo, hi], paceSec: zones.long };
   }
 
-  if (zones?.reliable && runs28.length >= 8 && !qualityRecent && freshForQuality) {
+  if (zones?.reliable && !input.easyOnly && runs28.length >= 8 && !qualityRecent && freshForQuality) {
     const layout = sessionLayout(zones, runs28.length, easyMid);
     const total = roundHalf(layout.totalKm);
     return { kind: "quality", title: "Drempeltraining", detail: `${gapText}: 10 min inlopen op ${paceRangeText(zones.easy)} · ${layout.n} × ${layout.min} min op ${formatPaceSec(round5(zones.threshold - 3))}–${formatPaceSec(round5(zones.threshold + 3))}/km met 2 min dribbelen · 10 min uitlopen. Samen ongeveer ${range(Math.max(5, total - 0.5), total + 0.5)} km. Het laatste blok moet even sterk zijn als het eerste.`, why: `${readiness != null ? `Herstelscore ${readiness}/100` : "Je herstel geeft geen waarschuwing"}, geen zware sessie in de laatste zes dagen. ${zones.basis}.`, distanceKm: [Math.max(5, total - 0.5), total + 0.5], paceSec: { fast: zones.threshold - 3, slow: zones.threshold + 3 } };

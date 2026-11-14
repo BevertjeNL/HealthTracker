@@ -11,6 +11,7 @@ import { Spark } from "@/components/Spark";
 import { db } from "@/db";
 import { activities, healthMetrics, trainingGoals } from "@/db/schema";
 import { buildCoachToday, buildPostRunCoach, postRunPlanWarning } from "@/lib/coach";
+import { buildNextRun } from "@/lib/next-run";
 import { fmtDate, fmtDay, fmtDuration, fmtKm, fmtNum, fmtPace, fmtSigned } from "@/lib/format";
 import { buildGoalPlan, dateText } from "@/lib/goal-plan";
 import { KIND_LABEL, toAnalysisRun } from "@/lib/run-analysis";
@@ -33,9 +34,8 @@ export default async function Home() {
   const goal = savedGoals[0] ?? null;
   const goalPlan = goal ? buildGoalPlan(goal, runs, { recoveryScore: coach.recovery.score, loadChangePct: coach.load.changePct, sleepConcern: coach.sleep.concern, generalAdvice: coach.advice, lastRunWarning: last && review ? postRunPlanWarning(review, last.startDate) : null }, now) : null;
   const activePlan = goalPlan && goalPlan.daysUntilRace >= 0 ? goalPlan : null;
-  const advice = activePlan?.today ?? coach.advice;
-  const watchSteps = watchWorkout(advice.detail);
-  const nextWatchSteps = !watchSteps && activePlan?.nextSession ? watchWorkout(activePlan.nextSession.detail) : null;
+  const nextRun = buildNextRun({ runs, coach, body: { alertLevel: body.alert.level, alertSignals: body.alert.signals, hrvDeltaPct: body.trends.hrvMs.deltaPct, rhrDeltaPct: body.trends.restingHeartRate.deltaPct }, planDays: activePlan?.weeks.flatMap((week) => week.days) ?? null });
+  const watchSteps = watchWorkout(nextRun.detail);
   const stale = coach.healthAgeDays == null || coach.healthAgeDays > 1;
 
   // Health-signalen werken ook met enkele dagen oude data; zo blijft de koppeling zichtbaar na een late sync.
@@ -45,13 +45,6 @@ export default async function Home() {
   if (!body.alert.signals.length && body.alert.level === "ok" && body.trends.hrvMs.deltaPct != null) reasons.push(`HRV en rusthartslag binnen je normale bandbreedte`);
   if (body.fitness.verdict.tone !== "unknown") reasons.push(`Fitness: ${body.fitness.verdict.label.toLowerCase()}`);
 
-  const planAdjusted = activePlan?.weeks[0]?.days[0]?.status === "adjusted";
-  const label = advice.label.toLowerCase();
-  let tone: "good" | "warning" | "critical" = (coach.recovery.score != null && coach.recovery.score < 58) || (coach.load.changePct != null && coach.load.changePct > 30) ? "critical" : planAdjusted || label.includes("rust") || label.includes("herstel") || label.includes("geen loop") ? "warning" : "good";
-  if (body.alert.level === "stop") tone = "critical";
-  else if (body.alert.level === "let-op" && tone === "good") tone = "warning";
-  if (body.balance.tone === "critical") tone = "critical";
-
   const lastLoad = last ? body.loads.find((item) => item.id === last.id) : undefined;
   const lastContext = last ? buildRunBodyContext(lastLoad, amsterdamDay(last.startDate), health, body.loads) : null;
   const latestAnalysis = last ? toAnalysisRun(last) : null;
@@ -60,21 +53,19 @@ export default async function Home() {
 
   return <div className="c-shell"><main className="c-container"><CoachNav active="today" />
     <header className="p-head">
-      <div><span className="p-overline">VANDAAG · {fmtDate(coach.today).toUpperCase()}</span><h1>Jouw volgende stap</h1><p>Berekend uit je Strava-runs en je Apple Health-herstel.</p></div>
+      <div><span className="p-overline">VANDAAG · {fmtDate(coach.today).toUpperCase()}</span><h1>Jouw volgende run</h1><p>Berekend uit je Strava-runs en je Apple Health-herstel.</p></div>
       <DataRefreshButton healthNeedsSync={stale} lastHealthDate={coach.latestHealthDate} />
     </header>
 
     {!runs.length ? <section className="c-empty"><span className="c-overline">BEGIN HIER</span><h2>Je coach leert van jouw runs.</h2><p>Verbind Strava om je loopgeschiedenis te laden. Apple Health voegt herstelcontext toe zodra je iPhone de metingen verstuurt.</p><a href="/api/strava/auth" className="c-button">Verbind Strava <span>↗</span></a></section> : <>
       <section className="p-lead" aria-label="Advies voor vandaag">
-        <article className={`p-decision p-decision-${tone}`}>
-          <div className="p-decision-top"><span><i className="p-dot" /> COACHBESLUIT VANDAAG</span><small>{planAdjusted ? "Schema aangepast aan je ritme" : coach.recovery.confidence === "onvoldoende" ? "Voorzichtig advies" : `${coach.recovery.confidence} vertrouwen`}</small></div>
-          <span className="p-decision-kicker">{tone === "critical" ? "Niet forceren" : tone === "warning" ? "Bewust rustig" : "Goed moment"}</span>
-          <h2>{advice.label}</h2>
-          <p className="p-decision-do">{advice.detail}</p>
-          <p className="p-decision-why"><b>Waarom:</b> {advice.coach}</p>
+        <article className={`p-decision p-decision-${nextRun.tone}`}>
+          <div className="p-decision-top"><span><i className="p-dot" /> VOLGENDE RUN</span><small>{nextRun.source === "schema" ? "Uit je wedstrijdschema" : coach.recovery.confidence === "onvoldoende" ? "Voorzichtig advies" : `${coach.recovery.confidence} vertrouwen`}</small></div>
+          <span className="p-decision-kicker">{nextRun.offset === 0 ? "Vandaag" : `${nextRun.whenLabel} · ${nextRun.inLabel}`}</span>
+          <h2>{nextRun.title}</h2>
+          <p className="p-decision-do">{nextRun.detail}</p>
+          {nextRun.basis.length > 0 && <ul className="p-decision-basis" aria-label="Waarop dit advies steunt">{nextRun.basis.map((item) => <li key={item}>{item}</li>)}</ul>}
           {watchSteps && <div className="p-watch"><b>Stel in op je Apple Watch · Hardlopen → Maak workout aan → Aangepast</b><ol>{watchSteps.map((step) => <li key={step}>{step}</li>)}</ol></div>}
-          {activePlan?.nextSession && <p className="p-decision-next"><b>Daarna:</b> {activePlan.nextSession.title} op {dateText(activePlan.nextSession.date)} · {activePlan.nextSession.detail}</p>}
-          {nextWatchSteps && <div className="p-watch"><b>Voor die intervaltraining op je Watch</b><ol>{nextWatchSteps.map((step) => <li key={step}>{step}</li>)}</ol></div>}
         </article>
         <aside className="p-signals" aria-label="Signalen achter het advies">
           <span className="p-overline">DE SIGNALEN ERACHTER</span>

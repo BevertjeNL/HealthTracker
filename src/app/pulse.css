@@ -78,6 +78,8 @@
 .p-decision h2 { margin: 6px 0 14px; font-size: clamp(30px, 3.6vw, 46px); line-height: 1.05; letter-spacing: -.045em; font-weight: 800; }
 .p-decision p { margin: 0 0 10px; max-width: 640px; font-size: 15px; line-height: 1.55; color: rgba(255, 255, 255, .88); }
 .p-decision-do { color: #e4f7ae !important; font-size: 18px !important; font-weight: 700; }
+.p-decision-basis { margin: 18px 0 0; padding: 0; display: flex; flex-wrap: wrap; gap: 8px; list-style: none; }
+.p-decision-basis li { padding: 6px 12px; border: 1px solid rgba(255, 255, 255, .22); border-radius: 999px; font-size: 13px; font-weight: 600; color: rgba(255, 255, 255, .9); }
 .p-decision-next { padding-top: 12px; border-top: 1px solid rgba(255, 255, 255, .18); }
 .p-watch { margin: 14px 0; padding: 14px 16px; border: 1px solid rgba(255,255,255,.28); border-radius: 14px; background: rgba(255,255,255,.1); font-size: 14px; line-height: 1.5; }
 .p-watch ol { margin: 8px 0 0; padding-left: 22px; }
