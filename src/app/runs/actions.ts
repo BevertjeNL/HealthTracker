@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { activities } from "@/db/schema";
+import { KIND_OVERRIDES, type KindOverride } from "@/lib/run-analysis";
 import { syncStravaRuns } from "@/lib/sync";
 import { hasAuthenticatedSession } from "@/lib/session-server";
 
@@ -22,14 +23,15 @@ export async function syncRunsAction(): Promise<{ synced?: number; error?: strin
   }
 }
 
-// kind: "race" marks a run as race, "not_race" rejects a race guess, null removes the manual choice.
-export async function setRunKindAction(id: number, kind: "race" | "not_race" | null): Promise<{ ok?: true; error?: string }> {
+// kind: "race" marks a run as race, "not_race" rejects a race guess, "easy" / "long" / "interval" state what kind of training it was, null removes the manual choice.
+export async function setRunKindAction(id: number, kind: KindOverride | null): Promise<{ ok?: true; error?: string }> {
   if (!(await hasAuthenticatedSession())) return { error: "Je sessie is verlopen. Log opnieuw in." };
-  if (!Number.isInteger(id) || id <= 0 || (kind !== null && kind !== "race" && kind !== "not_race")) return { error: "Ongeldige invoer." };
+  if (!Number.isInteger(id) || id <= 0 || (kind !== null && !KIND_OVERRIDES.includes(kind))) return { error: "Ongeldige invoer." };
   try {
     await db.update(activities).set({ kindOverride: kind }).where(eq(activities.id, id));
     revalidatePath("/runs");
     revalidatePath(`/runs/${id}`);
+    revalidatePath("/stats");
     return { ok: true };
   } catch {
     return { error: "Opslaan is mislukt. Probeer het later opnieuw." };

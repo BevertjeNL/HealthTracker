@@ -1,7 +1,45 @@
 import { formatPaceSec, type DigestRow, type PacingAnalysis, type RunKind } from "./run-analysis.ts";
+import { coreSegments, segmentRange } from "./run-structure.ts";
 import type { PaceReserve } from "./run-prescription.ts";
 
 export type RunLesson = { headline: string; meaning: string; keep: string; improve: string; nextRun: string; tone: "good" | "warning" | "critical" };
+
+const pace = (sec: number) => `${formatPaceSec(sec)}/km`;
+const withHr = (hr: number | null) => (hr != null ? ` (hartslag ${Math.round(hr)})` : "");
+
+/** Lesson for a run with a clear structure: judged per part, never as one fading effort. */
+function structureLesson(pacing: PacingAnalysis, nextStep: string): RunLesson {
+  const structure = pacing.structure!;
+  const core = coreSegments(structure);
+  const fast = core.filter((segment) => segment.role === "snel");
+  const easy = core.filter((segment) => segment.role === "rustig" || segment.role === "herstel");
+  const watch = pacing.advice.find((item) => item.tone === "watch");
+  const good = pacing.advice.find((item) => item.tone === "good");
+  const block = fast[0], rest = easy[0];
+  const km = (meters: number) => (meters / 1000).toLocaleString("nl-NL", { maximumFractionDigits: 1 });
+  if (structure.shape === "intervals") return {
+    headline: `${fast.length} snelle delen met herstel`,
+    meaning: `Snelle delen op ${pace(structure.fastPaceSec)}, herstel op ${pace(structure.easyPaceSec)}. ${(watch ?? good ?? pacing.advice[0])?.detail ?? ""}`.trim(),
+    keep: good ? good.detail : "Houd de herstelstukken echt rustig, zodat de snelle delen netjes blijven.",
+    improve: watch ? watch.detail : "Probeer je laatste snelle deel net zo vlot te lopen als het eerste en laat de eerste herhaling niet de snelste zijn.",
+    nextRun: nextStep,
+    tone: watch ? "warning" : "good",
+  };
+  const facts = `${block ? `${segmentRange(block)} liep je op ${pace(block.paceSec)}${withHr(block.hr)}` : ""}${block && rest ? ", " : ""}${rest ? `${segmentRange(rest)} op ${pace(rest.paceSec)}${withHr(rest.hr)}` : ""}. Dat is ${Math.round(structure.separationSec)} s/km verschil.`;
+  const whole = pacing.avgPaceSec;
+  if (pacing.needsConfirmation) return {
+    headline: structure.shape === "fast-finish" ? "Je liep rustig en eindigde snel" : structure.shape === "mid-block" ? "Je liep een blok in het midden sneller" : "Je liep in twee delen",
+    meaning: facts,
+    keep: "Elk deel was op zich gelijkmatig. Het verschil tussen de delen is een duidelijke stap, geen langzaam wegzakken.",
+    improve: `Dit hangt af van wat je bedoelde. Was het een training met een snel deel, dan klopt het en beoordeel ik elk deel apart. Wilde je één rustige loop lopen, dan startte je te snel: begin dan op ${pace(whole)}. Geef hieronder aan wat het was, dan pas ik de beoordeling aan.`,
+    nextRun: nextStep,
+    tone: "good",
+  };
+  const shapeHeadline = structure.shape === "fast-start" ? `Snel deel${block ? ` van ${km(block.distanceM)} km` : ""}, daarna rustig` : structure.shape === "fast-finish" ? "Rustig opgebouwd naar een snel einde" : "Tempoblok met in- en uitloop";
+  const keep = watch?.tone === "watch" ? "Je voerde de opzet uit: een snel deel en een rustig deel." : (good?.detail ?? "Je voerde de opzet uit: een snel deel en een rustig deel.");
+  const improve = watch ? watch.detail : block && rest && block.hr != null && rest.hr != null ? `Houd het rustige deel zoals nu: ${Math.round(block.hr - rest.hr)} slagen lager dan het snelle deel. Laat het snelle deel niet langer worden zonder dat je herstelruimte hebt.` : "Houd het rustige deel minstens 20 s/km langzamer dan het snelle deel, zodat het echt herstel is.";
+  return { headline: shapeHeadline, meaning: facts, keep, improve, nextRun: nextStep, tone: watch ? "warning" : "good" };
+}
 
 export function buildRunLesson(kind: RunKind, digest: DigestRow | null | undefined, pacing: PacingAnalysis | null, nextStep: string, reserve: PaceReserve | null = null): RunLesson {
   const start = pacing?.firstUnitDeltaSec;
@@ -9,6 +47,7 @@ export function buildRunLesson(kind: RunKind, digest: DigestRow | null | undefin
   const even = pacing ? formatPaceSec((pacing.firstHalfPaceSec + pacing.secondHalfPaceSec) / 2) : "";
   const evenSlower = pacing ? formatPaceSec((pacing.firstHalfPaceSec + pacing.secondHalfPaceSec) / 2 + 3) : "";
   const subject = kind === "race" ? "wedstrijd" : kind === "long" ? "lange duurloop" : "loop";
+  if (pacing?.structure && pacing.structureApplied) return structureLesson(pacing, nextStep);
   if (pacing && fade != null && fade >= 15 && kind !== "interval") return {
     headline: "Je tempo zakte fors in de tweede helft",
     meaning: `De tweede helft was ${Math.round(fade)} seconden per kilometer langzamer. Je snelheid aan het begin was niet vol te houden tot de finish.`,

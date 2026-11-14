@@ -5,6 +5,8 @@ import type { activities } from "@/db/schema";
 // Pure functions only, so everything is testable with `node --test`.
 // Every aggregate/trend needs at least MIN_SAMPLES data points (see CLAUDE.md).
 
+import { coreSegments, detectStructure, segmentRange, type RunStructure, type StructureSegment } from "./run-structure.ts";
+
 type Activity = typeof activities.$inferSelect;
 
 export const MIN_SAMPLES = 3;
@@ -54,7 +56,9 @@ export function toAnalysisRun(row: Activity): AnalysisRun {
 
 /* ---------- classification ---------- */
 
-export type KindOverride = "race" | "not_race";
+/** race / not_race are the original choices; easy, long and interval state what kind of training it was. */
+export type KindOverride = "race" | "not_race" | "easy" | "long" | "interval";
+export const KIND_OVERRIDES: readonly KindOverride[] = ["race", "not_race", "easy", "long", "interval"];
 type KindInput = { name?: string | null; workoutType?: number | null; distanceM?: number | null; kindOverride?: string | null };
 
 const RACE_NAME = /wedstrijd|\brace\b|parkrun|marathon|\b(5|10)\s?k\b|\b(5|10)\s?km\s+(loop|run)\b|loop\s+\d+\s?km\s+wedstrijd/i;
@@ -63,7 +67,7 @@ const NOT_RACE_NAME = /training|pace|tempo|rustig|herstel|easy|warming|cooling|s
 // Strava workout_type for runs: 0 default, 1 race, 2 long run, 3 workout.
 export function classifyRun(run: KindInput): RunKind {
   const name = (run.name ?? "").toLowerCase();
-  if (run.kindOverride === "race") return "race";
+  if (run.kindOverride === "race" || run.kindOverride === "easy" || run.kindOverride === "long" || run.kindOverride === "interval") return run.kindOverride;
   if (run.kindOverride !== "not_race") {
     if (run.workoutType === 1) return "race";
     if (RACE_NAME.test(name) && !NOT_RACE_NAME.test(name)) return "race";
@@ -75,6 +79,33 @@ export function classifyRun(run: KindInput): RunKind {
 
 export const isRace = (run: KindInput) => classifyRun(run) === "race";
 
+/** Where the type of a run comes from, so the app can say it and the athlete can correct it. */
+export type KindSource = "keuze" | "strava" | "naam" | "afstand";
+export const KIND_SOURCE_LABEL: Record<KindSource, string> = { keuze: "jouw keuze", strava: "Strava-label", naam: "de naam van de run", afstand: "de afstand (geen label of keuze)" };
+export function kindSource(run: KindInput): KindSource {
+  const name = (run.name ?? "").toLowerCase();
+  if (run.kindOverride && (KIND_OVERRIDES as readonly string[]).includes(run.kindOverride)) return "keuze";
+  if (run.workoutType === 1 || run.workoutType === 2 || run.workoutType === 3) return "strava";
+  if (RACE_NAME.test(name) || /interval|tempo|fartlek|threshold|drempel|repetition|heuvel|lange|long run|duurloop lang/.test(name)) return "naam";
+  return "afstand";
+}
+
+/**
+ * What the athlete meant to do. "structured" = a workout with deliberate fast parts (your choice, Strava workout label, or a clear name),
+ * "steady" = one even effort (your choice, Strava long-run or race label), "unknown" = nothing says, so the laps have to speak
+ * and the athlete is asked when they show a clear step change.
+ */
+export type RunIntent = "structured" | "steady" | "unknown";
+export function runIntent(run: KindInput): RunIntent {
+  const name = (run.name ?? "").toLowerCase();
+  if (run.kindOverride === "interval") return "structured";
+  if (run.kindOverride === "easy" || run.kindOverride === "long" || run.kindOverride === "race") return "steady";
+  if (run.workoutType === 3) return "structured";
+  if (run.workoutType === 1 || run.workoutType === 2) return "steady";
+  if (/interval|tempo|fartlek|threshold|drempel|repetition|heuvel/.test(name)) return "structured";
+  return "unknown";
+}
+
 // Hoe zeker is het dat dit een echte wedstrijd was? "confirmed" = jouw keuze of de wedstrijdmarkering van Strava,
 // "probable" = alleen op naam herkend (bijvoorbeeld "Halve marathon oefening") en nog niet door jou bevestigd.
 export type RaceStatus = "confirmed" | "probable" | "none";
@@ -82,7 +113,7 @@ export const RACE_STATUS_LABEL: Record<RaceStatus, string> = { confirmed: "Wedst
 
 export function raceStatus(run: KindInput): RaceStatus {
   if (run.kindOverride === "race") return "confirmed";
-  if (run.kindOverride === "not_race") return "none";
+  if (run.kindOverride === "not_race" || run.kindOverride === "easy" || run.kindOverride === "long" || run.kindOverride === "interval") return "none";
   if (run.workoutType === 1) return "confirmed";
   const name = (run.name ?? "").toLowerCase();
   return RACE_NAME.test(name) && !NOT_RACE_NAME.test(name) ? "probable" : "none";
@@ -185,7 +216,7 @@ export function lapsAreDistinct(laps: PaceUnit[], splits: PaceUnit[]) {
 
 /* ---------- pacing analysis of one run ---------- */
 
-export type PacingPattern = "negative" | "even" | "fade" | "heavy-fade" | "variable" | "intervals";
+export type PacingPattern = "negative" | "even" | "fade" | "heavy-fade" | "variable" | "intervals" | "two-part" | "block";
 export const PATTERN_LABEL: Record<PacingPattern, string> = {
   negative: "Negatieve split",
   even: "Gelijkmatig",
@@ -193,6 +224,8 @@ export const PATTERN_LABEL: Record<PacingPattern, string> = {
   "heavy-fade": "Sterk vervallen",
   variable: "Wisselend tempo",
   intervals: "Interval-opbouw",
+  "two-part": "Training in twee delen",
+  block: "Tempoblok met in- en uitloop",
 };
 
 export type UnitRow = { label: string; distanceM: number; paceSec: number; gapPaceSec: number | null; deltaSec: number | null; hr: number | null; elevM: number; cadenceSpm: number | null; watts: number | null; note: string | null; tone: Tone };
@@ -214,9 +247,15 @@ export type PacingAnalysis = {
   slowest: { label: string; paceSec: number };
   rows: UnitRow[];
   advice: Advice[];
+  /** Duidelijke stapverandering in tempo (snel deel, tempoblok, herhalingen). Null als het tempo geleidelijk liep. */
+  structure: RunStructure | null;
+  /** De structuur bepaalt de beoordeling: geen "tempo zakte in"-oordeel over een bewust snel deel. */
+  structureApplied: boolean;
+  /** Structuur gezien, maar niets zegt of ze bedoeld was. De pagina vraagt het. */
+  needsConfirmation: boolean;
 };
 
-export type AnalysisContext = { maxHrObserved?: number | null; unitName?: "kilometer" | "ronde" };
+export type AnalysisContext = { maxHrObserved?: number | null; unitName?: "kilometer" | "ronde"; intent?: RunIntent; /** echte rondes van horloge of jou; vaak scherper dan km-splits voor de structuur */ structureUnits?: PaceUnit[] };
 
 const effortPaceSec = (unit: PaceUnit, useGap: boolean) => (useGap && unit.gapSpeed ? 1000 / unit.gapSpeed : unit.timeS / (unit.distanceM / 1000));
 
@@ -275,8 +314,20 @@ export function analyzePacing(units: PaceUnit[], kind: RunKind, context: Analysi
   else if (splitDiffSec >= 5) pattern = "fade";
   else pattern = "even";
 
+  // structure: a clear step change in pace. Skipped for races (judged as races) and when the athlete says it was one steady effort.
+  const intent = context.intent ?? "unknown";
+  const structure = kind === "race" || intent === "steady" ? null : detectStructure(context.structureUnits ?? units);
+  const clearIntervals = structure?.shape === "intervals" && structure.separationSec >= 25;
+  const structureApplied = structure != null && (intent === "structured" || clearIntervals || structure.shape !== "intervals");
+  const needsConfirmation = structure != null && intent === "unknown" && !clearIntervals;
+  if (structure && structureApplied) pattern = structure.shape === "intervals" ? "intervals" : structure.shape === "mid-block" ? "block" : "two-part";
+  const segmentAt = (midM: number) => structure?.segments.find((segment) => midM >= segment.startM && midM < segment.endM) ?? structure?.segments.at(-1) ?? null;
+
   // per-unit rows with a short coaching note
+  let unitStart = 0;
   const rows: UnitRow[] = units.map((unit) => {
+    const midM = unitStart + unit.distanceM / 2;
+    unitStart += unit.distanceM;
     const paceSec = unit.timeS / (unit.distanceM / 1000);
     if (unit.partial) return { label: unit.label, distanceM: unit.distanceM, paceSec, gapPaceSec: unit.gapSpeed ? 1000 / unit.gapSpeed : null, deltaSec: null, hr: unit.hr, elevM: unit.elevM, cadenceSpm: unit.cadenceSpm, watts: unit.watts, note: null, tone: "info" as Tone };
     const position = full.indexOf(unit);
@@ -287,7 +338,10 @@ export function analyzePacing(units: PaceUnit[], kind: RunKind, context: Analysi
     const lastThird = position >= Math.floor(full.length * 2 / 3);
     let note: string | null = null;
     let tone: Tone = "info";
-    if (pattern === "intervals") {
+    const segment = structureApplied ? segmentAt(midM) : null;
+    if (segment) {
+      note = segment.role === "snel" && structure?.shape === "intervals" ? "Snel blok" : ROLE_NOTE[segment.role]; tone = segment.role === "snel" ? "good" : "info";
+    } else if (pattern === "intervals") {
       if (delta <= -20) { note = "Snel blok"; tone = "good"; }
       else if (delta >= 20) { note = "Herstel"; tone = "info"; }
     } else if (position === 0 && firstUnitDeltaSec != null && firstUnitDeltaSec <= -10) { note = `Te snel gestart (${Math.abs(round(firstUnitDeltaSec))} s sneller dan de rest)`; tone = "watch"; }
@@ -305,13 +359,48 @@ export function analyzePacing(units: PaceUnit[], kind: RunKind, context: Analysi
     unitCount: full.length, avgPaceSec, firstHalfPaceSec, secondHalfPaceSec, splitDiffSec, cvPct, firstUnitDeltaSec, lastUnitDeltaSec, hrDriftPct, decouplingPct, gradeAdjusted: useGap, pattern,
     fastest: { label: full[fastestIndex].label, paceSec: full[fastestIndex].timeS / (full[fastestIndex].distanceM / 1000) },
     slowest: { label: full[slowestIndex].label, paceSec: full[slowestIndex].timeS / (full[slowestIndex].distanceM / 1000) },
-    rows, advice: [],
+    rows, advice: [], structure, structureApplied, needsConfirmation,
   };
   analysis.advice = buildPacingAdvice(analysis, kind, unitName, full);
   return analysis;
 }
 
+const ROLE_NOTE: Record<StructureSegment["role"], string> = { inloop: "Inloop", snel: "Snel deel", rustig: "Rustig deel", herstel: "Herstel", uitloop: "Uitloop" };
+const secPerKm = (value: number) => `${formatPaceSec(value)}/km`;
+const hrText = (segment: StructureSegment) => (segment.hr != null ? `, hartslag ${Math.round(segment.hr)}` : "");
+
+function structureAdvice(a: PacingAnalysis, unitName: string): Advice[] {
+  const structure = a.structure!;
+  const core = coreSegments(structure);
+  const fast = core.filter((segment) => segment.role === "snel");
+  const easy = core.filter((segment) => segment.role === "rustig" || segment.role === "herstel");
+  const advice: Advice[] = [];
+  const describe = (segment: StructureSegment) => `${segmentRange(segment)} op ${secPerKm(segment.paceSec)}${hrText(segment)}`;
+  if (structure.shape === "intervals") {
+    const paces = fast.map((segment) => segment.paceSec);
+    const spread = Math.max(...paces) - Math.min(...paces);
+    const trend = paces.length >= 3 ? paces.at(-1)! - paces[0] : paces.length === 2 ? paces[1] - paces[0] : null;
+    advice.push({ tone: "info", title: `${fast.length} snelle delen op ${secPerKm(structure.fastPaceSec)}`, detail: `Daartussen herstel op ${secPerKm(structure.easyPaceSec)}. ${fast.map((segment) => describe(segment)).slice(0, 6).join(" · ")}.` });
+    if (trend != null && trend >= 8) advice.push({ tone: "watch", title: "Het laatste snelle deel was het zwakst", detail: `Het laatste snelle deel liep ${Math.round(trend)} s/km langzamer dan het eerste. Begin de eerste herhaling iets rustiger.` });
+    else if (spread <= 10) advice.push({ tone: "good", title: "Gelijkmatige snelle delen", detail: `Je snelle delen liggen binnen ${Math.round(spread)} s/km van elkaar: beheerst en goed gedoseerd.` });
+    else advice.push({ tone: "info", title: "Snelle delen liepen uiteen", detail: `Tussen je snelste en langzaamste deel zit ${Math.round(spread)} s/km. Kies een vast doeltempo en bewaak dat bij de eerste herhaling.` });
+    return advice;
+  }
+  const block = fast[0];
+  const rest = easy[0];
+  const shapeTitle = structure.shape === "fast-start" ? "Snel begin, rustig daarna" : structure.shape === "fast-finish" ? "Rustig begin, snel einde" : "Tempoblok in het midden";
+  advice.push({ tone: "info", title: shapeTitle, detail: [block ? `Snel deel ${describe(block)}` : null, rest ? `rustig deel ${describe(rest)}` : null].filter(Boolean).join(" · ") + `. Verschil ${Math.round(structure.separationSec)} s/km.` });
+  if (block?.trendSec != null) {
+    if (block.trendSec >= 8) advice.push({ tone: "watch", title: "Binnen het snelle deel zakte je in", detail: `De tweede helft van het snelle deel was ${Math.round(block.trendSec)} s/km langzamer dan de eerste. Begin het snelle deel iets rustiger of kort het in.` });
+    else if (block.spreadSec != null && block.spreadSec <= 12) advice.push({ tone: "good", title: "Het snelle deel was gelijkmatig", detail: `Je ${unitName}s in het snelle deel liggen binnen ${Math.round(block.spreadSec)} s/km van elkaar.` });
+  }
+  if (rest?.trendSec != null && rest.trendSec >= 12) advice.push({ tone: "watch", title: "Het rustige deel zakte verder in", detail: `Het rustige deel werd ${Math.round(rest.trendSec)} s/km langzamer van begin naar eind. Het snelle deel kostte je meer dan de bedoeling was.` });
+  else if (rest && block && block.hr != null && rest.hr != null && rest.hr < block.hr) advice.push({ tone: "good", title: "Hartslag zakte in het rustige deel", detail: `Van ${Math.round(block.hr)} naar ${Math.round(rest.hr)} slagen per minuut: het rustige deel deed zijn werk.` });
+  return advice;
+}
+
 function buildPacingAdvice(a: PacingAnalysis, kind: RunKind, unitName: string, full: PaceUnit[]): Advice[] {
+  if (a.structure && a.structureApplied) return structureAdvice(a, unitName);
   const advice: Advice[] = [];
   const fade = Math.round(a.splitDiffSec);
   const start = a.firstUnitDeltaSec != null ? Math.round(a.firstUnitDeltaSec) : null;
@@ -541,8 +630,8 @@ export function buildRunAnalysis(runs: AnalysisRun[], now = new Date()): RunAnal
   const analyses = withSplits.flatMap((run) => {
     const kind = kindOf.get(run.id)!;
     if (kind === "interval") return [];
-    const analysis = analyzePacing(parseKmSplits(run.raw), kind, { maxHrObserved });
-    return analysis ? [{ kind, analysis }] : [];
+    const analysis = analyzePacing(parseKmSplits(run.raw), kind, { maxHrObserved, intent: runIntent(run) });
+    return analysis && !analysis.structureApplied ? [{ kind, analysis }] : [];
   });
   const group = (label: string, list: typeof analyses): StyleGroup | null => list.length >= MIN_SAMPLES ? {
     label, runs: list.length,
@@ -720,13 +809,19 @@ export function buildRunDigest(runs: AnalysisRun[]): DigestRow[] {
     const efficiencies = similar.flatMap((other) => efficiencyOf(other) ?? []);
     const ownEfficiency = efficiencyOf(run);
     const efficiencyVsSimilarPct = ownEfficiency != null && efficiencies.length >= MIN_SAMPLES ? round(((ownEfficiency - median(efficiencies)!) / median(efficiencies)!) * 100, 1) : null;
-    const pacing = analyzePacing(parseKmSplits(run.raw), kind, { maxHrObserved });
+    const pacing = analyzePacing(parseKmSplits(run.raw), kind, { maxHrObserved, intent: runIntent(run) });
     const band = distanceBand(run.distanceM);
     const base = { id: run.id, name: run.name, date: run.startDate, kind, distanceKm: run.distanceM / 1000, timeS: run.movingTimeS, paceSec: pace, avgHr: run.avgHr, elevationM: run.elevationM, paceVsSimilarSec: comparison?.paceDeltaSec ?? null, efficiencyVsSimilarPct, pattern: pacing?.pattern ?? null, hasSplits: pacing != null };
 
     const pick = (tone: Tone, verdict: string, detail: string): DigestRow => ({ ...base, tone, verdict, detail });
     const hardEasy = (kind === "easy" || kind === "long") && run.avgHr != null && maxHrObserved != null && run.avgHr / maxHrObserved >= 0.84;
 
+    if (kind !== "race" && pacing?.structure && pacing.structureApplied && pacing.pattern !== "intervals") {
+      const title = pacing.pattern === "block" ? "Tempoblok met in- en uitloop" : pacing.structure.shape === "fast-finish" ? "Rustig begin, snel einde" : "Snel begin, rustig daarna";
+      if (pacing.needsConfirmation) return pick("info", `${title}?`, `${pacing.advice[0]?.detail ?? ""} Was dit bewust? Bevestig het type op de runpagina.`.trim());
+      const watch = pacing.advice.find((item) => item.tone === "watch");
+      return watch ? pick("watch", watch.title, watch.detail) : pick("good", title, pacing.advice[0]?.detail ?? "");
+    }
     if (kind === "race") {
       if (pacing?.pattern === "heavy-fade") return pick("watch", "Sterk vervallen", `Tweede helft ${Math.round(pacing.splitDiffSec)} s/km langzamer. Start rustiger.`);
       if (pacing?.firstUnitDeltaSec != null && pacing.firstUnitDeltaSec <= -10) return pick("watch", "Te snel gestart", `Eerste kilometer ${Math.abs(Math.round(pacing.firstUnitDeltaSec))} s/km sneller dan de rest.`);

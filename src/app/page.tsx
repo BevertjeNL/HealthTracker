@@ -6,6 +6,8 @@ import { DataRefreshButton } from "@/components/DataRefreshButton";
 import { MetricCard } from "@/components/MetricCard";
 import { RunBodyCard } from "@/components/RunBodyCard";
 import { RunDetailLoader } from "@/components/RunDetailLoader";
+import { RunTypeChoice } from "@/components/RunTypeChoice";
+import { structureSummary } from "@/lib/run-structure";
 import { RunLessonCard } from "@/components/RunLessonCard";
 import { Spark } from "@/components/Spark";
 import { db } from "@/db";
@@ -109,6 +111,7 @@ export default async function Home() {
         <div className="p-section-head"><div><span className="p-overline">NA JE LAATSTE RUN</span><h2 id="last-run-title">{last.name || "Hardlooptraining"}</h2></div><Link href={`/runs/${last.id}`}>Alle kilometers →</Link></div>
         {latestAnalysis && latestAnalysis.raw._coach_detail_loaded !== true && !Array.isArray(latestAnalysis.raw.splits_metric) && <RunDetailLoader activityId={last.id} />}
         <div className="p-runhead"><span className="c-kind">{KIND_LABEL[review.kind]}</span><span>{fmtDate(last.startDate)}</span><b>{fmtKm(last.distanceM)}</b><b>{fmtPace(last.avgPaceMinPerKm)}</b><b>{fmtDuration(last.movingTimeS)}</b>{last.avgHeartRate != null && <b>{Math.round(last.avgHeartRate)} bpm</b>}</div>
+        {review.pacing?.needsConfirmation && review.pacing.structure && <RunTypeChoice runId={last.id} kind={review.kind} sourceLabel="" override={last.kindOverride} ask={{ summary: structureSummary(review.pacing.structure), steadyKind: review.kind === "long" ? "long" : "easy" }} askOnly />}
         <div className="p-two">
           <RunLessonCard lesson={review.lesson} compact />
           {lastContext && <RunBodyCard context={lastContext} loadBasis={lastLoad?.loadBasis} compact />}

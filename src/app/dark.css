@@ -95,6 +95,7 @@ a:focus-visible, button:focus-visible { outline: 3px solid rgba(243, 126, 101, 0
 .an-advice b { color: #e4f2ee; }
 .an-advice p { color: #bec9c4; }
 .an-marker { background: #1f2522; color: #d8e6e1; }
+.an-marker button[aria-pressed="true"] { color: #ffffff; background: #1d4d3d; }
 .an-marker button { color: #ffffff; background: #1d4d3d; }
 .an-marker button.ghost { color: #ddf0ea; background: #232926; }
 .c-shell { background: #0f1412; color: #e5f1ed; }
@@ -432,6 +433,9 @@ a:focus-visible, button:focus-visible { outline: 3px solid rgba(243, 126, 101, 0
 .p-detail-close { color: #bfccc5; }
 .p-detail-controls { color: #acb7b1; }
 .p-detail-text p, .p-detail-text li { color: #c0cfc5; }
+.p-ask { background: #1e2421; }
+.p-ask-actions button { color: #ffffff; background: #1d4d3d; }
+.p-ask-actions button.ghost { color: #ddf0ea; background: #212724; }
 @media (max-width: 899px) { .p-nav { border-bottom: 1px solid rgba(224, 242, 235, 0.08); background: rgba(30, 36, 33, 0.8); } }
 @media (max-width: 899px) { .p-tabbar { border: 1px solid rgba(255, 255, 255, 0.14); background: rgba(27, 32, 29, 0.74); } }
 @media (max-width: 899px) { .p-tabbar a { color: #acb6b0; } }

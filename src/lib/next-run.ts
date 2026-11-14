@@ -2,7 +2,7 @@ import type { activities } from "@/db/schema";
 import type { buildCoachToday } from "./coach.ts";
 import { addDays, daysBetween, type PlanDay } from "./goal-plan.ts";
 import { dayDifference } from "./recovery.ts";
-import { analyzePacing, classifyRun, KIND_LABEL, parseKmSplits, toAnalysisRun } from "./run-analysis.ts";
+import { analyzePacing, classifyRun, KIND_LABEL, parseKmSplits, runIntent, toAnalysisRun } from "./run-analysis.ts";
 import { prescribeNextRun, restDaysAfter, type PrescriptionKind } from "./run-prescription.ts";
 
 type Activity = typeof activities.$inferSelect;
@@ -57,7 +57,7 @@ export function buildNextRun({ runs, coach, body, planDays }: NextRunInput): Nex
   const lastAnalysis = analysisRuns[0] ?? null;
   const lastKind = lastAnalysis ? classifyRun(lastAnalysis) : null;
   const maxHr = analysisRuns.reduce((max, item) => Math.max(max, item.maxHr ?? 0), 0) || null;
-  const pacing = lastAnalysis && lastKind ? analyzePacing(parseKmSplits(lastAnalysis.raw), lastKind, { maxHrObserved: maxHr }) : null;
+  const pacing = lastAnalysis && lastKind ? analyzePacing(parseKmSplits(lastAnalysis.raw), lastKind, { maxHrObserved: maxHr, intent: runIntent(lastAnalysis) }) : null;
 
   // 1. Vandaag al een run staan? Dan begint het zoeken bij morgen. Anders geldt het dagadvies van vandaag als het een run is.
   let offset = -1;
