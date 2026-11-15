@@ -395,7 +395,7 @@ export function buildBodyAlert(trends: HealthTrend[]): BodyAlert {
   if (known === 0) return { level: "ok", title: "Nog geen lichaamsbeeld", detail: "Er is geen recente HRV of rusthartslag met eigen basislijn. Synchroniseer Apple Health om je herstel te kunnen volgen.", signals };
   if (signals.length >= 3) return { level: "stop", title: "Je lichaam geeft meerdere waarschuwingen", detail: "Meerdere signalen wijken tegelijk duidelijk af. Dat past bij ziekte of zware vermoeidheid. Sla intensiteit over en kies rust.", signals };
   if (signals.length >= 2) return { level: "let-op", title: "Twee signalen wijken duidelijk af", detail: "HRV en hartslag wijken allebei duidelijk van je normaal af. Houd de training rustig tot ze terugkeren.", signals };
-  if (signals.length === 1) return { level: "let-op", title: "Eén signaal wijkt duidelijk af", detail: "Eén meting is nog geen oordeel. Volg je schema, maar let op hoe je je voelt en kijk morgen opnieuw.", signals };
+  if (signals.length === 1) return { level: "let-op", title: "Eén signaal wijkt duidelijk af", detail: "Eén meting is geen oordeel. Volg je schema en kijk morgen opnieuw.", signals };
   return { level: "ok", title: "Je lichaam is in balans", detail: "HRV en rusthartslag liggen binnen je normale schommeling.", signals };
 }
 

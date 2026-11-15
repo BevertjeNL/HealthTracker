@@ -162,7 +162,7 @@ export function prescribeNextRun(input: PrescriptionInput): RunPrescription {
   const weekKm = runs28.reduce((sum, run) => sum + run.distanceM / 1000, 0) / 4;
   const runDays7 = new Set(sorted.filter((run) => run.startDate.getTime() >= now.getTime() - 7 * DAY).map((run) => dayKey(run.startDate))).size;
   const easyMid = zones ? (zones.easy.fast + zones.easy.slow) / 2 : 0;
-  const hrNote = zones?.easyHrCap ? ` Hartslag onder ongeveer ${zones.easyHrCap} slagen per minuut.` : "";
+  const hrNote = zones?.easyHrCap ? ` Hartslag onder ${zones.easyHrCap}.` : "";
   const enoughData = runs28.length >= MIN_SAMPLES;
 
   const rest = (title: string, detail: string, why: string): RunPrescription => ({ kind: "rest", title, detail, why, distanceKm: null, paceSec: null });
@@ -175,7 +175,7 @@ export function prescribeNextRun(input: PrescriptionInput): RunPrescription {
   if (daysSinceLast === 0) return rest("Vandaag niet nogmaals lopen", `Herstel na ${km(Math.round(last.distanceM / 100) / 10)} km · wandelen optioneel`, "Een tweede training op dezelfde dag levert minder op dan herstel, eten en slaap.");
   if (adverse) {
     const why = readiness != null && readiness < 58 ? `Je herstelscore is ${readiness}/100, onder je eigen basislijn.` : loadChangePct != null && loadChangePct > 30 ? `Je weekbelasting ligt ${loadChangePct}% boven je vierweekse basis.` : "Je herstelsignalen (HRV en rusthartslag) wijken af van je eigen basislijn.";
-    return rest("Kies herstel boven kilometers", "Rust of 20–30 min wandelen. Hervat pas rustig wanneer je herstelsignalen terug zijn bij je basislijn.", why);
+    return rest("Kies herstel boven kilometers", "Rust of 20–30 min wandelen. Hervat rustig zodra je herstelsignalen terug zijn bij je basis.", why);
   }
   if (daysSinceLast < needed || (runDays7 >= 5 && daysSinceLast <= 1)) {
     const kind = classifyRun(last);
@@ -203,7 +203,7 @@ export function prescribeNextRun(input: PrescriptionInput): RunPrescription {
 
   if (zones && !input.easyOnly && runs28.length >= 6 && !longRecent && daysSinceLast >= 2 && longest42 >= 6) {
     const lo = roundHalf(longest42), hi = roundHalf(longest42 + Math.max(1, Math.min(2, longest42 * 0.1)));
-    const finish = progressive ? ` Loop het laatste derde 10–15 s/km sneller (${paceRangeText({ fast: zones.long.fast - 15, slow: zones.long.fast - 5 })}); je laatste training liet geen hartslagdrift zien, dus daar is ruimte voor.` : " Houd het tempo gelijk of laat de tweede helft licht versnellen als je hartslag stabiel blijft.";
+    const finish = progressive ? ` Loop het laatste derde 10–15 s/km sneller (${paceRangeText({ fast: zones.long.fast - 15, slow: zones.long.fast - 5 })}); je hartslag dreef vorige keer niet op.` : " Houd het tempo gelijk of laat de tweede helft licht versnellen als je hartslag stabiel blijft.";
     return { kind: "long", title: "Lange duurloop", detail: `${gapText}: ${range(lo, hi)} km (ongeveer ${Math.round(lo * zones.long.slow / 60)}–${Math.round(hi * zones.long.slow / 60)} min) op ${paceRangeText(zones.long)}.${finish}${hrNote}`, why: `Je laatste lange loop is langer dan 10 dagen geleden. ${zones.basis}.`, distanceKm: [lo, hi], paceSec: zones.long };
   }
 

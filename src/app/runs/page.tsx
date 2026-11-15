@@ -50,14 +50,8 @@ export default async function RunsPage({ searchParams }: { searchParams: Promise
   const href = (type: string, all = false) => `/runs${type !== "all" || all ? "?" : ""}${[type !== "all" ? `type=${type}` : "", all ? "alle=1" : ""].filter(Boolean).join("&")}`;
 
   return <div className="c-shell"><main className="c-container"><CoachNav active="runs" />
-    <header className="p-head"><div><span className="p-overline">JE TRAININGSDAGBOEK</span><h1>Runs</h1><p>Per training de kerncijfers op een regel. Open een run voor wat goed ging, wat opvalt en wat je volgende stap is.</p></div><SyncButton /></header>
+    <header className="p-head"><div><span className="p-overline">JE TRAININGSDAGBOEK</span><h1>Runs</h1><p>{fmtNum(km28, 0)} km in {recent.length} runs de laatste 28 dagen · fase: {plan.phase}.</p></div><SyncButton /></header>
     {!rows.length ? <section className="c-empty"><h2>Nog geen runs gevonden.</h2><p>Verbind Strava om je trainingen te analyseren.</p><a href="/api/strava/auth" className="c-button">Verbind Strava ↗</a></section> : <>
-      <section className="p-tiles p-tiles-4" aria-label="Samenvatting">
-        <article className="p-tile"><span className="p-metric-label">Laatste 28 dagen</span><div className="p-metric-value"><strong>{fmtNum(km28, 0)}</strong><small>km · {recent.length} runs</small></div><p className="p-metric-meta"><b>{plan.phase}</b></p></article>
-        <Link href="/vorm#belasting" className={`p-tile p-tile-${body.balance.tone}`}><span className="p-metric-label">Belasting</span><div className="p-metric-value"><strong>{body.balance.ratio == null ? "—" : `${fmtNum(body.balance.ratio, 2)}×`}</strong><small>je normale week</small></div><p className="p-metric-meta"><b>{body.balance.label}</b></p></Link>
-        <Link href="/vorm#fitness" className={`p-tile p-tile-${body.fitness.verdict.tone}`}><span className="p-metric-label">Fitness</span><div className="p-metric-value"><strong>{body.fitness.efficiency.deltaPct != null ? `${body.fitness.efficiency.deltaPct > 0 ? "+" : ""}${fmtNum(body.fitness.efficiency.deltaPct, 1)}%` : "—"}</strong><small>zuinigheid</small></div><p className="p-metric-meta"><b>{body.fitness.verdict.label}</b></p></Link>
-        <Link href="/lichaam" className={`p-tile p-tile-${body.alert.level === "ok" ? "good" : "warning"}`}><span className="p-metric-label">Lichaam</span><div className="p-metric-value"><strong>{body.alert.level === "ok" ? "OK" : body.alert.level === "stop" ? "Rust" : "Let op"}</strong></div><p className="p-metric-meta"><b>{body.alert.title}</b></p></Link>
-      </section>
       <SplitsBackfill runs={withoutDetails} halfCount={halfWithoutDetails} />
       <section className="p-section" aria-labelledby="journal-title">
         <div className="p-section-head"><div><span className="p-overline">RUN VOOR RUN</span><h2 id="journal-title">{filtered.length} {filtered.length === 1 ? "run" : "runs"}</h2></div></div>

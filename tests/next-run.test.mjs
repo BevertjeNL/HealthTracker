@@ -30,7 +30,7 @@ test("two body signals push the next run back and keep it easy", () => {
   assert.ok(alert.offset >= calm.offset);
   assert.ok(alert.kind === "easy" || alert.kind === "recovery");
   assert.equal(alert.tone, "warning");
-  assert.match(alert.basis.join(" "), /HRV 18%/);
+  assert.match(alert.basis.join(" "), /Lichaamssignalen/);
 });
 
 test("a stop alert waits at least two days and shows a critical tone", () => {

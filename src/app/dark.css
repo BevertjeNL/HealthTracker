@@ -108,13 +108,6 @@ a:focus-visible, button:focus-visible { outline: 3px solid rgba(243, 126, 101, 0
 .c-empty h2 { color: #d7eee3; }
 .c-empty p { color: #b1beb3; }
 .c-button { color: #ffffff; background: #1e6143; }
-.c-evidence { border: 1px solid #2f3a34; background: #1b201d; }
-.c-evidence h2 { color: #d6ebe0; }
-.c-evidence h3 { color: #d59581; }
-.c-evidence p, .c-evidence li { color: #afbcb2; }
-.c-evidence li { border-top: 1px solid #2c3631; }
-.c-evidence-note { color: #a6b2a7; }
-.c-timing-note { color: #a6b2a7; }
 .c-deep-dive { border: 1px solid #2f3a34; background: #1b201d; }
 .c-deep-dive > summary { color: #d3e7dc; }
 .c-deep-dive > summary span { color: #dc9074; }
@@ -149,7 +142,6 @@ a:focus-visible, button:focus-visible { outline: 3px solid rgba(243, 126, 101, 0
 .an-axis-controls button { border: 1px solid #394841; color: #d0ebde; background: #1b201d; }
 .an-range-error { color: #d89e96; }
 .split-chart-note { color: #bdcbc2; }
-.c-timing-note { color: #bac8be; }
 .g-setup { border: 1px solid #2e3b34; background: #1b201d; }
 .g-setup h2 { color: #def0e8; }
 .g-setup-copy p { color: #b9c8bd; }
@@ -165,11 +157,6 @@ a:focus-visible, button:focus-visible { outline: 3px solid rgba(243, 126, 101, 0
 .g-assessment h2 { color: #d4eee1; }
 .g-assessment p { color: #bccac1; }
 .g-assessment li { border-bottom: 1px solid #2b3731; color: #c1d2c6; }
-.g-today > div { color: #ffffff; background: #1d5941; }
-.g-today aside { background: #212724; }
-.g-today aside > span { color: #b0c1b2; }
-.g-today aside strong { color: #d4ecdf; }
-.g-today aside p { color: #b8c9bc; }
 .g-schedule-intro { color: #bac8be; }
 .g-week { border: 1px solid #2e3a34; background: #1b201d; }
 .g-week-head { border-bottom: 1px solid #2d3a33; }
@@ -211,16 +198,11 @@ a:focus-visible, button:focus-visible { outline: 3px solid rgba(243, 126, 101, 0
 .w-correction .w-success { color: #cdecdd; }
 .w-section .chart-stat-strip small { color: #b8c6bb; }
 .c-shell .c-footer { color: #bac8be; }
-.c-verdict-good { --verdict-border: #3a4a40; --verdict-accent: #b0eccf; --verdict-bg: #1e2421; --verdict-text: #d1f0e2; }
-.c-verdict-warning { --verdict-accent: #f1c98b; --verdict-bg: #302712; --verdict-text: #f6e0be; }
-.c-verdict-critical { --verdict-border: #483a39; --verdict-accent: #da8c87; --verdict-bg: #1d221f; --verdict-text: #e2aaa7; }
-.c-verdict-unknown { --verdict-border: #39423e; --verdict-accent: #afbbba; --verdict-bg: #1e2320; --verdict-text: #c9dad8; }
 .c-story-point.watch { background: #1c221f; border-color: #483d38; border-top-color: #da8c87; }
 .c-story-point.good { background: #1d2320; border-color: #39483e; border-top-color: #b0eccf; }
 .c-mini-judgment.good { color: #c4efda; }
 .c-mini-judgment.watch { color: #dd9692; }
 .c-mini-judgment.info { color: #efd4ab; }
-.c-health-action { border-left: 4px solid #e4ba8c; background: #1e2421; color: #f3dfc2; }
 .c-run-lesson { --lesson-accent: #b2e5c9; border: 1px solid #34423b; background: #1d2220; color: #def0e8; }
 .c-run-lesson.warning { --lesson-accent: #e9c48d; border-color: #464137; background: #1d2320; }
 .c-run-lesson.critical { --lesson-accent: #d8908b; border-color: #453836; background: #1c221f; }
@@ -232,7 +214,6 @@ a:focus-visible, button:focus-visible { outline: 3px solid rgba(243, 126, 101, 0
 .c-run-lesson-grid strong, .c-run-lesson-next strong { color: #d0ecdd; }
 .c-run-lesson-grid p { color: #c9dacf; }
 .c-run-lesson .c-run-lesson-next { background: #1e4c38; color: #ffffff; }
-.c-detail-lesson-facts { color: #d3e8dd; background: #202623; }
 .g-session-label { color: #becdc2; background: #202724; }
 .g-session-label.quality { color: #edc6a7; background: #342914; }
 .g-session-label.long { color: #c9eddb; background: #202724; }
@@ -332,13 +313,7 @@ a:focus-visible, button:focus-visible { outline: 3px solid rgba(243, 126, 101, 0
 .p-decision-kicker { color: rgba(255, 255, 255, 0.72); }
 .p-decision p { color: rgba(255, 255, 255, 0.88); }
 .p-decision-basis li { border: 1px solid rgba(255, 255, 255, 0.14); color: rgba(255, 255, 255, 0.9); }
-.p-decision-next { border-top: 1px solid rgba(255, 255, 255, 0.14); }
 .p-watch { border: 1px solid rgba(255, 255, 255, 0.14); background: rgba(255, 255, 255, 0.1); }
-.p-signals { border: 1px solid #3f3b31; background: #1e2421; }
-.p-signals li { border-top: 1px solid #3d3930; color: #cbd7cf; }
-.p-signals li::before { color: #d49d82; }
-.p-source { color: #b1b9ad; }
-.p-source b { color: #cbddd3; }
 .p-alert { border: 1px solid #454137; background: #312a13; }
 .p-alert-stop { border-color: #433535; background: #1e2421; }
 .p-alert-label { color: #ffffff; }

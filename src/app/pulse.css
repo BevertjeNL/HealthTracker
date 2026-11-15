@@ -64,7 +64,7 @@
 .p-two { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; align-items: start; }
 
 /* ---------- today: decision + signals ---------- */
-.p-lead { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(280px, .75fr); gap: 16px; }
+.p-lead { display: grid; grid-template-columns: 1fr; gap: 16px; }
 .p-decision { padding: 28px 32px; position: relative; overflow: hidden; border-radius: 26px; color: #fff; background: linear-gradient(135deg, #14402f, #1f6a4b); }
 .p-decision-warning { background: linear-gradient(135deg, #6f4a14, #a8721f); }
 .p-decision-critical { background: linear-gradient(135deg, #6c2323, #a53a3a); }
@@ -80,17 +80,9 @@
 .p-decision-do { color: #e4f7ae !important; font-size: 18px !important; font-weight: 700; }
 .p-decision-basis { margin: 18px 0 0; padding: 0; display: flex; flex-wrap: wrap; gap: 8px; list-style: none; }
 .p-decision-basis li { padding: 6px 12px; border: 1px solid rgba(255, 255, 255, .22); border-radius: 999px; font-size: 13px; font-weight: 600; color: rgba(255, 255, 255, .9); }
-.p-decision-next { padding-top: 12px; border-top: 1px solid rgba(255, 255, 255, .18); }
 .p-watch { margin: 14px 0; padding: 14px 16px; border: 1px solid rgba(255,255,255,.28); border-radius: 14px; background: rgba(255,255,255,.1); font-size: 14px; line-height: 1.5; }
 .p-watch ol { margin: 8px 0 0; padding-left: 22px; }
 .p-watch li + li { margin-top: 4px; }
-.p-sleep-current { margin: 0 0 8px; color: var(--p-ink); font-size: 25px; font-weight: 800; }
-.p-signals { padding: 24px 26px; border: 1px solid #e8dfca; border-radius: 26px; background: #fbf6ea; }
-.p-signals ol { margin: 14px 0 0; padding: 0; list-style: none; counter-reset: sig; }
-.p-signals li { padding: 11px 0 11px 34px; position: relative; border-top: 1px solid #ebe2cf; color: #3c5144; font-size: 14.5px; font-weight: 600; line-height: 1.45; counter-increment: sig; }
-.p-signals li::before { content: counter(sig, decimal-leading-zero); position: absolute; left: 0; top: 12px; color: #cf794f; font-size: 12px; font-weight: 850; }
-.p-source { margin: 12px 0 0; color: #6e7c67; font-size: 13px; line-height: 1.45; }
-.p-source b { color: #325341; }
 
 /* ---------- alert ---------- */
 .p-alert { margin-top: 16px; padding: 18px 22px; display: grid; grid-template-columns: auto 1fr; gap: 18px; align-items: start; border: 1px solid #ecd9a8; border-radius: 18px; background: #fff7e0; }

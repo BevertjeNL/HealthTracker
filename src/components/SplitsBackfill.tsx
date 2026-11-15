@@ -28,5 +28,5 @@ export function SplitsBackfill({ runs, halfCount = 0 }: { runs: Array<{ id: numb
     if (count) router.refresh();
   };
 
-  return <div className="an-backfill"><div><b>{runs.length} runs zonder kilometergegevens</b><p>Haal de splits van {batch.length} runs op voor een scherpere analyse van je loopstijl.{halfCount > 0 ? ` ${halfCount} ${halfCount === 1 ? "run" : "runs"} rond de halve marathon staan bovenaan: daarmee wordt de eindtijd op exact 21,0975 km nauwkeurig.` : ""}</p>{message && <p className="split-error" role="alert">{message}</p>}</div><button type="button" onClick={start} disabled={busy}>{busy ? `Ophalen… ${done}/${batch.length}` : `Haal ${batch.length} runs op`}</button></div>;
+  return <div className="an-backfill"><div><b>{runs.length} runs zonder kilometergegevens</b><p>Haal de splits van {batch.length} runs op.{halfCount > 0 ? ` ${halfCount} ${halfCount === 1 ? "run" : "runs"} rond de halve marathon gaan eerst: alleen met splits klopt de eindtijd op 21,0975 km.` : ""}</p>{message && <p className="split-error" role="alert">{message}</p>}</div><button type="button" onClick={start} disabled={busy}>{busy ? `Ophalen… ${done}/${batch.length}` : `Haal ${batch.length} runs op`}</button></div>;
 }

@@ -15,7 +15,7 @@ export const dynamic = "force-dynamic";
 const COLORS: Partial<Record<HealthKey, string>> = { hrvMs: "var(--series-hrv)", restingHeartRate: "var(--series-rhr)", vo2Max: "var(--series-vo2)", weightKg: "var(--series-weight)", respiratoryRate: "var(--series-rhr)", oxygenSaturationPct: "var(--series-vo2)", steps: "var(--series-steps)", exerciseMinutes: "var(--series-run)", runningPowerW: "var(--series-run)", runningStrideLengthM: "var(--series-vo2)", runningGroundContactTimeMs: "var(--series-weight)", runningVerticalOscillationCm: "var(--series-steps)" };
 const DIGITS: Partial<Record<HealthKey, number>> = { vo2Max: 1, weightKg: 1, respiratoryRate: 1, oxygenSaturationPct: 1, runningStrideLengthM: 2, runningVerticalOscillationCm: 1 };
 const HERSTEL: HealthKey[] = ["sleepHours", "hrvMs", "restingHeartRate", "respiratoryRate", "oxygenSaturationPct"];
-const CONDITIE: HealthKey[] = ["vo2Max", "weightKg", "steps", "exerciseMinutes"];
+const CONDITIE: HealthKey[] = ["vo2Max", "steps", "exerciseMinutes"]; // gewicht heeft hieronder een eigen paneel
 
 export default async function BodyPage() {
   const rows = await db.select().from(healthMetrics).where(gte(healthMetrics.date, sql<string>`CURRENT_DATE - 800`)).orderBy(asc(healthMetrics.date));
@@ -34,24 +34,26 @@ export default async function BodyPage() {
   });
   const formStale = FORM_KEYS.every((key) => trends[key].current == null);
 
-  const items = (keys: HealthKey[]) => keys.map((key) => ({ trend: trends[key], color: COLORS[key] ?? "var(--series-run)", digits: DIGITS[key] ?? 0 }));
+  const items = (keys: HealthKey[]) => keys.filter((key) => trends[key].current != null).map((key) => ({ trend: trends[key], color: COLORS[key] ?? "var(--series-run)", digits: DIGITS[key] ?? 0 }));
   const groups: ExplorerGroup[] = [
     { overline: "HERSTEL", title: "Hoe goed herstel je?", items: items(HERSTEL) },
     { overline: "CONDITIE EN BEWEGING", title: "Je dagelijkse basis", items: items(CONDITIE) },
-    { overline: "LOOPVORM · APPLE WATCH", title: "Hoe je loopt", items: items(FORM_KEYS), notice: formStale ? <p className="p-notice">Er zijn de afgelopen twee maanden geen loopvorm-metingen ontvangen. Loopvermogen, pasbreedte, grondcontact en verticale beweging staan in Health, maar je Shortcut stuurt ze niet mee. Zie <b>docs/apple-shortcuts.md</b> om ze toe te voegen.</p> : undefined },
+    { overline: "LOOPVORM · APPLE WATCH", title: "Hoe je loopt", items: items(FORM_KEYS), notice: formStale ? <p className="p-notice">Twee maanden geen loopvorm ontvangen. Je Shortcut stuurt vermogen, pasbreedte, grondcontact en verticale beweging niet mee. Zie <b>docs/apple-shortcuts.md</b>.</p> : undefined },
   ];
+
+  const visibleGroups = groups.filter((group) => group.items.length > 0 || group.notice);
 
   return <div className="c-shell"><main className="c-container"><CoachNav active="body" />
     <header className="p-head">
-      <div><span className="p-overline">APPLE HEALTH</span><h1>Je lichaam</h1><p>Elke waarde naast je eigen gebruikelijke niveau. Pulse vergelijkt je laatste week met de vier weken ervoor en kijkt of het verschil groter is dan je normale schommeling. Eén meting is geen oordeel.</p></div>
+      <div><span className="p-overline">APPLE HEALTH</span><h1>Je lichaam</h1><p>Je laatste week naast de vier weken ervoor. Eén meting is geen oordeel.</p></div>
       <div className="p-head-note">{latest ? <>Laatste data <b>{fmtDay(latest, true)}</b>{ageDays != null && ageDays >= 2 ? ` · ${ageDays} dagen oud` : ""}</> : "Geen Health-data ontvangen"}</div>
     </header>
 
     {alert.level !== "ok" && <BodyAlert alert={alert} healthAgeDays={ageDays} />}
 
-    <section className="p-section" aria-labelledby="sleep-title"><div className="p-section-head"><div><span className="p-overline">SLAAP · APPLE HEALTH</span><h2 id="sleep-title">Hoe slaap je?</h2></div></div><div className="p-card"><p className="p-sleep-current">{sleep.latestHours == null ? "Nog geen slaapdata" : `${sleep.latestHours.toFixed(1).replace(".", ",")} uur daadwerkelijk geslapen`}</p><p>{sleep.detail}</p>{sleep.recentAverage != null && sleep.baselineAverage != null && <p className="p-footnote">7 dagen: {sleep.recentAverage.toFixed(1).replace(".", ",")} uur per nacht ({sleep.recentCount} nachten) · eigen basis: {sleep.baselineAverage.toFixed(1).replace(".", ",")} uur ({sleep.baselineCount} nachten). Een korte slaapnacht verlaagt alleen de intensiteit van het advies als de meting actueel is.</p>}</div></section>
+    {sleep.concern && <p className="p-notice">{sleep.detail}</p>}
 
-    <MetricExplorer today={today} groups={groups} />
+    <MetricExplorer today={today} groups={visibleGroups} />
 
     <section className="p-section" id="gewicht" aria-label="Gewicht">
       <WeightChartPanel points={weightRows.map((row) => ({ date: row.date, value: row.weightKg }))} today={today} />
@@ -59,8 +61,7 @@ export default async function BodyPage() {
 
     <section className="p-section" aria-labelledby="coverage-title">
       <div className="p-section-head"><div><span className="p-overline">DATAKWALITEIT</span><h2 id="coverage-title">Wat komt er binnen uit Apple Health?</h2></div></div>
-      <div className="p-card p-coverage"><table><thead><tr><th>Meting</th><th>Laatste waarde</th><th>Dagen met data (30 d)</th></tr></thead><tbody>{coverage.map((item) => <tr key={item.key} className={item.age == null || item.age > 14 ? "stale" : ""}><td>{item.label}</td><td>{item.lastDate ? `${fmtDay(item.lastDate, true)} (${item.age === 0 ? "vandaag" : `${item.age} d geleden`})` : "nooit ontvangen"}</td><td>{item.last30}</td></tr>)}</tbody></table>
-      <p className="p-footnote">Voor slaap gebruikt Pulse alleen daadwerkelijk geslapen tijd, nooit alleen tijd in bed. Oude of ontbrekende slaapmetingen veranderen het loopadvies niet.</p></div>
+      <div className="p-card p-coverage"><table><thead><tr><th>Meting</th><th>Laatste waarde</th><th>Dagen met data (30 d)</th></tr></thead><tbody>{coverage.map((item) => <tr key={item.key} className={item.age == null || item.age > 14 ? "stale" : ""}><td>{item.label}</td><td>{item.lastDate ? `${fmtDay(item.lastDate, true)} (${item.age === 0 ? "vandaag" : `${item.age} d geleden`})` : "nooit ontvangen"}</td><td>{item.last30}</td></tr>)}</tbody></table></div>
     </section>
     <footer className="c-footer">PULSE / JOUW HARDLOOPCOACH <span>Strava × Apple Health</span></footer>
   </main></div>;

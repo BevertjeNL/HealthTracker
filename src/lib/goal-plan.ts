@@ -51,7 +51,7 @@ function sessionForDate(date: string, raceDate: string, distanceM: number, paceS
   const recentRaceRecovery = context.recentFullDistanceAt != null && daysBetween(date, context.recentFullDistanceAt) <= 10 && daysBetween(date, context.recentFullDistanceAt) >= 0;
   const baseLongKm = roundHalf(Math.min(maxLong, Math.max(4, context.longestKm + (until >= 22 ? 1 : 1.5))));
   const longKm = recentRaceRecovery ? roundHalf(Math.min(baseLongKm, distanceKm >= 20 ? 12 : distanceKm * .65)) : baseLongKm;
-  const rest: PlanDay = { date, title: "Herstel", detail: "Rust of wandelen. Sla een gemiste training over; haal haar niet dubbel in.", tone: "rest", status: "planned", actualKm: null };
+  const rest: PlanDay = { date, title: "Herstel", detail: "Rust of wandelen.", tone: "rest", status: "planned", actualKm: null };
   if (until === 0) return { date, title: GOAL_DISTANCES.find((item) => item.meters === distanceM)?.label ?? "Wedstrijd", detail: raceDetail(distanceKm, paceSec), tone: "race", status: "planned", actualKm: null };
   if (until <= 7) {
     if (until === 6) return { date, title: "Rustig loslopen", detail: "30–35 min op praattempo. Houd de benen fris.", tone: "easy", status: "planned", actualKm: null };

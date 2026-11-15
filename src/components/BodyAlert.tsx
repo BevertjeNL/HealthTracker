@@ -4,6 +4,6 @@ export function BodyAlert({ alert, healthAgeDays }: { alert: Alert; healthAgeDay
   const label = alert.level === "stop" ? "RUST NEMEN" : alert.level === "let-op" ? "LET OP" : "LICHAAM";
   return <section className={`p-alert p-alert-${alert.level}`} aria-label="Lichaamssignalen">
     <span className="p-alert-label">{label}</span>
-    <div><h2>{alert.title}</h2><p>{alert.detail}</p>{alert.signals.length > 0 && <ul>{alert.signals.map((signal) => <li key={signal}>{signal}</li>)}</ul>}{healthAgeDays != null && healthAgeDays >= 2 && <small>Gebaseerd op Health-gegevens van {healthAgeDays} dagen geleden. Synchroniseer voor een actueel beeld.</small>}</div>
+    <div><h2>{alert.title}</h2><p>{alert.detail}</p>{alert.signals.length > 0 && <ul>{alert.signals.map((signal) => <li key={signal}>{signal}</li>)}</ul>}{healthAgeDays != null && healthAgeDays >= 2 && <small>Health-data van {healthAgeDays} dagen geleden.</small>}</div>
   </section>;
 }

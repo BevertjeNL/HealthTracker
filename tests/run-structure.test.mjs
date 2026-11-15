@@ -45,7 +45,7 @@ test("without a label or choice the structure is shown neutrally and the athlete
   assert.ok(!analysis.advice.some((item) => /vervallen|tempo zakte|tempoverlies/i.test(item.title)));
   const lesson = buildRunLesson("long", null, analysis, "Rust.");
   assert.match(lesson.headline, /twee delen/i);
-  assert.match(lesson.improve, /bedoelde/i);
+  assert.match(lesson.improve, /bedoeld/i);
 });
 
 test("a training with a fast part is judged per part, not as fading", () => {

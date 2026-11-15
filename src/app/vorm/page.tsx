@@ -1,9 +1,7 @@
 import { desc, gte, sql } from "drizzle-orm";
 import { BalanceChart } from "@/components/BalanceChart";
-import { BodyAlert } from "@/components/BodyAlert";
 import { CoachNav } from "@/components/CoachNav";
 import { DotTrend } from "@/components/DotTrend";
-import { MetricCard } from "@/components/MetricCard";
 import { ResponseBars } from "@/components/ResponseBars";
 import { ScatterLink } from "@/components/ScatterLink";
 import { WeekChart } from "@/components/WeekChart";
@@ -27,11 +25,9 @@ export default async function FormPage() {
 
   return <div className="c-shell"><main className="c-container"><CoachNav active="form" />
     <header className="p-head">
-      <div><span className="p-overline">TRAINING × APPLE HEALTH</span><h1>Je vorm</h1><p>Zo reageert je lichaam op wat je doet: belasting, herstel, fitness en gewicht in één beeld.</p></div>
+      <div><span className="p-overline">TRAINING × APPLE HEALTH</span><h1>Je vorm</h1><p>Belasting, herstel en fitness naast elkaar.</p></div>
       <div className="p-head-note">{body.latestHealthDate ? <>Health t/m <b>{fmtDay(body.latestHealthDate, true)}</b>{body.healthAgeDays != null && body.healthAgeDays >= 2 ? ` · ${body.healthAgeDays} dagen oud` : ""}</> : "Geen Health-data"}</div>
     </header>
-
-    {body.alert.level !== "ok" && <BodyAlert alert={body.alert} healthAgeDays={body.healthAgeDays} />}
 
     <section className="p-section" aria-labelledby="week-title">
       <div className="p-section-head"><div><span className="p-overline">01 · TRAINING EN HERSTEL SAMEN</span><h2 id="week-title">Elke week: kilometers naast je HRV</h2></div></div>
@@ -39,7 +35,7 @@ export default async function FormPage() {
         {loadValid ? <WeekChart weeks={weeks} /> : <p className="p-empty">Nog te weinig loopweken voor een weekgrafiek.</p>}
         <div className="p-card-foot">
           <span><b>{fmtNum(recent4.reduce((sum, week) => sum + week.km, 0), 0)} km</b> in de laatste 4 weken</span>
-          <span>Een HRV die tijdens een zwaardere week zakt en erna terugkomt is gezond herstel. Blijft hij dalen terwijl je volume stijgt? Neem een rustweek.</span>
+          <span>Zakt je HRV in een zware week en komt hij terug? Dan herstel je goed. Blijft hij dalen terwijl je volume stijgt? Neem een rustweek.</span>
         </div>
       </div>
     </section>
@@ -53,7 +49,7 @@ export default async function FormPage() {
           <h3>{body.balance.label}</h3>
           <p>{body.balance.detail}</p>
           <dl><div><dt>Laatste 7 dagen</dt><dd>{fmtNum(body.balance.acute)}</dd></div><div><dt>Normale week</dt><dd>{fmtNum(body.balance.chronic)}</dd></div></dl>
-          <small>Belasting = duur × hartslagintensiteit (Banister). Runs zonder hartslag worden geschat op je gewone intensiteit. Veilige zone: 0,8–1,3×.</small>
+          <small>Belasting = duur × hartslagintensiteit. Runs zonder hartslag zijn geschat. Veilige zone: 0,8–1,3×.</small>
         </article>
         <div className="p-card"><BalanceChart days={body.days} /></div>
       </div>
@@ -61,16 +57,10 @@ export default async function FormPage() {
 
     <section className="p-section" id="fitness" aria-labelledby="fit-title">
       <div className="p-section-head"><div><span className="p-overline">03 · FITNESS</span><h2 id="fit-title">Word je fitter?</h2></div></div>
-      <div className="p-split p-split-wide">
-        <div className="p-card">
+      <div className="p-card">
           <div className={`p-verdict p-verdict-${body.fitness.verdict.tone}`}><h3>{body.fitness.verdict.label}</h3><p>{body.fitness.verdict.detail}</p></div>
           <DotTrend points={fit.series} />
-          <p className="p-footnote">Zuinigheid = meter per hartslagslag, vergeleken binnen hetzelfde runtype ({fit.recentRuns} runs de laatste 2 maanden, {fit.previousRuns} de 2 maanden ervoor). Hitte, wind en hoogteverschil blijven ruis.</p>
-        </div>
-        <div className="p-stack">
-          <MetricCard trend={body.trends.vo2Max} color="var(--series-vo2)" digits={1} note="Apple Watch-schatting; schommelt met de weersomstandigheden." />
-          <MetricCard trend={body.trends.runningPowerW} color="var(--series-run)" note="Loopvermogen van je Watch tijdens runs." />
-        </div>
+          <p className="p-footnote">Zuinigheid = meter per hartslagslag, binnen hetzelfde runtype ({fit.recentRuns} runs de laatste 2 maanden, {fit.previousRuns} de 2 maanden ervoor). Hitte en wind blijven ruis.</p>
       </div>
     </section>
 
@@ -81,18 +71,10 @@ export default async function FormPage() {
 
     <section className="p-section" aria-labelledby="links-title">
       <div className="p-section-head"><div><span className="p-overline">05 · VERBANDEN</span><h2 id="links-title">Wat Health zegt over je prestatie</h2></div></div>
-      <p className="p-intro">We koppelen elke run aan je Health-data van die dag en kijken of die samenhangt met hoe zuinig je liep. Alleen verbanden met minstens 8 runs en een duidelijke sterkte (|r| ≥ 0,25) worden als verband gemeld.</p>
+      <p className="p-intro">Elke run gekoppeld aan je Health-data. Alleen verbanden vanaf 8 runs en met |r| ≥ 0,25 tellen.</p>
       <div className="p-links">{body.links.map((link) => <ScatterLink key={link.id} link={link} />)}</div>
     </section>
 
-    <section className="p-section" aria-labelledby="weight-title">
-      <div className="p-section-head"><div><span className="p-overline">GEWICHT EN VOLUME</span><h2 id="weight-title">Je lichaamstrends</h2></div></div>
-      <div className="p-tiles p-tiles-3">
-        <MetricCard trend={body.trends.weightKg} color="var(--series-weight)" digits={1} href="/lichaam#gewicht" />
-        <MetricCard trend={body.trends.steps} color="var(--series-steps)" href="/lichaam" note="Alle dagelijkse stappen, inclusief je runs." />
-        <MetricCard trend={body.trends.exerciseMinutes} color="var(--series-run)" href="/lichaam" />
-      </div>
-    </section>
     <footer className="c-footer">PULSE / JOUW HARDLOOPCOACH <span>Strava × Apple Health</span></footer>
   </main></div>;
 }

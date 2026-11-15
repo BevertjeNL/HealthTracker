@@ -14,7 +14,7 @@ import { db } from "@/db";
 import { activities, healthMetrics, trainingGoals } from "@/db/schema";
 import { buildCoachToday, buildPostRunCoach, postRunPlanWarning } from "@/lib/coach";
 import { buildNextRun } from "@/lib/next-run";
-import { fmtDate, fmtDay, fmtDuration, fmtKm, fmtNum, fmtPace, fmtSigned } from "@/lib/format";
+import { fmtDate, fmtDuration, fmtKm, fmtNum, fmtPace, fmtSigned } from "@/lib/format";
 import { buildGoalPlan, dateText } from "@/lib/goal-plan";
 import { KIND_LABEL, toAnalysisRun } from "@/lib/run-analysis";
 import { amsterdamDay, buildRunBodyContext, buildTrainingHealth } from "@/lib/training-health";
@@ -40,13 +40,6 @@ export default async function Home() {
   const watchSteps = watchWorkout(nextRun.detail);
   const stale = coach.healthAgeDays == null || coach.healthAgeDays > 1;
 
-  // Health-signalen werken ook met enkele dagen oude data; zo blijft de koppeling zichtbaar na een late sync.
-  const reasons: string[] = [...coach.reason];
-  if (body.balance.ratio != null) reasons.push(`Belasting ${body.balance.label.toLowerCase()} · ${fmtNum(body.balance.ratio, 2)}× je normale week`);
-  for (const signal of body.alert.signals) reasons.push(signal);
-  if (!body.alert.signals.length && body.alert.level === "ok" && body.trends.hrvMs.deltaPct != null) reasons.push(`HRV en rusthartslag binnen je normale bandbreedte`);
-  if (body.fitness.verdict.tone !== "unknown") reasons.push(`Fitness: ${body.fitness.verdict.label.toLowerCase()}`);
-
   const lastLoad = last ? body.loads.find((item) => item.id === last.id) : undefined;
   const lastContext = last ? buildRunBodyContext(lastLoad, amsterdamDay(last.startDate), health, body.loads) : null;
   const latestAnalysis = last ? toAnalysisRun(last) : null;
@@ -55,25 +48,20 @@ export default async function Home() {
 
   return <div className="c-shell"><main className="c-container"><CoachNav active="today" />
     <header className="p-head">
-      <div><span className="p-overline">VANDAAG · {fmtDate(coach.today).toUpperCase()}</span><h1>Jouw volgende run</h1><p>Berekend uit je Strava-runs en je Apple Health-herstel.</p></div>
+      <div><span className="p-overline">VANDAAG · {fmtDate(coach.today).toUpperCase()}</span><h1>Je volgende run</h1></div>
       <DataRefreshButton healthNeedsSync={stale} lastHealthDate={coach.latestHealthDate} />
     </header>
 
     {!runs.length ? <section className="c-empty"><span className="c-overline">BEGIN HIER</span><h2>Je coach leert van jouw runs.</h2><p>Verbind Strava om je loopgeschiedenis te laden. Apple Health voegt herstelcontext toe zodra je iPhone de metingen verstuurt.</p><a href="/api/strava/auth" className="c-button">Verbind Strava <span>↗</span></a></section> : <>
       <section className="p-lead" aria-label="Advies voor vandaag">
         <article className={`p-decision p-decision-${nextRun.tone}`}>
-          <div className="p-decision-top"><span><i className="p-dot" /> VOLGENDE RUN</span><small>{nextRun.source === "schema" ? "Uit je wedstrijdschema" : coach.recovery.confidence === "onvoldoende" ? "Voorzichtig advies" : `${coach.recovery.confidence} vertrouwen`}</small></div>
+          <div className="p-decision-top"><span><i className="p-dot" /> VOLGENDE RUN</span>{(nextRun.source === "schema" || coach.recovery.confidence === "onvoldoende") && <small>{nextRun.source === "schema" ? "Uit je wedstrijdschema" : coach.recovery.confidence === "onvoldoende" ? "Weinig herstelcijfers" : ""}</small>}</div>
           <span className="p-decision-kicker">{nextRun.offset === 0 ? "Vandaag" : `${nextRun.whenLabel} · ${nextRun.inLabel}`}</span>
           <h2>{nextRun.title}</h2>
           <p className="p-decision-do">{nextRun.detail}</p>
           {nextRun.basis.length > 0 && <ul className="p-decision-basis" aria-label="Waarop dit advies steunt">{nextRun.basis.map((item) => <li key={item}>{item}</li>)}</ul>}
           {watchSteps && <div className="p-watch"><b>Stel in op je Apple Watch · Hardlopen → Maak workout aan → Aangepast</b><ol>{watchSteps.map((step) => <li key={step}>{step}</li>)}</ol></div>}
         </article>
-        <aside className="p-signals" aria-label="Signalen achter het advies">
-          <span className="p-overline">DE SIGNALEN ERACHTER</span>
-          <ol>{reasons.slice(0, 5).map((item) => <li key={item}>{item}</li>)}</ol>
-          <p className="p-source"><b>Apple Health</b> {coach.latestHealthDate ? `bijgewerkt t/m ${fmtDay(coach.latestHealthDate, true)}${stale ? " — synchroniseer voor een actueel beeld." : "."}` : "nog niet ontvangen."}</p>
-        </aside>
       </section>
 
       {body.alert.level !== "ok" && <BodyAlert alert={body.alert} healthAgeDays={body.healthAgeDays} />}
@@ -120,7 +108,7 @@ export default async function Home() {
 
       <section className="p-section" aria-labelledby="recent-title">
         <div className="p-section-head"><div><span className="p-overline">TRAININGSDAGBOEK</span><h2 id="recent-title">Recente runs</h2></div><Link href="/runs">Alle runs →</Link></div>
-        <div className="p-list">{runs.slice(0, 5).map((run) => { const load = body.loads.find((item) => item.id === run.id); return <Link href={`/runs/${run.id}`} className="p-row" key={run.id}><span className="p-row-date">{fmtDate(run.startDate)}</span><strong>{run.name || "Run"}</strong><span>{fmtKm(run.distanceM)}</span><span>{fmtPace(run.avgPaceMinPerKm)}</span><span className="p-row-load">{load ? `belasting ${load.load}` : ""}</span><b>→</b></Link>; })}</div>
+        <div className="p-list">{runs.filter((run) => run.id !== last?.id).slice(0, 5).map((run) => { const load = body.loads.find((item) => item.id === run.id); return <Link href={`/runs/${run.id}`} className="p-row" key={run.id}><span className="p-row-date">{fmtDate(run.startDate)}</span><strong>{run.name || "Run"}</strong><span>{fmtKm(run.distanceM)}</span><span>{fmtPace(run.avgPaceMinPerKm)}</span><span className="p-row-load">{load ? `belasting ${load.load}` : ""}</span><b>→</b></Link>; })}</div>
       </section>
     </>}
     <footer className="c-footer">PULSE / JOUW HARDLOOPCOACH <span>Strava × Apple Health</span></footer>
