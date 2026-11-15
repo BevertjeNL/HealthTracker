@@ -25,10 +25,10 @@ export function RunTypeChoice({ runId, kind, sourceLabel, override, ask, askOnly
 
   return <div className="p-typechoice">
     {ask && <div className="p-ask" role="group" aria-label="Wat voor training was dit?">
-      <div><strong>Was het snelle deel bedoeld?</strong><p>Je liep {ask.summary}. Dat is een duidelijke stap in tempo. Zeg me wat het was, dan beoordeel ik elk deel op zijn eigen doel.</p></div>
-      <div className="p-ask-actions"><button type="button" disabled={pending} onClick={() => save("interval")}>Ja, training met een snel deel</button><button type="button" className="ghost" disabled={pending} onClick={() => save(ask.steadyKind)}>Nee, één rustige loop</button></div>
+      <div><strong>Was het snelle deel bedoeld?</strong><p>Je liep {ask.summary}. Jouw antwoord bepaalt hoe ik de run beoordeel.</p></div>
+      <div className="p-ask-actions"><button type="button" disabled={pending} onClick={() => save("interval")}>Ja, bewust</button><button type="button" className="ghost" disabled={pending} onClick={() => save(ask.steadyKind)}>Nee, te snel gestart</button></div>
     </div>}
-    {!askOnly && <div className="an-marker"><span>Type: {CHOICES.find((choice) => choice.kind === kind)?.label ?? "Rustige duurloop"} · bron: {sourceLabel}</span>
+    {!askOnly && <div className="an-marker"><span>Type bepaald door {sourceLabel}</span>
       {CHOICES.map((choice) => <button key={choice.kind} type="button" className="ghost" aria-pressed={kind === choice.kind} disabled={pending || kind === choice.kind} onClick={() => save(choice.kind)}>{choice.label}</button>)}
       {override && <button type="button" className="ghost" disabled={pending} onClick={() => save(null)}>Herstel automatisch</button>}
     </div>}

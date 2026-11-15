@@ -105,7 +105,7 @@ export function buildPostRunCoach(run: Activity, allRuns: Activity[], health: He
   const next = prescribeNextRun({ runs: history, now: nextDay, daysSinceLast: offset, readiness: null, loadChangePct: null, pacing, zones: estimatePaceZones(history, nextDay) });
   const restDays = offset - 1;
   const lead = restDays >= 1 ? `Neem ${restDays === 1 ? "één rustdag" : `${restDays} rustdagen`}. ` : "";
-  const nextStep = bothAdverse ? "Neem minstens één rustige dag. Loop pas weer stevig als je je hersteld voelt en de signalen normaliseren."
+  const nextStep = bothAdverse ? "Neem minstens één rustige dag. Loop pas weer stevig als je hersteld bent."
     : `${lead}${next.title}. ${next.detail}`;
   const healthAfterDate = [hrv.afterDate, restingHr.afterDate].filter((date): date is string => date != null).sort()[0] ?? null;
   const lesson = buildRunLesson(kind, digest, pacing, nextStep, reserve);

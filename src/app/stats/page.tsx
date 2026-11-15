@@ -13,7 +13,6 @@ const n1 = (value: number) => value.toLocaleString("nl-NL", { maximumFractionDig
 const dayDate = (day: string) => fmtDate(new Date(`${day}T12:00:00Z`));
 const monthName = (key: string) => new Date(`${key}-15T12:00:00Z`).toLocaleDateString("nl-NL", { month: "long", year: "numeric", timeZone: "UTC" });
 const MONTHS = ["jan", "feb", "mrt", "apr", "mei", "jun", "jul", "aug", "sep", "okt", "nov", "dec"];
-const WEEKDAY_JOKE = ["Maandag: moedig begonnen is half gelopen.", "Dinsdag: de stille kracht van de week.", "Woensdag: de bergetappe midden in de week.", "Donderdag: bijna weekend, dus nog even doorbijten.", "Vrijdag: de week uitlopen.", "Zaterdag: de klassieker onder de loopdagen.", "Zondag: de lange duurloop in alle rust."];
 
 function Delta({ pct }: { pct: number | null }) {
   if (pct === null) return <span className="st-delta st-delta-na">Te weinig runs om te vergelijken</span>;
@@ -34,7 +33,7 @@ export default async function StatsPage() {
   const rows = await db.select().from(activities).orderBy(desc(activities.startDate));
   const stats = buildRunStats(rows);
   return <div className="c-shell"><main className="c-container"><CoachNav active="stats" />
-    <header className="p-head"><div><span className="p-overline">JE LOOPCIJFERS</span><h1>Cijfers</h1><p>Kilometers per maand en jaar, loopdagen, series, records en een flinke dosis wetenswaardigheden.</p></div></header>
+    <header className="p-head"><div><span className="p-overline">JE LOOPCIJFERS</span><h1>Cijfers</h1><p>Totalen, trends, loopdagen en records.</p></div></header>
     {!stats ? <section className="c-empty"><h2>Nog geen runs gevonden.</h2><p>Verbind Strava en synchroniseer je runs om je cijfers te zien.</p><Link href="/runs" className="c-button">Naar mijn runs</Link></section> : <Stats stats={stats} />}
     <footer className="c-footer">PULSE / JOUW HARDLOOPCOACH <span>Strava × Apple Health</span></footer>
   </main></div>;
@@ -73,7 +72,6 @@ function Stats({ stats }: { stats: RunStats }) {
     <section className="st-section" aria-labelledby="st-months"><div className="c-section-heading"><div><span className="c-overline">PER MAAND</span><h2 id="st-months">Je maandenkaart.</h2></div></div>
       <div className="st-months-wrap"><div className="st-months" role="table" aria-label="Kilometers per maand per jaar"><span />{MONTHS.map((m) => <small key={m}>{m}</small>)}<small>totaal</small>{[...stats.years].reverse().map((y) => { const best = Math.max(...y.months); return <div className="st-months-row" key={y.year}><b>{y.year}</b>{y.months.map((km, m) => { const future = y.year === nowYear && m > nowMonth; const level = future || km <= 0 ? 0 : Math.max(1, Math.ceil(Math.sqrt(km / maxMonth) * 5)); const isBest = !future && km > 0 && km === best; const isNow = y.year === nowYear && m === nowMonth; return <span key={m} className={`st-month st-lv${future ? "x" : level}${isBest ? " st-best" : ""}${isNow ? " st-now" : ""}`} title={future ? `${MONTHS[m]} ${y.year}: nog niet gelopen` : `${MONTHS[m]} ${y.year}: ${n1(km)} km${isBest ? " (beste maand van dat jaar)" : ""}`}>{future || km <= 0 ? "" : n0(km)}</span>; })}<strong className="st-month-total">{n0(y.km)}<small> km</small></strong></div>; })}</div></div>
       <div className="st-month-legend" aria-hidden><span>weinig</span>{[1, 2, 3, 4, 5].map((l) => <i key={l} className={`st-lv${l}`} />)}<span>veel</span><span className="st-month-key"><i className="st-best-key" /> beste maand van het jaar</span></div>
-      {stats.records.bestMonth && <p className="st-note">Je sterkste maand ooit: <b>{monthName(stats.records.bestMonth.month)}</b> met {n0(stats.records.bestMonth.km)} km. Hoe donkerder het vlak, hoe meer kilometers.</p>}
       {previous && <><h3 className="st-sub">{current.year} tegenover {previous.year}</h3><div className="st-duo" role="img" aria-label={`Kilometers per maand in ${current.year} en ${previous.year}`}>{MONTHS.map((m, i) => <div key={m} className="st-duo-col"><div className="st-duo-bars"><i className="st-prev" style={{ height: `${(previous.months[i] / maxCompare) * 100}%` }} title={`${m} ${previous.year}: ${n1(previous.months[i])} km`} /><i className="st-cur" style={{ height: `${(current.months[i] / maxCompare) * 100}%` }} title={`${m} ${current.year}: ${n1(current.months[i])} km`} /></div><small>{m}</small></div>)}</div><div className="st-legend"><span><i className="st-cur" /> {current.year}</span><span><i className="st-prev" /> {previous.year}</span></div></>}
     </section>
 
@@ -83,7 +81,7 @@ function Stats({ stats }: { stats: RunStats }) {
 
     <section className="st-section" aria-labelledby="st-days"><div className="c-section-heading"><div><span className="c-overline">LOOPDAGEN</span><h2 id="st-days">Wanneer loop jij?</h2></div></div>
       <div className="st-grid st-grid-2">
-        <article className="st-card st-c5"><span className="st-card-label">Per weekdag</span>{stats.favoriteWeekday !== null && <p className="st-fun">{WEEKDAY_JOKE[stats.favoriteWeekday]}</p>}<div className="st-hbars">{WEEKDAYS.map((d, i) => <div className="st-hbar" key={d}><span>{d.slice(0, 2)}</span><div><i className={i === stats.favoriteWeekday ? "st-hot" : ""} style={{ width: `${(stats.weekdayRuns[i] / maxWeekday) * 100}%` }} /></div><b>{stats.weekdayRuns[i]}</b></div>)}</div></article>
+        <article className="st-card st-c5"><span className="st-card-label">Per weekdag</span><div className="st-hbars">{WEEKDAYS.map((d, i) => <div className="st-hbar" key={d}><span>{d.slice(0, 2)}</span><div><i className={i === stats.favoriteWeekday ? "st-hot" : ""} style={{ width: `${(stats.weekdayRuns[i] / maxWeekday) * 100}%` }} /></div><b>{stats.weekdayRuns[i]}</b></div>)}</div></article>
         <article className="st-card st-c6"><span className="st-card-label">Per dagdeel</span>{stats.favoriteDayPart !== null && <p className="st-fun">Je loopt het vaakst in de {DAY_PARTS[stats.favoriteDayPart].label.toLowerCase()}.</p>}<div className="st-hbars">{DAY_PARTS.map((p, i) => <div className="st-hbar" key={p.label}><span className="st-wide">{p.label}</span><div><i className={i === stats.favoriteDayPart ? "st-hot" : ""} style={{ width: `${(stats.dayPartRuns[i] / maxPart) * 100}%` }} /></div><b>{stats.dayPartRuns[i]}</b></div>)}</div><small>{DAY_PARTS.map((p) => `${p.label} ${p.range}`).join(" · ")}</small></article>
       </div>
       <div className="st-heat-card"><div className="st-heat-head"><b>Het afgelopen jaar</b><span>{stats.heatmapRunDays} loopdagen · {n0(stats.heatmapKm)} km</span></div><div className="st-heat-scroll"><div className="st-heat-months">{stats.heatmapMonths.map((m, i) => <span key={i}>{m}</span>)}</div><div className="st-heat" role="img" aria-label={`${stats.heatmapRunDays} loopdagen in de afgelopen 53 weken`}>{stats.heatmap.map((col, c) => <div key={c}>{col.map((cell) => <i key={cell.day} className={`st-h${cell.future ? "x" : cell.level}`} title={cell.future ? "" : `${dayDate(cell.day)}: ${cell.km > 0 ? `${n1(cell.km)} km` : "rust"}`} />)}</div>)}</div></div><div className="st-heat-legend"><small>rust</small><i className="st-h0" /><i className="st-h1" /><i className="st-h2" /><i className="st-h3" /><i className="st-h4" /><small>15+ km</small></div></div>
@@ -108,13 +106,10 @@ function Stats({ stats }: { stats: RunStats }) {
       </div>
     </section>
 
-    <section className="st-section" aria-labelledby="st-fun"><div className="c-section-heading"><div><span className="c-overline">WETENSWAARDIGHEDEN</span><h2 id="st-fun">Nutteloos, maar leuk.</h2></div></div>
+    <section className="st-section" aria-labelledby="st-fun"><div className="c-section-heading"><div><span className="c-overline">WETENSWAARDIGHEDEN</span><h2 id="st-fun">Voor de sier.</h2></div></div>
       <div className="st-grid st-grid-3">
         <article className="st-card st-c2"><span className="st-emoji" aria-hidden>🌍</span><strong className="st-big">{fun.earthPct >= 1 ? n1(fun.earthPct) : fun.earthPct.toLocaleString("nl-NL", { maximumFractionDigits: 2 })}%</strong><p>van de omtrek van de aarde heb je al gelopen.</p></article>
         <article className="st-card st-c3"><span className="st-emoji" aria-hidden>🏔️</span><strong className="st-big">{fun.everests.toLocaleString("nl-NL", { maximumFractionDigits: 2 })}×</strong><p>de hoogte van de Mount Everest omhoog geklommen (8.849 m), in hoogtemeters opgeteld.</p></article>
-        <article className="st-card st-c4"><span className="st-emoji" aria-hidden>⏳</span><strong className="st-big">{n1(fun.daysOnTheMove)} <small>dagen</small></strong><p>non-stop hardlopen. Zo lang is je totale bewegingstijd.</p></article>
-        <article className="st-card st-c5"><span className="st-emoji" aria-hidden>🏃</span><strong className="st-big">{n1(fun.marathons)}</strong><p>marathons aan kilometers, of {n1(fun.marathons * 2)} halve marathons.</p></article>
-        <article className="st-card st-c6"><span className="st-emoji" aria-hidden>🔁</span><strong className="st-big">{n0(stats.heatmapRunDays)} <small>loopdagen</small></strong><p>in de afgelopen 53 weken, goed voor {n0(stats.heatmapKm)} km.</p></article>
         <article className="st-card st-c1"><span className="st-emoji" aria-hidden>{stats.weekendShare >= 0.5 ? "🛋️" : "💼"}</span><strong className="st-big">{Math.round(stats.weekendShare * 100)}%</strong><p>van je kilometers loop je in het weekend.</p></article>
       </div>
       <div className="st-buckets"><h3 className="st-sub">Hoe lang loop je meestal?</h3>{stats.buckets.map((b) => <div className="st-hbar" key={b.label}><span>{b.label}</span><div><i style={{ width: `${(b.runs / maxBucket) * 100}%` }} /></div><b>{b.runs}</b></div>)}</div>

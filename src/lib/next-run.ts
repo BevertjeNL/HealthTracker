@@ -90,17 +90,15 @@ export function buildNextRun({ runs, coach, body, planDays }: NextRunInput): Nex
     }
   }
 
+  // Alleen wat de dag bepaalt. Belasting, HRV en slaap staan met cijfers elders op het dashboard.
   const basis: string[] = [];
   const needed = lastAnalysis ? restDaysAfter(lastAnalysis) : 0;
   if (last && lastAge != null && needed > 0 && lastAge < needed && offset > 0) basis.push(`${km(Math.round((last.distanceM ?? 0) / 100) / 10)} km ${lastKind ? KIND_LABEL[lastKind].toLowerCase() : ""} vraagt ${needed} rustdagen`.replace(/\s+/g, " "));
-  if (score != null && score < 58) basis.push(`Herstel ${score}/100, onder je basislijn`);
-  else if (loadPct != null && loadPct > 30) basis.push(`Weekbelasting ${loadPct}% boven je basis`);
-  if (body.alertLevel !== "ok" && body.alertSignals.length) basis.push(body.alertSignals.slice(0, 2).join(" · "));
-  else if (body.hrvDeltaPct != null && body.rhrDeltaPct != null) basis.push("HRV en rusthartslag binnen je normale bandbreedte");
-  else if (score != null && score >= 70) basis.push(`Herstel ${score}/100`);
-  if (basis.length < 3 && coach.sleep.concern && coach.sleep.latestHours != null && offset <= 1) basis.push(`Slaap ${coach.sleep.latestHours.toFixed(1).replace(".", ",")} uur: houd het rustig`);
-  if (basis.length < 3 && loadPct != null && Math.abs(loadPct) <= 30) basis.push(`Belasting ${Math.abs(loadPct)}% ${loadPct >= 0 ? "boven" : "onder"} je 4-weekse basis`);
-  else if (basis.length < 3 && coach.load.baselineKm != null && found.kind !== "quality") basis.push(`Afstand volgt uit je weekbasis van ${km(Math.round(coach.load.baselineKm))} km`);
+  if (score != null && score < 58) basis.push(`Herstel ${score}/100, onder je basis`);
+  if (loadPct != null && loadPct > 30) basis.push(`Weekbelasting ${loadPct}% boven je basis`);
+  if (body.alertLevel !== "ok") basis.push("Lichaamssignalen wijken af");
+  if (coach.sleep.concern && offset <= 1) basis.push("Korte nacht: rustig houden");
+  if (basis.length < 3 && coach.load.baselineKm != null && found.kind !== "quality" && found.kind !== "rest") basis.push(`Afstand volgt uit je weekbasis van ${km(Math.round(coach.load.baselineKm))} km`);
 
   const delayed = minOffset > 0;
   const tone: NextRun["tone"] = body.alertLevel === "stop" || (score != null && score < 58) ? "critical" : delayed || easyOnly ? "warning" : "good";

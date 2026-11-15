@@ -68,12 +68,12 @@ export function DataRefreshButton({
 
   const isBusy = status === "running";
   const healthText = healthNeedsSync
-    ? `Apple Health loopt achter${lastHealthDate ? ` (laatste dag ${lastHealthDate})` : ""}. Je iPhone levert nieuwe gegevens automatisch aan.`
-    : "Apple Health is bijgewerkt tot en met gisteren.";
+    ? `Apple Health loopt achter${lastHealthDate ? ` (t/m ${lastHealthDate})` : ""}.`
+    : "Apple Health t/m gisteren.";
   const message = status === "error"
     ? error
     : status === "done"
-      ? `Strava is bijgewerkt${synced != null ? ` · ${synced} runs gecontroleerd` : ""}. ${healthText}`
+      ? `Strava bijgewerkt${synced != null ? ` · ${synced} runs` : ""}. ${healthText}`
       : healthText;
 
   return (

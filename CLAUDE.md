@@ -34,7 +34,7 @@ src/lib/recovery.ts                     Readiness/recovery score from HRV, resti
 src/lib/half-marathon.ts                buildHalfMarathonPlan(): phase, progress towards 21.1 km, adjustments and example week from the last 28/42 days of runs
 src/lib/goal-plan.ts                    Pure race-goal validation, calendar-day arithmetic and rolling training schedule from goal, Strava history, recent split warning and recovery/load context
 src/lib/coach.ts                        Pure coach orchestration: 7-day load versus a 4-week basis, today’s advice and reasons, per-run Strava/Health evidence, post-run recovery comparison, split warning and next step
-src/lib/coach-verdict.ts                Pure colored judgments and concrete actions for load, recovery, goal readiness and each run
+src/lib/coach-verdict.ts                Pure colored judgments and concrete actions for load, recovery, goal readiness and each run (no UI renders them since the de-duplication; tests keep them)
 src/lib/next-run.ts                     Pure next-run planner for the dashboard headline: today if a run fits, otherwise the first day ahead where rest days after the last run, load, recovery score and body alert allow it (easyOnly = no long/quality when Health signals ask for calm); with an active goal it takes the first planned session on/after that day. Returns date, title, detail, tone and max. 3 data-based reasons
 src/lib/run-prescription.ts           Pure prescription: pace zones from the best recent effort (race-equivalent 10 km via Riegel, Daniels-style ratios; flagged unreliable without a race/tempo/hard-HR run), rest days per run type, prescribeNextRun() (rest/recovery/easy/long/quality with distance and pace, restart after a long break, hard-easy and weekly rest rules), assessPaceReserve() (only advises a faster second half with even/negative split, no HR drift/decoupling and a strong finish or low HR)
 src/lib/run-structure.ts                Pure structure detection from km splits or real laps: two-class split of unit paces, abrupt step changes only (gradual slides and a lone climb/fast km are not structure), shapes fast-start / fast-finish / mid-block / intervals with in-/uitloop roles, per-part pace, heart rate, trend and spread
@@ -68,21 +68,20 @@ src/lib/splash-screens.ts               Device list and `appleWebApp.startupImag
 public/splash/*                         Generated launch images, one per device size and colour scheme
 tests/dark-theme.test.mjs               dark.css freshness, role mapping, contrast of pastel fills, launch images exist
 src/app/page.tsx                        Coach home: headline = next run (when, what, based on which numbers) from next-run.ts, never 'don't run again today';  body signals (load, HRV, RHR, fitness) from training-health, race bar, latest run with body context (auto loads missing detail), recent runs, data refresh
-src/app/vorm/page.tsx                   Training × Health: weekly km vs HRV/RHR, load balance, fitness trend, response profile, performance links
+src/app/vorm/page.tsx                   Training × Health: weekly km vs HRV/RHR, load balance, fitness trend, response profile, performance links (VO2max, power, weight, steps live on /lichaam only)
 src/app/lichaam/page.tsx                Health trends vs. personal baseline, running form, adjustable weight chart with correction, data-coverage table
 src/app/pulse.css                       Pulse design system v2 (p-* classes, shared series colours, mobile tab bar); globals.css keeps only legacy classes still in use Journal rows: .p-jwrap/.p-jrow with fixed metric columns, .p-racebadge (.maybe), .p-jrow-tag, .p-jrow-confirm, .p-halfcard; --p-on-ink is the text colour on --p-ink fills (white in light, dark in dark)
 src/app/actions.ts                     Authenticated Server Action to update or clear one day's weight while preserving its other Health metrics
 src/app/runs/page.tsx                   Training journal: summary tiles, filters (?type=, ?alle=1: Alles, Wedstrijd = confirmed only, Te bevestigen = name-only race guesses with confirm buttons, Rustig, Lange duur, Interval), one compact row per run (date, race badge, short verdict tag, distance, time, pace, heart rate, load, half-marathon time at 21.0975 km); coach text and 'Doe dit' live on the run page
 src/app/stats/page.tsx                  Read-only "Cijfers" tab: colourful statistics overview (totals, per year/month, comparisons, trend, run days, records, fun facts) built from run-stats.ts
-src/app/goal/page.tsx                   Saved race goal, editable target and four-week calendar schedule
+src/app/goal/page.tsx                   Saved race goal, editable target and four-week calendar schedule (today's advice lives on the dashboard)
 src/app/goal/actions.ts                Session-protected Server Action for validated single-goal upsert and revalidation
 src/app/runs/actions.ts                 Authenticated Server Actions: manual Strava sync (syncRunsAction) and setRunKindAction (writes activities.kind_override: race, not_race, easy, long, interval or cleared)
 src/app/runs/[id]/page.tsx              Post-run coach: start/middle/finish/load story, body context card (morning before, load, morning after, Watch form), next step, adjustable chart and split tools Also shows the short verdict, 'Doe dit' and, for runs of 20-22.5 km, the half-marathon time at exactly 21.0975 km
 src/components/AppLogo.tsx              Shared Pulse wordmark used throughout the UI
 src/components/CoachNav.tsx             Client component: shared navigation (desktop top bar from 900px, floating bottom tab bar below, logout) for all six sections; falls back to the pathname when no `active` is passed (loading.tsx); re-tapping the active tab scrolls to top
 src/components/PullToRefresh.tsx        Touch-only pull-to-refresh for the authenticated app (Strava sync at most every 2 min, then router.refresh); leaves charts, sliders, inputs and scrollable tables alone
-src/components/CoachVerdict.tsx         Shared judgment card with textual status, reason and action
-src/components/RunLessonCard.tsx        Primary post-run coaching card with practical keep/change/next-run instructions
+src/components/RunLessonCard.tsx        Post-run coaching card: meaning, what to keep, what to improve (the next run lives only on the dashboard)
 src/components/LiveCoachRefresh.tsx     Refreshes authenticated dynamic pages on focus and at most once a minute while visible
 src/components/GoalEditor.tsx           Accessible client-side goal form with Server Action state
 src/components/DataRefreshButton.tsx    Dashboard refresh that stays in the app: Strava sync, then router refresh with a three-step animation (no Shortcuts link)
@@ -137,6 +136,10 @@ drizzle.config.ts                       Points at src/db/schema.ts, reads DATABA
 Tests are plain `node --test` `.mjs` files that import the TypeScript sources directly (Node 24 type stripping); keep new pure logic in `src/lib/*` so it stays testable this way.
 
 When you add a file that a future agent would need to know about to orient itself (new route, new table, new page), update this list in the same change. An out-of-date file list is worse than none — don't let this section rot again.
+
+## One place per fact
+
+Tell the user something once. The dashboard owns the next run, the alert and the body tiles; /vorm and /lichaam own the detail behind those tiles and must not repeat each other's metrics (weight, VO2max, sleep each have one home); the run page owns the lesson and the per-kilometre analysis; /runs is a plain list. Before adding a block, check that no other page or card already says it. Copy is short and direct: no filler subtitles, no lecturing, no restating a number that is already on screen.
 
 ## UI conventions: iPhone, iPad and dark mode
 
