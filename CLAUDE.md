@@ -22,8 +22,8 @@ Files:
 src/db/schema.ts                        Drizzle schema: strava_tokens, activities (incl. nullable kind_override: manual race/not_race choice, never written by sync), health_metrics, training_goals (one active single-user goal, unique id index)
 src/db/index.ts                         Neon client
 src/lib/strava.ts                       Strava OAuth token exchange/refresh + storage; getDetailedActivity() for per-run detail
-src/lib/sync.ts                         Full-history Strava run sync and reconciliation (upserts runs, deletes runs no longer on Strava)
-src/lib/activity-raw.ts                 preserveDetailedRaw(): conflict-update SQL that keeps fetched detail (splits_metric or _coach_detail_loaded) in activities.raw during sync
+src/lib/sync.ts                         Full-history Strava run sync and reconciliation (upserts runs, deletes runs no longer on Strava); afterwards fetches Strava detail (km splits, laps) for the 6 newest runs without it, stops at the first Strava error, never fails the sync because of it
+src/lib/activity-raw.ts                 preserveDetailedRaw(): conflict-update SQL that keeps fetched detail (splits_metric or _coach_detail_loaded) in activities.raw during sync; hasDetailedRaw() is the pure mirror of the 'missing detail' SQL condition in sync.ts
 src/lib/format.ts                       Shared date/pace/duration/km formatters (nl-NL locale)
 src/lib/health-import.ts                Apple Shortcuts/Health Auto Export payload parsing, HEALTH_METRIC_MAP, plausibility ranges, daily aggregation and unit normalization
 src/lib/weight-correction.ts            Validates date and weight for manual correction of an existing imported measurement
