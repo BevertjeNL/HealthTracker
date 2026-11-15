@@ -32,3 +32,13 @@ test("existing detail with splits_metric is merged, otherwise the summary wins",
   assert.match(sql, /ELSE excluded\.raw\s+END/);
   assert.match(sql, /jsonb_typeof\("activities"\."raw"\) = 'object'/);
 });
+
+test("a run counts as detailed once splits were fetched or detail was requested before", async () => {
+  const { hasDetailedRaw } = await import("../src/lib/activity-raw.ts");
+  assert.equal(hasDetailedRaw({ id: 1, name: "Summary only" }), false);
+  assert.equal(hasDetailedRaw({ splits_metric: [] }), true);
+  assert.equal(hasDetailedRaw({ _coach_detail_loaded: true }), true);
+  assert.equal(hasDetailedRaw({ _coach_detail_loaded: false }), false);
+  assert.equal(hasDetailedRaw(null), false);
+  assert.equal(hasDetailedRaw([]), false);
+});

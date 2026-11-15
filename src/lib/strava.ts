@@ -67,8 +67,8 @@ export async function getValidAccessToken(): Promise<string> {
   return fresh.access_token;
 }
 
-export async function getDetailedActivity(stravaId: string) {
-  const accessToken = await getValidAccessToken();
+export async function getDetailedActivity(stravaId: string, token?: string) {
+  const accessToken = token ?? await getValidAccessToken();
   const response = await fetch(`https://www.strava.com/api/v3/activities/${encodeURIComponent(stravaId)}`, {
     headers: { Authorization: `Bearer ${accessToken}` },
     cache: "no-store",

@@ -1,7 +1,7 @@
 import type { activities, healthMetrics } from "@/db/schema";
 import { buildTrainingAdvice } from "./insights.ts";
 import { buildRecoverySummary, dayDifference, isUsableRecoveryValue } from "./recovery.ts";
-import { analyzePacing, buildRunDigest, classifyRun, compareToSimilar, KIND_LABEL, parseKmSplits, toAnalysisRun } from "./run-analysis.ts";
+import { analyzePacing, buildRunDigest, classifyRun, compareToSimilar, KIND_LABEL, lapsAreDistinct, parseKmSplits, parseLaps, runIntent, toAnalysisRun } from "./run-analysis.ts";
 import { buildRunLesson } from "./run-lesson.ts";
 import { assessPaceReserve, estimatePaceZones, paceRangeText, prescribeNextRun, restDaysAfter } from "./run-prescription.ts";
 import { analyzeSleep } from "./sleep.ts";
@@ -44,7 +44,7 @@ export function buildCoachToday(runs: Activity[], health: Health[], now = new Da
   const analysisRuns = sorted.map(toAnalysisRun);
   const lastAnalysis = last ? toAnalysisRun(last) : null;
   const maxHr = analysisRuns.reduce((max, item) => Math.max(max, item.maxHr ?? 0), 0) || null;
-  const lastPacing = lastAnalysis && lastKind ? analyzePacing(parseKmSplits(lastAnalysis.raw), lastKind, { maxHrObserved: maxHr }) : null;
+  const lastPacing = lastAnalysis && lastKind ? analyzePacing(parseKmSplits(lastAnalysis.raw), lastKind, { maxHrObserved: maxHr, intent: runIntent(lastAnalysis) }) : null;
   const prescription = prescribeNextRun({ runs: analysisRuns, now, daysSinceLast: lastAgeDays, readiness: recovery.score, loadChangePct: load.changePct, pacing: lastPacing });
   const sleepAdjusted = sleep.concern && (prescription.kind === "quality" || prescription.kind === "long");
   const easyZone = sleepAdjusted ? estimatePaceZones(analysisRuns, now)?.easy : null;
@@ -71,7 +71,10 @@ export function buildPostRunCoach(run: Activity, allRuns: Activity[], health: He
   const sorted = allRuns.map(toAnalysisRun);
   const digest = buildRunDigest(sorted).find((item) => item.id === run.id);
   const maxHr = sorted.reduce((max, item) => Math.max(max, item.maxHr ?? 0), 0) || null;
-  const pacing = analyzePacing(parseKmSplits(analysisRun.raw), kind, { maxHrObserved: maxHr });
+  const kmUnits = parseKmSplits(analysisRun.raw);
+  const lapUnits = parseLaps(analysisRun.raw);
+  // Echte rondes (van horloge of jou) markeren de opbouw van een training scherper dan kilometersplits.
+  const pacing = analyzePacing(kmUnits, kind, { maxHrObserved: maxHr, intent: runIntent(analysisRun), structureUnits: lapsAreDistinct(lapUnits, kmUnits) ? lapUnits : undefined });
   const comparison = compareToSimilar(analysisRun, sorted);
   const hrv = healthSignal(health, runDate, "hrvMs");
   const restingHr = healthSignal(health, runDate, "restingHeartRate");
@@ -80,7 +83,8 @@ export function buildPostRunCoach(run: Activity, allRuns: Activity[], health: He
   const postSignalCount = Number(hrv.deltaPct != null) + Number(restingHr.deltaPct != null);
   const pairedSignals = postSignalCount === 2 && hrv.afterDate === restingHr.afterDate;
   const evidence: string[] = [];
-  if (pacing) evidence.push(`Tweede helft ${Math.abs(Math.round(pacing.splitDiffSec))} sec/km ${pacing.splitDiffSec >= 0 ? "langzamer" : "sneller"} dan de eerste · ${pacing.unitCount} kilometers`);
+  if (pacing?.structureApplied && pacing.advice[0]) evidence.push(pacing.advice[0].detail);
+  else if (pacing) evidence.push(`Tweede helft ${Math.abs(Math.round(pacing.splitDiffSec))} sec/km ${pacing.splitDiffSec >= 0 ? "langzamer" : "sneller"} dan de eerste · ${pacing.unitCount} kilometers`);
   if (comparison?.paceDeltaSec != null) evidence.push(`${Math.abs(Math.round(comparison.paceDeltaSec))} sec/km ${comparison.paceDeltaSec <= 0 ? "sneller" : "langzamer"} dan ${comparison.count} vergelijkbare eerdere runs`);
   if (run.avgHeartRate != null) evidence.push(`Gemiddelde hartslag ${Math.round(run.avgHeartRate)} bpm`);
   if (hrv.deltaPct != null) evidence.push(`HRV na de run ${Math.abs(hrv.deltaPct)}% ${hrv.deltaPct >= 0 ? "boven" : "onder"} eigen basislijn`);

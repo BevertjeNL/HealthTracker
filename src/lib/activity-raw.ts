@@ -19,3 +19,11 @@ export function preserveDetailedRaw(rawColumn: PgColumn): SQL {
     ELSE excluded.raw
   END`;
 }
+
+// True when activities.raw already holds the detailed Strava activity (splits fetched, or the detail was
+// requested before and Strava had none, e.g. a treadmill run). Mirrors `missingDetailCondition` in sync.ts.
+export function hasDetailedRaw(raw: unknown): boolean {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return false;
+  const record = raw as Record<string, unknown>;
+  return "splits_metric" in record || record._coach_detail_loaded === true;
+}

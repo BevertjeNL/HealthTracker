@@ -1,8 +1,8 @@
-import { notInArray } from "drizzle-orm";
+import { desc, eq, notInArray, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { activities } from "@/db/schema";
 import { preserveDetailedRaw } from "@/lib/activity-raw";
-import { getValidAccessToken } from "@/lib/strava";
+import { getDetailedActivity, getValidAccessToken } from "@/lib/strava";
 
 type StravaActivity = {
   id: number;
@@ -48,7 +48,33 @@ async function fetchAllRuns(accessToken: string): Promise<StravaActivity[]> {
   return runs;
 }
 
-export async function syncStravaRuns(): Promise<{ synced: number; deleted: number }> {
+// Newest runs without kilometer splits get their detail right after a sync. The cap keeps one sync well inside
+// Strava's rate limit (100 requests per 15 minutes) and the function time limit; older runs follow on later syncs
+// or through the backfill button on /runs.
+const DETAIL_PER_SYNC = 6;
+const DETAIL_TIME_BUDGET_MS = 20_000;
+
+// Mirrors hasDetailedRaw() in activity-raw.ts.
+const missingDetailCondition = sql`NOT COALESCE(${activities.raw} ? 'splits_metric' OR ${activities.raw}->>'_coach_detail_loaded' = 'true', false)`;
+
+async function fetchMissingDetails(accessToken: string): Promise<number> {
+  const startedAt = Date.now();
+  const missing = await db.select({ id: activities.id, stravaId: activities.stravaId }).from(activities).where(missingDetailCondition).orderBy(desc(activities.startDate)).limit(DETAIL_PER_SYNC);
+  let fetched = 0;
+  for (const run of missing) {
+    if (Date.now() - startedAt > DETAIL_TIME_BUDGET_MS) break;
+    try {
+      const detail = await getDetailedActivity(run.stravaId, accessToken);
+      await db.update(activities).set({ raw: { ...detail, _coach_detail_loaded: true } }).where(eq(activities.id, run.id));
+      fetched++;
+    } catch {
+      break; // rate limit or Strava hiccup: stop here, the next sync continues with the same runs
+    }
+  }
+  return fetched;
+}
+
+export async function syncStravaRuns(): Promise<{ synced: number; deleted: number; detailed: number }> {
   const accessToken = await getValidAccessToken();
   const stravaActivities = await fetchAllRuns(accessToken);
 
@@ -92,5 +118,7 @@ export async function syncStravaRuns(): Promise<{ synced: number; deleted: numbe
           .returning({ id: activities.id })
       : [];
 
-  return { synced: upserted, deleted: deleteResult.length };
+  // Detail failures never fail the sync itself: the summaries above are already saved.
+  const detailed = await fetchMissingDetails(accessToken).catch(() => 0);
+  return { synced: upserted, deleted: deleteResult.length, detailed };
 }
