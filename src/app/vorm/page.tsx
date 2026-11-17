@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { desc, gte, sql } from "drizzle-orm";
 import { BalanceChart } from "@/components/BalanceChart";
 import { CoachNav } from "@/components/CoachNav";
@@ -9,10 +10,13 @@ import { db } from "@/db";
 import { activities, healthMetrics } from "@/db/schema";
 import { fmtDay, fmtNum } from "@/lib/format";
 import { buildTrainingHealth } from "@/lib/training-health";
+import { requirePageSession } from "@/lib/page-auth";
 
+export const metadata: Metadata = { title: "Vorm | Pulse" };
 export const dynamic = "force-dynamic";
 
 export default async function FormPage() {
+  await requirePageSession();
   const [runs, health] = await Promise.all([
     db.select().from(activities).where(gte(activities.startDate, sql<Date>`CURRENT_TIMESTAMP - INTERVAL '400 days'`)).orderBy(desc(activities.startDate)),
     db.select().from(healthMetrics).where(gte(healthMetrics.date, sql<string>`CURRENT_DATE - 400`)),
@@ -23,7 +27,7 @@ export default async function FormPage() {
   const recent4 = weeks.slice(-4);
   const loadValid = weeks.filter((week) => week.runs > 0).length >= 3;
 
-  return <div className="c-shell"><main className="c-container"><CoachNav active="form" />
+  return <div className="c-shell"><main id="main-content" className="c-container"><CoachNav active="form" />
     <header className="p-head">
       <div><span className="p-overline">TRAINING × APPLE HEALTH</span><h1>Je vorm</h1><p>Belasting, herstel en fitness naast elkaar.</p></div>
       <div className="p-head-note">{body.latestHealthDate ? <>Health t/m <b>{fmtDay(body.latestHealthDate, true)}</b>{body.healthAgeDays != null && body.healthAgeDays >= 2 ? ` · ${body.healthAgeDays} dagen oud` : ""}</> : "Geen Health-data"}</div>

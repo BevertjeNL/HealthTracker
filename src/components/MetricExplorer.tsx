@@ -43,7 +43,7 @@ function Detail({ trend, color, digits, today, days, onClose }: { trend: HealthT
   const sorted = [...values].sort((x, y) => x - y);
   const at = (q: number) => sorted[Math.min(sorted.length - 1, Math.max(0, Math.round(q * (sorted.length - 1))))];
   const lo = Math.min(at(0.02), ...(band ?? [])); const hi = Math.max(at(0.98), ...(band ?? [])); const pad = (hi - lo) * 0.12 || 1;
-  return <section className="p-detail" aria-label={`Uitleg en grafiek voor ${trend.label}`}>
+  return <section id="metric-detail" className="p-detail" tabIndex={-1} aria-label={`Uitleg en grafiek voor ${trend.label}`}>
     <div className="p-detail-head"><div><span className="p-overline">UITLEG · {trend.label.toUpperCase()}</span><h3>{text.headline}</h3></div><button type="button" onClick={onClose} className="p-detail-close" aria-label="Sluit uitleg">Sluiten ✕</button></div>
     <div className="p-detail-grid">
       <div>
@@ -79,9 +79,19 @@ export function MetricExplorer({ today, groups }: { today: string; groups: Explo
   const [days, setDays] = useState(90);
   const [selected, setSelected] = useState<HealthKey | null>(null);
   const panel = useRef<HTMLDivElement>(null);
+  const triggers = useRef<Map<HealthKey, HTMLButtonElement>>(new Map());
   const all = useMemo(() => groups.flatMap((group) => group.items), [groups]);
   const current = all.find((item) => item.trend.key === selected);
-  useEffect(() => { if (selected) panel.current?.scrollIntoView({ behavior: "smooth", block: "nearest" }); }, [selected]);
+  useEffect(() => {
+    if (!selected) return;
+    panel.current?.querySelector<HTMLElement>(".p-detail")?.focus({ preventScroll: true });
+    panel.current?.scrollIntoView({ behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "nearest" });
+  }, [selected]);
+  const closeDetail = () => {
+    const trigger = selected ? triggers.current.get(selected) : undefined;
+    setSelected(null);
+    requestAnimationFrame(() => trigger?.focus());
+  };
   const weekly = days >= WEEKLY_FROM;
   return <div className="p-explorer">
     <div className="p-explorer-bar">
@@ -94,7 +104,7 @@ export function MetricExplorer({ today, groups }: { today: string; groups: Explo
       </dl></details>
       <div className="p-periods" role="group" aria-label="Periode van de grafieken">{PERIODS.map((period) => <button key={period.days} type="button" aria-pressed={days === period.days} onClick={() => setDays(period.days)}>{period.label}</button>)}</div>
     </div>
-    <div ref={panel}>{current && <Detail key={`${current.trend.key}-${days}`} trend={current.trend} color={current.color} digits={current.digits} today={today} days={days} onClose={() => setSelected(null)} />}</div>
+    <div ref={panel}>{current && <Detail key={`${current.trend.key}-${days}`} trend={current.trend} color={current.color} digits={current.digits} today={today} days={days} onClose={closeDetail} />}</div>
     {groups.map((group) => <section className="p-section" key={group.title} aria-label={group.title}>
       <div className="p-section-head"><div><span className="p-overline">{group.overline}</span><h2>{group.title}</h2></div></div>
       {group.notice}
@@ -109,9 +119,11 @@ export function MetricExplorer({ today, groups }: { today: string; groups: Explo
           <div className="p-metric-value">{missing ? <span className="p-metric-empty">Geen recente data</span> : <><strong>{fmtNum(trend.current, digits)}</strong><small>{trend.unit}</small></>}</div>
           {!missing && <p className="p-metric-meta">{trend.baseline != null ? <>Basis {fmtNum(trend.baseline, digits)} · <b>{fmtSigned(trend.deltaPct, 1, "%")}</b> <span className="p-muted">(laatste {trend.recentDays} dagen)</span></> : "Basislijn bouwt op"}</p>}
           {missing && <p className="p-metric-meta">{trend.currentAgeDays != null ? `Laatste meting ${trend.currentAgeDays} dagen geleden` : "Nog nooit ontvangen"}</p>}
-          {!missing && <InteractiveSpark points={shown} color={color} baseline={trend.baseline} band={band} unit={trend.unit} digits={digits} weekly={weekly} />}
+          {!missing && <InteractiveSpark points={shown} color={color} baseline={trend.baseline} band={band} unit={trend.unit} digits={digits} weekly={weekly} label={trend.label} />}
           {!missing && trend.currentAgeDays != null && trend.currentAgeDays >= 2 && <p className="p-metric-age">Laatst gemeten {trend.currentAgeDays} dagen geleden</p>}
-          <button type="button" className="p-metric-more" aria-expanded={selected === trend.key} onClick={() => setSelected(selected === trend.key ? null : trend.key)}>{selected === trend.key ? "Verberg uitleg" : "Uitleg en grote grafiek"}</button>
+          <button type="button" className="p-metric-more" aria-expanded={selected === trend.key} aria-controls={selected === trend.key ? "metric-detail" : undefined}
+            onClick={(event) => { triggers.current.set(trend.key, event.currentTarget); if (selected === trend.key) closeDetail(); else setSelected(trend.key); }}
+          >{selected === trend.key ? "Verberg uitleg" : "Uitleg en grote grafiek"}</button>
         </article>;
       })}</div>
     </section>)}

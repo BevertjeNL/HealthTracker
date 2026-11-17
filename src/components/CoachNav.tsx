@@ -47,11 +47,13 @@ export function CoachNav({ active }: { active?: NavKey }) {
   }
 
   return <>
+    <a className="skip-link" href="#page-content">Ga naar inhoud</a>
     <nav className="p-nav" aria-label="Hoofdnavigatie">
       <Link href="/" className="brand-mark" aria-label="Pulse, naar vandaag"><AppLogo /></Link>
       <div className="p-nav-links">{LINKS.map((link) => <Link key={link.key} href={link.href} aria-current={current === link.key ? "page" : undefined}>{link.label}</Link>)}</div>
       <form action={logout} className="p-nav-logout"><button type="submit">Uitloggen</button></form>
     </nav>
     <nav className="p-tabbar" aria-label="Hoofdnavigatie mobiel">{LINKS.map((link) => <Link key={link.key} href={link.href} aria-current={current === link.key ? "page" : undefined} onClick={(event) => onTabClick(event, link.key, link.href)}><Icon name={link.key} /><span>{link.label}</span></Link>)}</nav>
+    <span id="page-content" className="skip-target" tabIndex={-1} />
   </>;
 }

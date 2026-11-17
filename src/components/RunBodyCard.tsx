@@ -25,14 +25,14 @@ export function RunBodyCard({ context, loadBasis, compact = false }: { context: 
         <Cell label="Trainingsbelasting" value={fmtNum(context.load)} delta={loadBasis === "geschat" ? "geschat zonder hartslag" : "uit hartslag en duur"} />
         <Cell label="Aandeel van je week" value={context.loadShareOfWeekPct == null ? "—" : `${context.loadShareOfWeekPct}`} unit="%" delta="van je laatste 7 dagen" />
       </div></div>
-      <div className="p-body-phase"><h3>Erna</h3><p className="p-body-sub">Ochtend na de run</p><div className="p-body-cells">
+      <div className="p-body-phase"><h3>Erna</h3><p className="p-body-sub">Dag na de run</p><div className="p-body-cells">
         <Cell label="HRV" value={fmtNum(after.hrv)} unit="ms" delta={after.hrv == null ? "nog niet gemeten" : after.hrvDeltaPct == null ? "geen basislijn" : `${fmtSigned(after.hrvDeltaPct, 0, "%")} t.o.v. basis`} tone={toneOf(after.hrvZ, null)} />
         <Cell label="Rusthartslag" value={fmtNum(after.rhr)} unit="bpm" delta={after.rhr == null ? "nog niet gemeten" : after.rhrDeltaPct == null ? "geen basislijn" : `${fmtSigned(after.rhrDeltaPct, 0, "%")} t.o.v. basis`} tone={toneOf(null, after.rhrZ)} />
       </div></div>
     </div>
     {!compact && hasForm && <div className="p-body-form"><h3>Loopvorm uit Apple Watch</h3><div className="p-body-cells">
       {form.powerW != null && <Cell label="Vermogen" value={fmtNum(form.powerW)} unit="W" />}
-      {form.strideM != null && <Cell label="Pasbreedte" value={fmtNum(form.strideM, 2)} unit="m" />}
+      {form.strideM != null && <Cell label="Paslengte" value={fmtNum(form.strideM, 2)} unit="m" />}
       {form.groundContactMs != null && <Cell label="Grondcontact" value={fmtNum(form.groundContactMs)} unit="ms" />}
       {form.verticalCm != null && <Cell label="Verticale beweging" value={fmtNum(form.verticalCm, 1)} unit="cm" />}
     </div></div>}

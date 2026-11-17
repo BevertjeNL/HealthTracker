@@ -22,7 +22,7 @@ export const METRIC_GUIDE: Partial<Record<HealthKey, MetricGuide>> = {
   },
   hrvMs: {
     what: "Hartslagvariabiliteit (HRV) meet hoeveel de tijd tussen twee hartslagen van slag tot slag verschilt. Het zegt hoe flexibel je zenuwstelsel schakelt tussen inspanning en rust.",
-    read: "Hoger is meestal beter: je lichaam herstelt goed en heeft ruimte voor belasting. HRV is erg persoonlijk. Vergelijk jezelf alleen met jezelf, nooit met een ander. Een enkele lage dag zegt weinig, een aanhoudende daling wel.",
+    read: "HRV verschilt sterk per persoon en per meetmoment. Vergelijk vooral meerdere dagen met je eigen patroon. Een hogere of lagere waarde alleen bewijst niet hoeveel belasting je vandaag aankunt.",
     causesWorse: ["te weinig of onrustige slaap", "een zware of lange training in de afgelopen dagen", "alcohol of een late maaltijd", "stress of een beginnende ziekte"],
     tips: ["Draag je Watch ook 's nachts: HRV wordt vooral dan gemeten.", "Beoordeel de trend over meerdere dagen, niet één dag.", "Een lage HRV samen met een hoge rusthartslag is een sterker signaal dan één van beide."],
     lowWord: "lager",
@@ -30,7 +30,7 @@ export const METRIC_GUIDE: Partial<Record<HealthKey, MetricGuide>> = {
   },
   restingHeartRate: {
     what: "Je rusthartslag is het laagste aantal slagen per minuut als je rustig en uitgerust bent. Een getraind hart pompt meer per slag en hoeft dus minder vaak te kloppen.",
-    read: "Lager is fitter. Een stijging van enkele slagen ten opzichte van je normaal wijst op vermoeidheid, stress, te weinig slaap, warmte of een beginnende ziekte.",
+    read: "Vergelijk je rusthartslag met je eigen normale waarden. Een aanhoudende stijging kan samengaan met vermoeidheid, stress, warmte of ziekte; één dag vertelt niet wat de oorzaak is.",
     causesWorse: ["onvoldoende herstel na een zware training", "slecht geslapen", "alcohol of dehydratie", "stress of een beginnende infectie"],
     tips: ["Een stijging van 1 tot 2 slagen is ruis; let op 3 of meer die meerdere dagen blijven.", "Combineer met HRV: beide signalen samen zijn betrouwbaarder."],
     lowWord: "lager",
@@ -45,7 +45,7 @@ export const METRIC_GUIDE: Partial<Record<HealthKey, MetricGuide>> = {
   },
   weightKg: {
     what: "Je lichaamsgewicht in kilo, zoals vastgelegd in Apple Gezondheid.",
-    read: "Voor hardlopers is gewicht geen doel op zich. Een lager gewicht maakt lopen zuiniger, maar te snel afvallen kost spiermassa en herstelvermogen. Dagschommelingen van een kilo zijn normaal.",
+    read: "Voor hardlopers is gewicht geen doel op zich. Een lager gewicht garandeert geen betere prestatie; te snel afvallen kan herstel en gezondheid schaden. Kijk naar de trend over weken, niet naar één dag.",
     tips: ["Weeg jezelf op hetzelfde moment, bijvoorbeeld 's ochtends na het toilet.", "Kijk naar het gemiddelde van een paar weken, niet naar één weging."],
     lowWord: "lager",
     highWord: "hoger",
@@ -68,7 +68,7 @@ export const METRIC_GUIDE: Partial<Record<HealthKey, MetricGuide>> = {
   },
   steps: {
     what: "Het aantal stappen per dag, inclusief je hardlooprondes.",
-    read: "Stappen zijn een maat voor je dagelijkse beweging buiten training. Een lager aantal na een zware week is normaal; een aanhoudend laag aantal betekent dat je veel zit.",
+    read: "Stappen tonen je totale dagelijkse beweging, inclusief hardlopen. Een lager aantal kan door rust, minder wandelen of minder training komen; bekijk het samen met je activiteiten.",
     tips: ["Dagelijkse beweging buiten je runs helpt het herstel."],
     lowWord: "lager",
     highWord: "hoger",
@@ -88,8 +88,8 @@ export const METRIC_GUIDE: Partial<Record<HealthKey, MetricGuide>> = {
     highWord: "hoger",
   },
   runningStrideLengthM: {
-    what: "Pasbreedte is de afstand die je per stap aflegt tijdens het hardlopen.",
-    read: "Een langere pas komt vaak met een hoger tempo. De pasbreedte hoeft niet te verbeteren om sneller te worden.",
+    what: "Paslengte is de afstand die je per stap aflegt tijdens het hardlopen.",
+    read: "Een langere pas komt vaak met een hoger tempo. De paslengte hoeft niet te verbeteren om sneller te worden.",
     tips: ["Zie het als context bij je tempo, niet als doel."],
     lowWord: "korter",
     highWord: "langer",

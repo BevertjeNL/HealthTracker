@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { asc, gte, sql } from "drizzle-orm";
 import { BodyAlert } from "@/components/BodyAlert";
 import { CoachNav } from "@/components/CoachNav";
@@ -9,7 +10,9 @@ import { fmtDay } from "@/lib/format";
 import { amsterdamDay, buildBodyAlert, daysApart, healthTrend, shiftDay, trendSpec, type HealthKey, type HealthTrend } from "@/lib/training-health";
 import { BODY_KEYS, FORM_KEYS } from "@/lib/training-health";
 import { analyzeSleep } from "@/lib/sleep";
+import { requirePageSession } from "@/lib/page-auth";
 
+export const metadata: Metadata = { title: "Lichaam | Pulse" };
 export const dynamic = "force-dynamic";
 
 const COLORS: Partial<Record<HealthKey, string>> = { hrvMs: "var(--series-hrv)", restingHeartRate: "var(--series-rhr)", vo2Max: "var(--series-vo2)", weightKg: "var(--series-weight)", respiratoryRate: "var(--series-rhr)", oxygenSaturationPct: "var(--series-vo2)", steps: "var(--series-steps)", exerciseMinutes: "var(--series-run)", runningPowerW: "var(--series-run)", runningStrideLengthM: "var(--series-vo2)", runningGroundContactTimeMs: "var(--series-weight)", runningVerticalOscillationCm: "var(--series-steps)" };
@@ -18,6 +21,7 @@ const HERSTEL: HealthKey[] = ["sleepHours", "hrvMs", "restingHeartRate", "respir
 const CONDITIE: HealthKey[] = ["vo2Max", "steps", "exerciseMinutes"]; // gewicht heeft hieronder een eigen paneel
 
 export default async function BodyPage() {
+  await requirePageSession();
   const rows = await db.select().from(healthMetrics).where(gte(healthMetrics.date, sql<string>`CURRENT_DATE - 800`)).orderBy(asc(healthMetrics.date));
   const weightRows = await db.select({ date: healthMetrics.date, weightKg: healthMetrics.weightKg }).from(healthMetrics).where(sql`${healthMetrics.weightKg} is not null`).orderBy(asc(healthMetrics.date));
   const today = amsterdamDay(new Date());
@@ -38,12 +42,12 @@ export default async function BodyPage() {
   const groups: ExplorerGroup[] = [
     { overline: "HERSTEL", title: "Hoe goed herstel je?", items: items(HERSTEL) },
     { overline: "CONDITIE EN BEWEGING", title: "Je dagelijkse basis", items: items(CONDITIE) },
-    { overline: "LOOPVORM · APPLE WATCH", title: "Hoe je loopt", items: items(FORM_KEYS), notice: formStale ? <p className="p-notice">Twee maanden geen loopvorm ontvangen. Je Shortcut stuurt vermogen, pasbreedte, grondcontact en verticale beweging niet mee. Zie <b>docs/apple-shortcuts.md</b>.</p> : undefined },
+    { overline: "LOOPVORM · APPLE WATCH", title: "Hoe je loopt", items: items(FORM_KEYS), notice: formStale ? <p className="p-notice">Twee maanden geen loopvorm ontvangen. Je Shortcut stuurt vermogen, paslengte, grondcontact en verticale beweging niet mee. Zie <b>docs/apple-shortcuts.md</b>.</p> : undefined },
   ];
 
   const visibleGroups = groups.filter((group) => group.items.length > 0 || group.notice);
 
-  return <div className="c-shell"><main className="c-container"><CoachNav active="body" />
+  return <div className="c-shell"><main id="main-content" className="c-container"><CoachNav active="body" />
     <header className="p-head">
       <div><span className="p-overline">APPLE HEALTH</span><h1>Je lichaam</h1><p>Je laatste week naast de vier weken ervoor. Eén meting is geen oordeel.</p></div>
       <div className="p-head-note">{latest ? <>Laatste data <b>{fmtDay(latest, true)}</b>{ageDays != null && ageDays >= 2 ? ` · ${ageDays} dagen oud` : ""}</> : "Geen Health-data ontvangen"}</div>

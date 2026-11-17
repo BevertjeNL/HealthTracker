@@ -63,5 +63,14 @@ test("a heavy plan session right after the earliest day becomes an easy run when
 test("no runs at all gives an easy start, not a crash", () => {
   const result = next([]);
   assert.equal(result.ranToday, false);
-  assert.notEqual(result.kind, "rest");
+  assert.equal(result.kind, "easy");
+  assert.equal(result.offset, 0);
+  assert.match(result.title, /Begin met rustig lopen/);
+});
+
+test("a future-dated run cannot postpone the first planned run", () => {
+  const result = next([run(1, "2026-11-15", 16000)]);
+  assert.equal(result.offset, 0);
+  assert.equal(result.kind, "easy");
+  assert.equal(result.ranToday, false);
 });

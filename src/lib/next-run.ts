@@ -53,7 +53,9 @@ export function buildNextRun({ runs, coach, body, planDays }: NextRunInput): Nex
   const adverse = (score != null && score < 58) || (loadPct != null && loadPct > 30 && (lastAge ?? 99) <= 2) || body.alertLevel === "stop";
   const easyOnly = adverse || body.alertLevel === "let-op" || coach.sleep.concern === true;
   const minOffset = body.alertLevel === "stop" ? 2 : adverse ? 1 : 0;
-  const analysisRuns = [...runs].sort((a, b) => b.startDate.getTime() - a.startDate.getTime()).map(toAnalysisRun);
+  // The coach has already excluded runs after its reference time; use the same history here.
+  const analysisRuns = (last ? runs.filter((run) => run.startDate.getTime() <= last.startDate.getTime()) : [])
+    .sort((a, b) => b.startDate.getTime() - a.startDate.getTime()).map(toAnalysisRun);
   const lastAnalysis = analysisRuns[0] ?? null;
   const lastKind = lastAnalysis ? classifyRun(lastAnalysis) : null;
   const maxHr = analysisRuns.reduce((max, item) => Math.max(max, item.maxHr ?? 0), 0) || null;

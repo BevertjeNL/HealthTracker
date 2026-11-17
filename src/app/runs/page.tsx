@@ -1,4 +1,5 @@
 import Link from "next/link";
+import type { Metadata } from "next";
 import { asc, desc } from "drizzle-orm";
 import { CoachNav } from "@/components/CoachNav";
 import { RaceMarker } from "@/components/RaceMarker";
@@ -11,7 +12,9 @@ import { buildHalfMarathonPlan } from "@/lib/half-marathon";
 import { estimateHalfMarathonTime, HALF_TIME_MAX_M, HALF_TIME_MIN_M } from "@/lib/half-time";
 import { buildRunDigest, KIND_LABEL, raceStatus, toAnalysisRun, type RunKind } from "@/lib/run-analysis";
 import { buildRunBodyContext, buildTrainingHealth } from "@/lib/training-health";
+import { requirePageSession } from "@/lib/page-auth";
 
+export const metadata: Metadata = { title: "Runs | Pulse" };
 export const dynamic = "force-dynamic";
 
 const PAGE_SIZE = 30;
@@ -20,6 +23,7 @@ type Filter = "all" | RunKind | "probable";
 const FILTERS: { key: Filter; label: string }[] = [{ key: "all", label: "Alles" }, { key: "race", label: "Wedstrijd" }, { key: "probable", label: "Te bevestigen" }, { key: "easy", label: "Rustig" }, { key: "long", label: "Lange duur" }, { key: "interval", label: "Interval" }];
 
 export default async function RunsPage({ searchParams }: { searchParams: Promise<{ type?: string; alle?: string }> }) {
+  await requirePageSession();
   const query = await searchParams;
   const filter = FILTERS.some((item) => item.key === query.type) ? (query.type as Filter) : "all";
   const showAll = query.alle === "1";
@@ -49,7 +53,7 @@ export default async function RunsPage({ searchParams }: { searchParams: Promise
   const visible = showAll ? filtered : filtered.slice(0, PAGE_SIZE);
   const href = (type: string, all = false) => `/runs${type !== "all" || all ? "?" : ""}${[type !== "all" ? `type=${type}` : "", all ? "alle=1" : ""].filter(Boolean).join("&")}`;
 
-  return <div className="c-shell"><main className="c-container"><CoachNav active="runs" />
+  return <div className="c-shell"><main id="main-content" className="c-container"><CoachNav active="runs" />
     <header className="p-head"><div><span className="p-overline">JE TRAININGSDAGBOEK</span><h1>Runs</h1><p>{fmtNum(km28, 0)} km in {recent.length} runs de laatste 28 dagen · fase: {plan.phase}.</p></div><SyncButton /></header>
     {!rows.length ? <section className="c-empty"><h2>Nog geen runs gevonden.</h2><p>Verbind Strava om je trainingen te analyseren.</p><a href="/api/strava/auth" className="c-button">Verbind Strava ↗</a></section> : <>
       <SplitsBackfill runs={withoutDetails} halfCount={halfWithoutDetails} />

@@ -2,6 +2,7 @@
 
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
+import { clearLoginAttempts, reserveLoginAttempt } from "@/lib/login-throttle";
 import {
   createSessionToken,
   isAuthConfigured,
@@ -17,10 +18,22 @@ export async function login(_state: LoginState, formData: FormData): Promise<Log
     return { error: "Inloggen is nog niet geconfigureerd." };
   }
 
+  let attempt;
+  try {
+    attempt = await reserveLoginAttempt();
+  } catch {
+    return { error: "Inloggen is tijdelijk niet beschikbaar. Probeer het later opnieuw." };
+  }
+  if (!attempt.allowed) {
+    return { error: "Te veel inlogpogingen. Probeer het over 15 minuten opnieuw." };
+  }
+
   const password = formData.get("password");
-  if (typeof password !== "string" || !verifyAppPassword(password)) {
+  if (typeof password !== "string" || password.length > 512 || !verifyAppPassword(password)) {
     return { error: "Onjuist wachtwoord." };
   }
+
+  await clearLoginAttempts(attempt.key);
 
   const cookieStore = await cookies();
   cookieStore.set(SESSION_COOKIE, await createSessionToken(), {

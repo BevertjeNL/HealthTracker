@@ -1,11 +1,14 @@
 import Link from "next/link";
+import type { Metadata } from "next";
 import { desc } from "drizzle-orm";
 import { CoachNav } from "@/components/CoachNav";
 import { db } from "@/db";
 import { activities } from "@/db/schema";
 import { fmtDate, fmtDuration, fmtPace } from "@/lib/format";
 import { buildRunStats, DAY_PARTS, WEEKDAYS, type RunStats } from "@/lib/run-stats";
+import { requirePageSession } from "@/lib/page-auth";
 
+export const metadata: Metadata = { title: "Cijfers | Pulse" };
 export const dynamic = "force-dynamic";
 
 const n0 = (value: number) => Math.round(value).toLocaleString("nl-NL");
@@ -30,9 +33,10 @@ function trendLine(stats: RunStats) {
 }
 
 export default async function StatsPage() {
+  await requirePageSession();
   const rows = await db.select().from(activities).orderBy(desc(activities.startDate));
   const stats = buildRunStats(rows);
-  return <div className="c-shell"><main className="c-container"><CoachNav active="stats" />
+  return <div className="c-shell"><main id="main-content" className="c-container"><CoachNav active="stats" />
     <header className="p-head"><div><span className="p-overline">JE LOOPCIJFERS</span><h1>Cijfers</h1><p>Totalen, trends, loopdagen en records.</p></div></header>
     {!stats ? <section className="c-empty"><h2>Nog geen runs gevonden.</h2><p>Verbind Strava en synchroniseer je runs om je cijfers te zien.</p><Link href="/runs" className="c-button">Naar mijn runs</Link></section> : <Stats stats={stats} />}
     <footer className="c-footer">PULSE / JOUW HARDLOOPCOACH <span>Strava × Apple Health</span></footer>

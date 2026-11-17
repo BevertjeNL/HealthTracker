@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { desc, eq, gte, sql } from "drizzle-orm";
 import { CoachNav } from "@/components/CoachNav";
 import { GoalEditor } from "@/components/GoalEditor";
@@ -5,10 +6,13 @@ import { db } from "@/db";
 import { activities, healthMetrics, trainingGoals } from "@/db/schema";
 import { buildCoachToday, buildPostRunCoach, postRunPlanWarning } from "@/lib/coach";
 import { addDays, buildGoalPlan, dateText, goalDate } from "@/lib/goal-plan";
+import { requirePageSession } from "@/lib/page-auth";
 
+export const metadata: Metadata = { title: "Doel | Pulse" };
 export const dynamic = "force-dynamic";
 
 export default async function GoalPage() {
+  await requirePageSession();
   const now = new Date();
   const today = goalDate(now);
   const [runs, health, saved] = await Promise.all([
@@ -20,7 +24,7 @@ export default async function GoalPage() {
   const coach = buildCoachToday(runs, health, now);
   const review = coach.lastRun ? buildPostRunCoach(coach.lastRun, runs, health) : null;
   const plan = goal ? buildGoalPlan(goal, runs, { recoveryScore: coach.recovery.score, loadChangePct: coach.load.changePct, generalAdvice: coach.advice, lastRunWarning: coach.lastRun && review ? postRunPlanWarning(review, coach.lastRun.startDate) : null }, now) : null;
-  return <div className="c-shell"><main className="c-container"><CoachNav active="goal" />
+  return <div className="c-shell"><main id="main-content" className="c-container"><CoachNav active="goal" />
     <header className="p-head"><div><span className="p-overline">JOUW VOLGENDE WEDSTRIJD</span><h1>Doel</h1><p>Afstand, datum en doeltempo. Je schema past zich aan je runs en herstel aan.</p></div></header>
     <section className="g-setup" aria-labelledby="goal-setup-title"><div className="g-setup-copy"><span className="c-overline">DOEL INSTELLEN</span><h2 id="goal-setup-title">{goal ? "Pas je wedstrijd aan" : "Kies je wedstrijd"}</h2><p>{goal ? "Opslaan berekent je schema opnieuw." : "Een halve marathon over vier weken op 5:20/km staat alvast ingevuld."}</p></div><GoalEditor goal={goal} defaultDate={addDays(today, 28)} minDate={addDays(today, 1)} /></section>
     {plan && <>

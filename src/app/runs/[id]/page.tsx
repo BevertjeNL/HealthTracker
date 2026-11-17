@@ -1,4 +1,5 @@
 import Link from "next/link";
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { eq } from "drizzle-orm";
 import { CoachNav } from "@/components/CoachNav";
@@ -18,13 +19,17 @@ import { analyzePacing, KIND_LABEL, KIND_SOURCE_LABEL, kindSource, lapsAreDistin
 import { buildRunStory } from "@/lib/run-story";
 import { RunBodyCard } from "@/components/RunBodyCard";
 import { buildRunBodyContext, buildRunLoads } from "@/lib/training-health";
+import { requirePageSession } from "@/lib/page-auth";
+import { parseActivityId } from "@/lib/activity-id";
 
+export const metadata: Metadata = { title: "Runanalyse | Pulse" };
 export const dynamic = "force-dynamic";
 
 export default async function RunDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  await requirePageSession();
   const { id } = await params;
-  const parsedId = Number(id);
-  if (!Number.isInteger(parsedId) || parsedId <= 0) notFound();
+  const parsedId = parseActivityId(id);
+  if (parsedId === null) notFound();
   const [run] = await db.select().from(activities).where(eq(activities.id, parsedId)).limit(1);
   if (!run) notFound();
   const allRuns = await db.select().from(activities);
@@ -55,7 +60,7 @@ export default async function RunDetailPage({ params }: { params: Promise<{ id: 
   }) : [];
   const stravaId = /^\d+$/.test(run.stravaId) ? run.stravaId : null;
 
-  return <div className="c-shell"><main className="c-container"><CoachNav active="runs" />
+  return <div className="c-shell"><main id="main-content" className="c-container"><CoachNav active="runs" />
     <header className="p-head p-head-run"><div><Link href="/runs" className="p-headlink">← Alle runs</Link><div className="p-runhead">{status === "none" ? <span className="c-kind">{KIND_LABEL[coach.kind]}</span> : <span className={status === "confirmed" ? "p-racebadge" : "p-racebadge maybe"}>{RACE_STATUS_LABEL[status]}</span>}<span>{fmtDate(run.startDate)}</span></div><h1>{run.name || "Hardlooptraining"}</h1></div></header>
     <section className="p-tiles p-tiles-4" aria-label="Kerncijfers">
       <article className="p-tile"><span className="p-metric-label">Afstand</span><div className="p-metric-value"><strong>{fmtKm(run.distanceM).replace(" km", "")}</strong><small>km</small></div></article>

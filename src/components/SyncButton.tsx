@@ -22,12 +22,12 @@ export function SyncButton() {
         {isPending ? "Bezig met synchroniseren…" : "Sync met Strava"}
       </button>
       {state.synced != null && (
-        <span className="text-xs" style={{ color: "var(--delta-good)" }}>
+        <span className="text-xs" role="status" style={{ color: "var(--delta-good)" }}>
           {state.synced} runs gesynct
         </span>
       )}
       {state.error && (
-        <span className="text-xs" style={{ color: "var(--status-critical)" }}>
+        <span className="text-xs" role="alert" style={{ color: "var(--status-critical)" }}>
           Fout: {state.error}
         </span>
       )}

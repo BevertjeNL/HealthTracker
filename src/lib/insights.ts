@@ -169,7 +169,8 @@ export function buildTrainingAdvice(
   now = new Date(),
 ): TrainingAdvice {
   const nowMs = now.getTime();
-  const recentRuns = [...runs]
+  const pastRuns = runs.filter((run) => run.startDate.getTime() <= nowMs);
+  const recentRuns = [...pastRuns]
     .filter((run) => run.startDate.getTime() >= nowMs - 42 * DAY_MS)
     .sort((a, b) => a.startDate.getTime() - b.startDate.getTime());
   const runsPerWeek = recentRuns.length / 6;
@@ -178,7 +179,7 @@ export function buildTrainingAdvice(
     (dateMs(date) - dateMs(runDays[index])) / DAY_MS,
   )));
   const medianGap = median(gaps);
-  const lastRun = recentRuns.at(-1) ?? [...runs].sort((a, b) => a.startDate.getTime() - b.startDate.getTime()).at(-1);
+  const lastRun = recentRuns.at(-1) ?? [...pastRuns].sort((a, b) => a.startDate.getTime() - b.startDate.getTime()).at(-1);
   const daysSinceLastRun = lastRun
     ? Math.max(0, Math.floor((nowMs - lastRun.startDate.getTime()) / DAY_MS))
     : null;
@@ -257,8 +258,9 @@ export function buildInsights(
 ): Insight[] {
   const insights: Insight[] = [];
   const nowMs = now.getTime();
-  const sortedRuns = [...runs].sort((a, b) => a.startDate.getTime() - b.startDate.getTime());
-  const sortedMetrics = [...metrics].sort((a, b) => a.date.localeCompare(b.date));
+  const today = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Amsterdam", year: "numeric", month: "2-digit", day: "2-digit" }).format(now);
+  const sortedRuns = runs.filter((run) => run.startDate.getTime() <= nowMs).sort((a, b) => a.startDate.getTime() - b.startDate.getTime());
+  const sortedMetrics = metrics.filter((metric) => metric.date <= today).sort((a, b) => a.date.localeCompare(b.date));
 
   const recoveryRows = sortedMetrics.filter(
     (metric) => isUsableRecoveryValue("hrvMs", metric.hrvMs) || isUsableRecoveryValue("restingHeartRate", metric.restingHeartRate),

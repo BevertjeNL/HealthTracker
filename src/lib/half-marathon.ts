@@ -7,8 +7,8 @@ const km = (run: Activity) => Math.max(0, run.distanceM ?? 0) / 1000;
 function formatPace(value: number) { let minutes = Math.floor(value); let seconds = Math.round((value - minutes) * 60); if (seconds === 60) { minutes += 1; seconds = 0; } return `${minutes}:${String(seconds).padStart(2, "0")}`; }
 
 export function buildHalfMarathonPlan(runs: Activity[], now = new Date()): HalfMarathonPlan {
-  const recent = runs.filter((run) => run.startDate.getTime() >= now.getTime() - 42 * DAY_MS);
-  const last28 = runs.filter((run) => run.startDate.getTime() >= now.getTime() - 28 * DAY_MS);
+  const recent = runs.filter((run) => run.startDate.getTime() >= now.getTime() - 42 * DAY_MS && run.startDate.getTime() <= now.getTime());
+  const last28 = recent.filter((run) => run.startDate.getTime() >= now.getTime() - 28 * DAY_MS);
   const longestRunKm = recent.reduce((max, run) => Math.max(max, km(run)), 0);
   const last28DaysKm = last28.reduce((sum, run) => sum + km(run), 0);
   const runsPerWeek = recent.length / 6;

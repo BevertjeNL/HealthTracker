@@ -95,7 +95,7 @@ function groupMax(items: Item[], keyOf: (item: Item) => string | number) {
 
 export function buildRunStats(runs: StatRun[], now = new Date()) {
   const items: Item[] = runs
-    .filter((run) => (run.distanceM ?? 0) > 0)
+    .filter((run) => (run.distanceM ?? 0) > 0 && run.startDate.getTime() <= now.getTime())
     .map((run) => {
       const day = localDay(run.startDate);
       return { day, dn: dayNumber(day), km: (run.distanceM ?? 0) / 1000, timeS: run.movingTimeS ?? 0, elev: run.elevationGainM ?? 0, pace: run.avgPaceMinPerKm ?? null, hour: localHour(run.startDate), name: run.name ?? null };

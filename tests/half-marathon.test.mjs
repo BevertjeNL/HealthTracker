@@ -16,6 +16,12 @@ test("keeps new runners in a base-building phase", () => {
   assert.match(plan.adjustments[0].title, /2 loopdagen/);
 });
 
+test("a future-dated long run does not change today's plan", () => {
+  const plan = buildHalfMarathonPlan([run(2, 5), run(-1, 21)], now);
+  assert.equal(plan.longestRunKm, 5);
+  assert.equal(plan.last28DaysKm, 5);
+});
+
 test("moves consistent runners with long runs into specific preparation", () => {
   const runs = [run(1, 5), run(2, 14), run(5, 7), run(9, 8), run(12, 6), run(14, 5), run(16, 13), run(19, 7), run(23, 8), run(27, 6), run(29, 5), run(31, 12), run(35, 7), run(39, 6), run(41, 5)];
   const plan = buildHalfMarathonPlan(runs, now);

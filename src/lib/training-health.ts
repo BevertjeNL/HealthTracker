@@ -140,10 +140,10 @@ export function loadBalance(series: DayPoint[]): LoadBalance {
   const last = series.at(-1);
   if (!last || last.acute == null || last.chronic == null || last.chronic <= 0) return { acute: last?.acute ?? 0, chronic: last?.chronic ?? null, ratio: null, tone: "unknown", label: "Basis wordt opgebouwd", detail: "Er is nog geen 28 dagen loopgeschiedenis voor een betrouwbare belastingverhouding." };
   const ratio = round(last.acute / last.chronic, 2);
-  if (ratio > 1.5) return { acute: last.acute, chronic: last.chronic, ratio, tone: "critical", label: "Veel meer dan je gewend bent", detail: "Je laatste 7 dagen zijn zwaarder dan anderhalf keer je normale week. Dat is de zone waar overbelasting ontstaat." };
+  if (ratio > 1.5) return { acute: last.acute, chronic: last.chronic, ratio, tone: "critical", label: "Veel meer dan je gewend bent", detail: "Je laatste 7 dagen zijn zwaarder dan anderhalf keer je normale week. Bekijk ook je herstel en klachten; deze verhouding voorspelt op zichzelf geen blessure." };
   if (ratio > 1.3) return { acute: last.acute, chronic: last.chronic, ratio, tone: "warning", label: "Boven je normale week", detail: "Je zit boven je gewone belasting. Houd de komende dagen rustig of laat een dag weg." };
   if (ratio < 0.7) return { acute: last.acute, chronic: last.chronic, ratio, tone: "warning", label: "Onder je normale week", detail: "Je belasting zakt weg. Prima voor een taper of herstel, anders is het tijd om rustig op te bouwen." };
-  return { acute: last.acute, chronic: last.chronic, ratio, tone: "good", label: "In balans", detail: "Je laatste 7 dagen liggen dicht bij je normale week: een veilige zone om te trainen." };
+  return { acute: last.acute, chronic: last.chronic, ratio, tone: "good", label: "In balans", detail: "Je laatste 7 dagen liggen dicht bij je normale week. De verhouding beschrijft je trainingsopbouw, niet je blessurerisico." };
 }
 
 /* ---------- Health-trends ten opzichte van eigen basislijn ---------- */
@@ -183,7 +183,7 @@ const TREND_SPEC: Record<string, Spec> = {
   respiratoryRate: { label: "Ademhaling", unit: "per min", higherIsBetter: false, digits: 1, noise: 4 },
   oxygenSaturationPct: { label: "Zuurstof", unit: "%", higherIsBetter: true, digits: 1, noise: 1 },
   runningPowerW: { label: "Loopvermogen", unit: "W", higherIsBetter: null, digits: 0, noise: 3 , recent: 28, baseline: 84, maxAge: 60 },
-  runningStrideLengthM: { label: "Pasbreedte", unit: "m", higherIsBetter: null, digits: 2, noise: 3 , recent: 28, baseline: 84, maxAge: 60 },
+  runningStrideLengthM: { label: "Paslengte", unit: "m", higherIsBetter: null, digits: 2, noise: 3 , recent: 28, baseline: 84, maxAge: 60 },
   runningGroundContactTimeMs: { label: "Grondcontact", unit: "ms", higherIsBetter: false, digits: 0, noise: 3 , recent: 28, baseline: 84, maxAge: 60 },
   runningVerticalOscillationCm: { label: "Verticale beweging", unit: "cm", higherIsBetter: false, digits: 1, noise: 4 , recent: 28, baseline: 84, maxAge: 60 },
 };
@@ -262,7 +262,7 @@ export function buildFitnessTrend(loads: RunLoad[], today: string): FitnessTrend
   }
   let verdict: FitnessTrend["verdict"] = { tone: "unknown", label: "Nog geen fitnesstrend", detail: "Voor een betrouwbare vergelijking zijn minstens drie runs met hartslag nodig in zowel de laatste als de voorgaande twee maanden." };
   if (deltaPct != null) {
-    if (deltaPct >= 2) verdict = { tone: "good", label: "Je loopt zuiniger", detail: `Per hartslag leg je gemiddeld ${deltaPct.toLocaleString("nl-NL")}% meer afstand af dan in de twee maanden ervoor, binnen hetzelfde runtype. Je aerobe motor wordt beter.` };
+    if (deltaPct >= 2) verdict = { tone: "good", label: "Je loopt zuiniger", detail: `Per hartslag leg je gemiddeld ${deltaPct.toLocaleString("nl-NL")}% meer afstand af dan in de twee maanden ervoor, binnen hetzelfde runtype. Dat kan passen bij betere loopzuinigheid.` };
     else if (deltaPct <= -2) verdict = { tone: "warning", label: "Je loopt minder zuinig", detail: `Per hartslag leg je ${Math.abs(deltaPct).toLocaleString("nl-NL")}% minder afstand af. Denk aan vermoeidheid, warm weer of opgebouwde belasting voordat je conclusies trekt.` };
     else verdict = { tone: "good", label: "Stabiele fitness", detail: "Je tempo-bij-hartslag is gelijk gebleven; je aerobe basis houdt stand." };
   }
@@ -300,7 +300,7 @@ function judgeAgainstBaseline(rows: Map<string, HealthRow>, key: "hrvMs" | "rest
   return { deltaPct: round(((value - base) / base) * 100, 1), z: round((value - base) / sd, 2) };
 }
 
-// Per belastingklasse: wat doen HRV en rusthartslag de ochtend na de run, ten opzichte van de eigen basislijn?
+// Per belastingklasse: wat doen de dagwaarden van HRV en rusthartslag na de run, ten opzichte van de eigen basislijn?
 export function buildResponseProfile(loads: RunLoad[], health: HealthRow[]): ResponseProfile {
   const byDay = new Map(health.map((row) => [row.date, row]));
   const dayLoad = new Map<string, number>();
@@ -321,7 +321,13 @@ export function buildResponseProfile(loads: RunLoad[], health: HealthRow[]): Res
     if (baseHrv && finite(next?.hrvMs)) group.hrv.push(((next.hrvMs - baseHrv) / baseHrv) * 100);
     if (baseRhr && finite(next?.restingHeartRate)) group.rhr.push(((next.restingHeartRate - baseRhr) / baseRhr) * 100);
     if (load > high && baseHrv) {
-      for (let lag = 1; lag <= 5; lag++) { const value = byDay.get(shiftDay(day, lag))?.hrvMs; if (finite(value) && value >= baseHrv * 0.95) { recoveryLags.push(lag); break; } if (lag === 5) recoveryLags.push(6); }
+      // A missing day leaves the recovery time unknown; it is not evidence of slow recovery.
+      for (let lag = 1; lag <= 5; lag++) {
+        const value = byDay.get(shiftDay(day, lag))?.hrvMs;
+        if (!finite(value)) break;
+        if (value >= baseHrv * 0.95) { recoveryLags.push(lag); break; }
+        if (lag === 5) recoveryLags.push(6);
+      }
     }
   }
   const buckets: ResponseBucket[] = Object.entries(groups).map(([label, group]) => ({ label, runs: group.runs, hrvSamples: group.hrv.length, rhrSamples: group.rhr.length, hrvDeltaPct: group.hrv.length >= MIN_SAMPLES ? round(mean(group.hrv)!, 1) : null, rhrDeltaPct: group.rhr.length >= MIN_SAMPLES ? round(mean(group.rhr)!, 1) : null }));
@@ -333,7 +339,7 @@ export function buildResponseProfile(loads: RunLoad[], health: HealthRow[]): Res
   if (hard?.hrvDeltaPct != null) {
     const drop = hard.hrvDeltaPct;
     const baseNote = light?.hrvDeltaPct != null ? ` Na een lichte run is dat ${light.hrvDeltaPct > 0 ? "+" : ""}${light.hrvDeltaPct.toLocaleString("nl-NL")}%.` : "";
-    summary = drop <= -8 ? `Na een zware run zakt je HRV de ochtend erna gemiddeld ${Math.abs(drop).toLocaleString("nl-NL")}%.${baseNote} Je lichaam voelt zware dagen duidelijk; geef ze echt een rustige dag erna.` : drop <= -3 ? `Na een zware run zakt je HRV de ochtend erna licht (${drop.toLocaleString("nl-NL")}%).${baseNote} Je herstelt snel, maar twee zware dagen achter elkaar blijven een risico.` : `Zware runs laten je HRV de ochtend erna nauwelijks zakken (${drop > 0 ? "+" : ""}${drop.toLocaleString("nl-NL")}%).${baseNote} Je lichaam verwerkt je huidige belasting goed.`;
+    summary = drop <= -8 ? `Op de dag na een zware run ligt je HRV gemiddeld ${Math.abs(drop).toLocaleString("nl-NL")}% lager.${baseNote} Plan herstel tussen zware sessies.` : drop <= -3 ? `Op de dag na een zware run ligt je HRV gemiddeld ${Math.abs(drop).toLocaleString("nl-NL")}% lager.${baseNote} Kijk ook naar hoe je je voelt voordat je weer zwaar traint.` : `Op de dag na een zware run verschilt je HRV gemiddeld ${drop > 0 ? "+" : ""}${drop.toLocaleString("nl-NL")}%.${baseNote} Dit dagcijfer alleen bewijst geen volledig herstel.`;
   }
   return { buckets, enough, summary, recoveryDays };
 }
@@ -355,24 +361,29 @@ export function pearson(pairs: { x: number; y: number }[]) {
 function linkInsight(id: string, title: string, xLabel: string, yLabel: string, points: { x: number; y: number; date: string }[], describe: (r: number) => string, minPairs = MIN_CORRELATION_PAIRS): LinkInsight {
   const r = points.length >= minPairs ? pearson(points) : null;
   if (r == null) return { id, title, pairs: points.length, r: null, verdict: "onvoldoende", text: `Nog te weinig gekoppelde metingen (${points.length} van minimaal ${minPairs}) om dit eerlijk te beoordelen.`, points, xLabel, yLabel };
-  if (Math.abs(r) < 0.25) return { id, title, pairs: points.length, r: round(r, 2), verdict: "geen-verband", text: `Geen duidelijk verband gevonden in ${points.length} runs. Dit is geen probleem: je prestatie hangt hier niet merkbaar van af.`, points, xLabel, yLabel };
+  if (Math.abs(r) < 0.25) return { id, title, pairs: points.length, r: round(r, 2), verdict: "geen-verband", text: `In ${points.length} runs is geen duidelijk lineair verband zichtbaar. Dat sluit een verband of invloed van andere factoren niet uit.`, points, xLabel, yLabel };
   return { id, title, pairs: points.length, r: round(r, 2), verdict: "verband", text: describe(r), points, xLabel, yLabel };
 }
 
-// Koppel de ochtend-HRV, de rusthartslag en het gewicht aan de zuinigheid van rustige runs.
+// Koppel alleen de dag vóór de run aan HRV en rusthartslag: de rundag bevat mogelijk metingen ná de run.
 export function buildLinkInsights(loads: RunLoad[], health: HealthRow[]): LinkInsight[] {
   const index = efficiencyIndex(loads);
   const steady = loads.filter((run) => index.has(run.id));
   const byDay = new Map(health.map((row) => [row.date, row]));
-  const ofDayOrBefore = (key: "hrvMs" | "restingHeartRate", day: string) => { for (let back = 0; back <= 1; back++) { const value = byDay.get(shiftDay(day, -back))?.[key]; if (finite(value)) return value; } return null; };
-  const hrvPoints = steady.flatMap((run) => { const base = baselineBefore(byDay, "hrvMs", run.day); const value = ofDayOrBefore("hrvMs", run.day); return base && value != null ? [{ x: round(((value - base) / base) * 100, 1), y: index.get(run.id)!, date: run.day }] : []; });
-  const rhrPoints = steady.flatMap((run) => { const base = baselineBefore(byDay, "restingHeartRate", run.day); const value = ofDayOrBefore("restingHeartRate", run.day); return base && value != null ? [{ x: round(((value - base) / base) * 100, 1), y: index.get(run.id)!, date: run.day }] : []; });
+  const beforePoint = (run: RunLoad, key: "hrvMs" | "restingHeartRate") => {
+    const beforeDay = shiftDay(run.day, -1);
+    const base = baselineBefore(byDay, key, beforeDay);
+    const value = byDay.get(beforeDay)?.[key];
+    return base && finite(value) ? [{ x: round(((value - base) / base) * 100, 1), y: index.get(run.id)!, date: run.day }] : [];
+  };
+  const hrvPoints = steady.flatMap((run) => beforePoint(run, "hrvMs"));
+  const rhrPoints = steady.flatMap((run) => beforePoint(run, "restingHeartRate"));
   const weights = health.filter((row) => finite(row.weightKg)).map((row) => ({ date: row.date, kg: row.weightKg as number }));
   const weightPoints = steady.flatMap((run) => { const near = weights.filter((row) => Math.abs(daysApart(row.date, run.day)) <= 7).sort((a, b) => Math.abs(daysApart(a.date, run.day)) - Math.abs(daysApart(b.date, run.day)))[0]; return near ? [{ x: near.kg, y: index.get(run.id)!, date: run.day }] : []; });
     return [
-    linkInsight("hrv-vs-efficiency", "Ochtend-HRV ↔ zuinig lopen", "HRV t.o.v. eigen basis (%)", "Zuinigheidsindex", hrvPoints, (r) => r > 0 ? `Op dagen met een hogere HRV loop je zuiniger (r = ${r.toFixed(2).replace(".", ",")}). Een hoge ochtend-HRV is voor jou een groen licht voor kwaliteit; een lage HRV pleit voor rustig.` : `Op dagen met een hogere HRV loop je juist minder zuinig (r = ${r.toFixed(2).replace(".", ",")}). Gebruik HRV bij jou dus voorzichtig als stuurinformatie.`),
-    linkInsight("rhr-vs-efficiency", "Rusthartslag ↔ zuinig lopen", "Rusthartslag t.o.v. eigen basis (%)", "Zuinigheidsindex", rhrPoints, (r) => r < 0 ? `Bij een verhoogde rusthartslag loop je minder zuinig (r = ${r.toFixed(2).replace(".", ",")}). Een verhoogde rusthartslag is voor jou een waarschuwing om de training aan te passen.` : `Bij een verhoogde rusthartslag loop je juist zuiniger (r = ${r.toFixed(2).replace(".", ",")}). Dit komt vaak door een strakke trainingsperiode; kijk naar het totaalbeeld.`),
-    linkInsight("weight-vs-efficiency", "Gewicht ↔ zuinig lopen", "Gewicht (kg)", "Zuinigheidsindex", weightPoints, (r) => r < 0 ? `Bij een lager gewicht loop je zuiniger (r = ${r.toFixed(2).replace(".", ",")}). Het afvallen werkt door in je tempo-bij-hartslag. Let op: gewicht en fitness bewegen vaak samen in de tijd, dus dit bewijst geen oorzaak.` : `Bij een lager gewicht loop je juist minder zuinig (r = ${r.toFixed(2).replace(".", ",")}). Check of je genoeg eet en herstelt; het gewicht lijkt je prestatie niet te helpen.`, 8),
+    linkInsight("hrv-vs-efficiency", "HRV vorige dag ↔ zuinig lopen", "HRV t.o.v. eigen basis (%)", "Zuinigheidsindex", hrvPoints, (r) => r > 0 ? `Na een dag met hogere HRV liep je in deze runs vaker zuiniger (r = ${r.toFixed(2).replace(".", ",")}). Dit verband alleen bepaalt geen trainingskeuze.` : `Na een dag met hogere HRV liep je in deze runs vaker minder zuinig (r = ${r.toFixed(2).replace(".", ",")}). Bekijk dit samen met je andere signalen.`),
+    linkInsight("rhr-vs-efficiency", "Rusthartslag vorige dag ↔ zuinig lopen", "Rusthartslag t.o.v. eigen basis (%)", "Zuinigheidsindex", rhrPoints, (r) => r < 0 ? `Na een dag met hogere rusthartslag liep je in deze runs vaker minder zuinig (r = ${r.toFixed(2).replace(".", ",")}). Dit verband alleen bepaalt geen trainingskeuze.` : `Na een dag met hogere rusthartslag liep je in deze runs vaker zuiniger (r = ${r.toFixed(2).replace(".", ",")}). Bekijk dit samen met je andere signalen.`),
+    linkInsight("weight-vs-efficiency", "Gewicht ↔ zuinig lopen", "Gewicht (kg)", "Zuinigheidsindex", weightPoints, (r) => r < 0 ? `Een lager gewicht viel in deze runs vaker samen met zuiniger lopen (r = ${r.toFixed(2).replace(".", ",")}). Dit bewijst geen oorzaak; veranderingen in training en herstel kunnen beide beïnvloeden.` : `Een lager gewicht viel in deze runs vaker samen met minder zuinig lopen (r = ${r.toFixed(2).replace(".", ",")}). Dit bewijst geen oorzaak; veranderingen in training en herstel kunnen beide beïnvloeden.`, 8),
   ];
 }
 
@@ -392,14 +403,15 @@ export function buildBodyAlert(trends: HealthTrend[]): BodyAlert {
   if (resp && strongWorse(resp)) signals.push(`Ademhaling ${pct(resp)}% hoger dan normaal`);
   if (oxy && strongWorse(oxy)) signals.push(`Zuurstofsaturatie ${pct(oxy)}% lager dan normaal`);
   const known = [hrv, rhr].filter((trend) => trend?.deltaPct != null).length;
-  if (known === 0) return { level: "ok", title: "Nog geen lichaamsbeeld", detail: "Er is geen recente HRV of rusthartslag met eigen basislijn. Synchroniseer Apple Health om je herstel te kunnen volgen.", signals };
   if (signals.length >= 3) return { level: "stop", title: "Je lichaam geeft meerdere waarschuwingen", detail: "Meerdere signalen wijken tegelijk duidelijk af. Dat past bij ziekte of zware vermoeidheid. Sla intensiteit over en kies rust.", signals };
-  if (signals.length >= 2) return { level: "let-op", title: "Twee signalen wijken duidelijk af", detail: "HRV en hartslag wijken allebei duidelijk van je normaal af. Houd de training rustig tot ze terugkeren.", signals };
-  if (signals.length === 1) return { level: "let-op", title: "Eén signaal wijkt duidelijk af", detail: "Eén meting is geen oordeel. Volg je schema en kijk morgen opnieuw.", signals };
+  if (signals.length >= 2) return { level: "let-op", title: "Twee signalen wijken duidelijk af", detail: "Twee lichaamsmetingen wijken duidelijk van je normaal af. Bekijk je herstel en houd de training rustig tot ze terugkeren.", signals };
+  if (signals.length === 1) return { level: "let-op", title: "Eén signaal wijkt duidelijk af", detail: "Eén meting is geen oordeel. Bekijk ook hoe je je voelt en beoordeel morgen opnieuw.", signals };
+  if (known === 0) return { level: "ok", title: "Nog geen lichaamsbeeld", detail: "Er is geen recente HRV of rusthartslag met eigen basislijn. Synchroniseer Apple Health om je herstel te kunnen volgen.", signals };
+  if (known === 1) return { level: "ok", title: "Beperkt lichaamsbeeld", detail: "De beschikbare meting ligt binnen je normale schommeling. Voor een vollediger beeld zijn zowel HRV als rusthartslag nodig.", signals };
   return { level: "ok", title: "Je lichaam is in balans", detail: "HRV en rusthartslag liggen binnen je normale schommeling.", signals };
 }
 
-/* ---------- ochtend van een run: wat zei je lichaam vooraf en hoe reageerde het erna? ---------- */
+/* ---------- dag rond een run: wat zei je lichaam vooraf en hoe reageerde het erna? ---------- */
 
 export type RunBodyContext = {
   day: string;
@@ -431,7 +443,7 @@ export function buildRunBodyContext(run: RunLoad | undefined, day: string, healt
   const weekLoad = loads.filter((item) => item.day > shiftDay(day, -7) && item.day <= day).reduce((sum, item) => sum + item.load, 0);
   const weight = [0, 1, 2, 3, 4, 5, 6, 7].map((back) => byDay.get(shiftDay(day, -back))?.weightKg).find(finite) ?? null;
   const warn = (hrvBefore.z != null && hrvBefore.z <= -1) || (rhrBefore.z != null && rhrBefore.z >= 1);
-  const readiness: RunBodyContext["readiness"] = hrvBefore.z == null && rhrBefore.z == null ? { tone: "unknown", label: "Geen ochtendmeting" } : warn ? { tone: "warning", label: "Je startte niet fris" } : { tone: "good", label: "Je startte fris" };
+  const readiness: RunBodyContext["readiness"] = hrvBefore.z == null && rhrBefore.z == null ? { tone: "unknown", label: "Geen meting de dag ervoor" } : warn ? { tone: "warning", label: "Vorige dag: afwijkend signaal" } : { tone: "good", label: "Vorige dag: geen duidelijke afwijking" };
   return {
     day,
     before: { hrv: morningHrv, hrvDeltaPct: hrvBefore.deltaPct, hrvZ: hrvBefore.z, rhr: morningRhr, rhrDeltaPct: rhrBefore.deltaPct, rhrZ: rhrBefore.z, weightKg: weight, steps: finite(on?.steps) ? on.steps : null },
@@ -450,8 +462,8 @@ export const BODY_KEYS: HealthKey[] = ["hrvMs", "restingHeartRate", "sleepHours"
 
 export function buildTrainingHealth(runRows: RunRow[], health: HealthRow[], now = new Date()) {
   const today = amsterdamDay(now);
-  const sortedHealth = [...health].sort((a, b) => a.date.localeCompare(b.date));
-  const loads = buildRunLoads(runRows, sortedHealth);
+  const sortedHealth = health.filter((row) => row.date <= today).sort((a, b) => a.date.localeCompare(b.date));
+  const loads = buildRunLoads(runRows.filter((run) => run.startDate.getTime() <= now.getTime()), sortedHealth);
   const days = buildDaySeries(loads, sortedHealth, today);
   const weeks = buildWeekSeries(loads, sortedHealth, today, 104);
   const trends = Object.fromEntries([...BODY_KEYS, ...FORM_KEYS].map((key) => [key, healthTrend(sortedHealth, key, today)])) as Record<HealthKey, HealthTrend>;

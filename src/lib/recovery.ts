@@ -54,7 +54,8 @@ export function latestRecoverySignal(
   key: RecoveryMetricKey,
   today: string,
 ): RecoverySignal | null {
-  const sorted = [...rows].sort((a, b) => a.date.localeCompare(b.date));
+  // Imported Health days can be ahead of the app clock. They cannot establish today's readiness.
+  const sorted = rows.filter((row) => row.date <= today).sort((a, b) => a.date.localeCompare(b.date));
   const current = sorted.findLast((row) => isUsableRecoveryValue(key, row[key]));
   if (!current) return null;
 
