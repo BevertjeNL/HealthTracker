@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { exchangeCodeForToken, saveTokens } from "@/lib/strava";
+import { stravaObjectId } from "@/lib/strava-id";
 import { safeEqual } from "@/lib/security";
 import { hasAuthenticatedSession } from "@/lib/session-server";
 
@@ -38,10 +39,10 @@ export async function GET(request: Request) {
 
   try {
     const tokens = await exchangeCodeForToken(code);
-    if (!tokens.athlete?.id) {
+    if (!tokens.athlete) {
       return NextResponse.json({ error: "Strava did not return an athlete" }, { status: 502 });
     }
-    await saveTokens(String(tokens.athlete.id), tokens);
+    await saveTokens(stravaObjectId(tokens.athlete), tokens);
   } catch {
     return NextResponse.json({ error: "Strava authorization failed" }, { status: 502 });
   }

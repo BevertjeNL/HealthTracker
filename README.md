@@ -42,6 +42,7 @@ De meeste Strava-runs bevatten aanvankelijk alleen de samenvatting. Het detail w
 - **Gewichtsanalyse**: gemiddelde van de laatste 4, 8, 12 of 26 weken naast de periode ervoor (minimaal 3 metingen per periode), met verschil in kg en gemiddeldelijnen in de grafiek, zoals in Apple Gezondheid.
 - **Duidelijke oordelen**: het overzicht, wedstrijddoel en de runanalyse tonen per belangrijk signaal een tekstueel oordeel met reden en opdracht. Groen betekent goed onderbouwd, oranje vraagt beheersing, rood vraagt ingrijpen en grijs betekent dat gegevens ontbreken. De kleur staat nooit alleen. De pagina vraagt nieuwe servergegevens op wanneer je het tabblad weer opent en elke minuut zolang het zichtbaar is; een nieuwe Strava- of Health-import wordt daardoor in het advies verwerkt zonder handmatig herladen.
 - **Strava-koppeling en toegang**: OAuth met `state`-controle, dagelijkse synchronisatie en wachtwoordlogin met ondertekende HttpOnly-sessie.
+- **Strava-ID’s**: activiteit- en atleet-ID’s komen uit `id_str` en blijven tekst in de database. Alleen oudere, veilig representabele numerieke ID’s worden nog geaccepteerd; een onveilig ID zonder `id_str` breekt de sync af voordat runs worden verwijderd.
 
 De adviezen zijn observaties uit persoonlijke data. Ze zijn geen medische diagnose.
 

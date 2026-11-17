@@ -22,6 +22,7 @@ Files:
 src/db/schema.ts                        Drizzle schema: strava_tokens, activities (incl. nullable kind_override: manual race/not_race choice, never written by sync), health_metrics, training_goals (one active single-user goal, unique id index)
 src/db/index.ts                         Neon client
 src/lib/strava.ts                       Strava OAuth token exchange/refresh + storage; getDetailedActivity() for per-run detail
+src/lib/strava-id.ts                    Exact Strava activity/athlete ID selection: prefer id_str; reject unsafe numeric fallback
 src/lib/sync.ts                         Full-history Strava run sync and reconciliation (upserts runs, deletes runs no longer on Strava); afterwards fetches Strava detail (km splits, laps) for the 6 newest runs without it, stops at the first Strava error, never fails the sync because of it
 src/lib/activity-raw.ts                 preserveDetailedRaw(): conflict-update SQL that keeps fetched detail (splits_metric or _coach_detail_loaded) in activities.raw during sync; hasDetailedRaw() is the pure mirror of the 'missing detail' SQL condition in sync.ts
 src/lib/format.ts                       Shared date/pace/duration/km formatters (nl-NL locale)
@@ -165,6 +166,7 @@ The app is used mostly as an iOS home-screen web app. Keep these rules when you 
 - Apple Shortcuts sends already aggregated daily values in kcal/kg and the other documented canonical units. Legacy Health Auto Export samples are aggregated server-side; `active_energy` is normalized from kJ to kcal and weight from lb/lbs to kg in `src/lib/health-import.ts`. New units need explicit tests before import.
 - Sleep is intentionally not accepted, imported or analyzed because the connected export does not provide usable sleep data. `sleep_hours` and `sleep_score` are legacy nullable columns only; do not re-enable them without confirming that reliable source data exists and adding fixtures/tests.
 - `activities.raw` holds the Strava JSON for a run. `/api/strava/activity/[id]` stores the *detailed* activity with an internal `_coach_detail_loaded` marker, including any `splits_metric`, `laps` and `best_efforts` supplied by Strava. `syncStravaRuns()` writes the *summary* activity via `preserveDetailedRaw()` (`src/lib/activity-raw.ts`): existing detail is merged with refreshed summary keys, including when Strava supplied no splits. Otherwise the summary replaces raw. See Gotcha 10. No schema change is required.
+- Strava activity and athlete identifiers use `id_str` as the authoritative value. `stravaObjectId()` accepts an older numeric `id` only when it is a safe JavaScript integer. The full sync resolves every run ID before any upsert or deletion, so an unusable ID cannot trigger history reconciliation. Both external ID columns already use `text`; the app's own serial `activities.id` remains a separate internal key.
 - All distances in the DB are meters; pace is precomputed at ingest as `avg_pace_min_per_km`. Don't re-derive pace from raw Strava fields in the UI layer — use the stored column so there's one source of truth.
 
 ## Minimum sample size for insights
