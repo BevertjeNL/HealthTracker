@@ -100,7 +100,11 @@ export function buildGoalPlan(goal: TrainingGoal, runs: Activity[], context: Goa
   const allDays: PlanDay[] = [];
   const previewDays = Math.min(28, Math.max(0, daysUntilRace));
   const runDates = new Map<string, Activity[]>();
-  for (const run of runs) { const date = goalDate(run.startDate); runDates.set(date, [...(runDates.get(date) ?? []), run]); }
+  for (const run of runs) {
+    if (run.startDate.getTime() > now.getTime()) continue;
+    const date = goalDate(run.startDate);
+    runDates.set(date, [...(runDates.get(date) ?? []), run]);
+  }
   for (let offset = 0; offset < previewDays; offset++) {
     const date = addDays(today, offset);
     const day = sessionForDate(date, goal.raceDate, goal.distanceM, goal.targetPaceSecPerKm, sessionContext);

@@ -8,6 +8,13 @@ const NOW = new Date("2026-10-17T10:00:00Z"); // a Saturday
 test("empty history yields no stats", () => {
   assert.equal(buildRunStats([], NOW), null);
   assert.equal(buildRunStats([run("2026-10-01T08:00:00Z", 0)], NOW), null);
+  assert.equal(buildRunStats([run("2026-10-18T08:00:00Z", 8)], NOW), null);
+});
+
+test("future runs do not inflate totals or move the latest run past today", () => {
+  const stats = buildRunStats([run("2026-10-16T08:00:00Z", 5), run("2026-10-18T08:00:00Z", 50)], NOW);
+  assert.equal(stats.totalKm, 5);
+  assert.equal(stats.lastDay, "2026-10-16");
 });
 
 test("weekday index starts on Monday", () => {

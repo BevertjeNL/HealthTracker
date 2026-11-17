@@ -17,15 +17,21 @@ export function SplitAnalyzer({ activityId, splits, detailLoaded }: { activityId
   const distanceKm = selected.reduce((sum, split) => sum + split.distance, 0) / 1000;
   const timeS = selected.reduce((sum, split) => sum + split.movingTime, 0);
   const averageSpeed = timeS > 0 ? (distanceKm * 1000) / timeS : null;
-  const heartRates = selected.flatMap((split) => split.averageHeartRate == null ? [] : [split.averageHeartRate]);
-  const averageHr = heartRates.length ? heartRates.reduce((sum, value) => sum + value, 0) / heartRates.length : null;
+  const heartRateTotals = selected.reduce((totals, split) => {
+    if (split.averageHeartRate != null && split.movingTime > 0) {
+      totals.weighted += split.averageHeartRate * split.movingTime;
+      totals.seconds += split.movingTime;
+    }
+    return totals;
+  }, { weighted: 0, seconds: 0 });
+  const averageHr = heartRateTotals.seconds > 0 ? heartRateTotals.weighted / heartRateTotals.seconds : null;
   const firstPace = selected[0]?.averageSpeed ? 1000 / selected[0].averageSpeed / 60 : null;
   const lastPace = selected.at(-1)?.averageSpeed ? 1000 / selected.at(-1)!.averageSpeed / 60 : null;
-  const fade = firstPace != null && lastPace != null ? (lastPace - firstPace) * 60 : null;
+  const fade = selected.length >= 2 && firstPace != null && lastPace != null ? (lastPace - firstPace) * 60 : null;
   const setPreset = (from: number, to: number) => { setStart(Math.max(1, from)); setEnd(Math.min(splits.length, to)); };
   const loadSplits = async () => { setLoading(true); setError(""); try { const response = await fetch(`/api/strava/activity/${activityId}`, { method: "POST" }); if (!response.ok) throw new Error(); router.refresh(); } catch { setError("De kilometergegevens konden niet worden opgehaald. Probeer opnieuw te synchroniseren."); } finally { setLoading(false); } };
 
-  if (!splits.length) return <section className="split-empty"><div><span className="eyebrow">Deelanalyse</span><h2>Geen kilometersplits beschikbaar</h2><p>{detailLoaded ? "Strava heeft voor deze activiteit geen kilometersplits geleverd. De beschikbare samenvatting en eventuele rondes staan hierboven." : "De gedetailleerde Strava-gegevens worden opgehaald. Je kunt ze ook opnieuw opvragen."}</p></div><button type="button" onClick={loadSplits} disabled={loading}>{loading ? "Details ophalen…" : "Probeer opnieuw"}</button>{error && <p className="split-error">{error}</p>}</section>;
+  if (!splits.length) return <section className="split-empty"><div><span className="eyebrow">Deelanalyse</span><h2>Geen kilometersplits beschikbaar</h2><p>{detailLoaded ? "Strava heeft voor deze activiteit geen kilometersplits geleverd. De beschikbare samenvatting en eventuele rondes staan hierboven." : "De gedetailleerde Strava-gegevens worden opgehaald. Je kunt ze ook opnieuw opvragen."}</p></div><button type="button" onClick={loadSplits} disabled={loading}>{loading ? "Details ophalen…" : "Probeer opnieuw"}</button>{error && <p className="split-error" role="alert">{error}</p>}</section>;
 
   return <section className="split-analyzer" aria-labelledby="split-title">
     <div className="split-heading"><div><span className="eyebrow">Deelanalyse</span><h2 id="split-title">Selecteer een stuk van je lange loop</h2><p>Kies hele kilometers. De samenvatting en grafiek rekenen alleen met het geselecteerde gedeelte.</p></div><div className="split-presets"><button type="button" onClick={() => setPreset(1, splits.length)}>Alles</button><button type="button" onClick={() => setPreset(1, Math.ceil(splits.length / 2))}>Eerste helft</button><button type="button" onClick={() => setPreset(Math.floor(splits.length / 2) + 1, splits.length)}>Tweede helft</button><button type="button" onClick={() => setPreset(Math.max(1, Math.floor(splits.length / 3)), Math.ceil(splits.length * 2 / 3))}>Middenstuk</button></div></div>

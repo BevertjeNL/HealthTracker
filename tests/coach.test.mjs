@@ -27,6 +27,17 @@ test("today's advice keeps incomplete Health information explicit", () => {
   assert.ok(view.reason.every((item) => !item.includes("Apple Health")));
 });
 
+test("future-dated runs and Health rows cannot appear in today's advice", () => {
+  const view = buildCoachToday(
+    [run(1, "2026-10-08")],
+    [health("2026-10-08", 55, 50)],
+    now,
+  );
+  assert.equal(view.lastRun, null);
+  assert.equal(view.latestHealthDate, null);
+  assert.equal(view.recovery.score, null);
+});
+
 test("post-run coach uses a personal baseline and two next-day signals", () => {
   const base = [1, 2, 3, 4, 5, 6].map((day) => health(`2026-09-${String(day + 19).padStart(2, "0")}`, 50, 50));
   const target = run(10, "2026-10-01", 12000, { name: "Lange duurloop" });

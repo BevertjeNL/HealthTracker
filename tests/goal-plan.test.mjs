@@ -111,6 +111,13 @@ test("a Strava run today is recorded without claiming the prescribed workout was
   assert.equal(plan.today.label, "Vandaag herstellen");
 });
 
+test("a future-dated Strava run cannot mark a planned session as completed", () => {
+  const future = { startDate: new Date("2026-10-08T08:00:00Z"), distanceM: 6500, movingTimeS: 2100, avgPaceMinPerKm: 5.4, name: "Loop" };
+  const plan = buildGoalPlan(goal, [...runs, future], context, now);
+  const tomorrow = plan.weeks.flatMap((week) => week.days).find((day) => day.date === "2026-10-08");
+  assert.equal(tomorrow.status, "planned");
+});
+
 test("calendar arithmetic stays correct across the Amsterdam daylight-saving change", () => {
   assert.equal(daysBetween("2026-11-04", "2026-10-07"), 28);
   assert.equal(addDays("2026-10-24", 2), "2026-10-26");

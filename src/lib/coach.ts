@@ -25,13 +25,14 @@ export function buildLoadPicture(runs: Activity[], now = new Date()) {
 
 export function buildCoachToday(runs: Activity[], health: Health[], now = new Date()) {
   const today = dateInAmsterdam(now);
-  const sorted = [...runs].sort((a, b) => b.startDate.getTime() - a.startDate.getTime());
+  const sorted = runs.filter((run) => run.startDate.getTime() <= now.getTime()).sort((a, b) => b.startDate.getTime() - a.startDate.getTime());
+  const currentHealth = health.filter((row) => row.date <= today);
   const load = buildLoadPicture(sorted, now);
-  const recovery = buildRecoverySummary(health, today);
-  const latestHealthDate = health.map((row) => row.date).sort().at(-1) ?? null;
+  const recovery = buildRecoverySummary(currentHealth, today);
+  const latestHealthDate = currentHealth.map((row) => row.date).sort().at(-1) ?? null;
   const healthAgeDays = latestHealthDate ? dayDifference(today, latestHealthDate) : null;
   const advice = buildTrainingAdvice(sorted, recovery.score, load.changePct, now);
-  const sleep = analyzeSleep(health, today);
+  const sleep = analyzeSleep(currentHealth, today);
   const last = sorted[0] ?? null;
   const lastKind = last ? classifyRun(toAnalysisRun(last)) : null;
   const lastAgeDays = last ? dayDifference(today, dateInAmsterdam(last.startDate)) : null;

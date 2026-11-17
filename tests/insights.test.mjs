@@ -24,6 +24,18 @@ test("flags stale Health data and does not depend on sleep", () => {
   assert.equal(insights.some((insight) => insight.id.includes("sleep")), false);
 });
 
+test("future-dated inputs do not make the current coaching picture look fresh", () => {
+  const now = new Date("2026-08-27T12:00:00Z");
+  const insights = buildInsights([run(-1, 20)], [
+    { date: "2026-08-20", hrvMs: 40, restingHeartRate: 60 },
+    { date: "2026-08-28", hrvMs: 45, restingHeartRate: 55 },
+  ], now);
+  assert.equal(insights[0].id, "health-sync-stale");
+  assert.equal(insights.some((insight) => insight.id === "training-load"), false);
+  const advice = buildTrainingAdvice([run(-1, 20)], null, null, now);
+  assert.doesNotMatch(advice.label, /niet nogmaals lopen/i);
+});
+
 test("treats a recent zero HRV row as invalid instead of fresh recovery data", () => {
   const metrics = [
     { date: "2026-08-20", hrvMs: 40, restingHeartRate: 60 },

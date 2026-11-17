@@ -4,11 +4,16 @@ import { db } from "@/db";
 import { activities } from "@/db/schema";
 import { hasAuthenticatedSession } from "@/lib/session-server";
 import { getDetailedActivity } from "@/lib/strava";
+import { parseActivityId } from "@/lib/activity-id";
 
 export async function POST(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   if (!(await hasAuthenticatedSession())) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const { id } = await params;
-  const [activity] = await db.select().from(activities).where(eq(activities.id, Number(id))).limit(1);
+  const activityId = parseActivityId(id);
+  if (activityId === null) {
+    return NextResponse.json({ error: "Invalid activity ID" }, { status: 400 });
+  }
+  const [activity] = await db.select().from(activities).where(eq(activities.id, activityId)).limit(1);
   if (!activity) return NextResponse.json({ error: "Activity not found" }, { status: 404 });
   try {
     const detail = await getDetailedActivity(activity.stravaId);

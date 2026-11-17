@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useId, useRef, useState, type KeyboardEvent } from "react";
 import { fmtDay, fmtNum } from "@/lib/format";
 
 export type SparkPoint = { date: string; value: number };
@@ -17,9 +17,10 @@ export function aggregateWeekly(points: SparkPoint[]): SparkPoint[] {
 }
 
 // Kleine grafiek met aanwijsbare punten. Op een telefoon werkt aanraken en slepen hetzelfde.
-export function InteractiveSpark({ points, color, baseline, band, unit, digits, weekly }: { points: SparkPoint[]; color: string; baseline: number | null; band: [number, number] | null; unit: string; digits: number; weekly: boolean }) {
+export function InteractiveSpark({ points, color, baseline, band, unit, digits, weekly, label }: { points: SparkPoint[]; color: string; baseline: number | null; band: [number, number] | null; unit: string; digits: number; weekly: boolean; label: string }) {
   const ref = useRef<HTMLDivElement>(null);
   const [active, setActive] = useState<number | null>(null);
+  const helpId = useId();
   if (points.length < 3) return <div className="p-spark p-spark-empty">te weinig metingen in deze periode</div>;
   const width = 200; const height = 56;
   const values = points.map((point) => point.value);
@@ -40,8 +41,27 @@ export function InteractiveSpark({ points, color, baseline, band, unit, digits, 
     setActive(best);
   };
   const shown = active != null ? points[active] : points.at(-1)!;
-  return <div className="p-ispark" ref={ref} onPointerMove={(event) => move(event.clientX)} onPointerDown={(event) => move(event.clientX)} onPointerLeave={() => setActive(null)}>
-    <svg viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none" role="img" aria-label={`Verloop over ${points.length} ${weekly ? "weken" : "dagen"}`}>
+  const shownIndex = active ?? points.length - 1;
+  const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+    let next = shownIndex;
+    if (event.key === "ArrowRight" || event.key === "ArrowUp") next++;
+    else if (event.key === "ArrowLeft" || event.key === "ArrowDown") next--;
+    else if (event.key === "PageUp") next += 7;
+    else if (event.key === "PageDown") next -= 7;
+    else if (event.key === "Home") next = 0;
+    else if (event.key === "End") next = points.length - 1;
+    else return;
+    event.preventDefault();
+    setActive(Math.max(0, Math.min(points.length - 1, next)));
+  };
+  return <div className="p-ispark" ref={ref} role="slider" tabIndex={0} aria-label={`${label}: meetpunt`} aria-orientation="horizontal"
+    aria-valuemin={1} aria-valuemax={points.length} aria-valuenow={shownIndex + 1}
+    aria-valuetext={`${weekly ? "Week van " : ""}${fmtDay(shown.date, true)}: ${fmtNum(shown.value, digits)} ${unit}${weekly ? " gemiddeld" : ""}`}
+    aria-describedby={helpId} onKeyDown={onKeyDown} onFocus={() => setActive((index) => index ?? points.length - 1)}
+    onBlur={() => setActive(null)} onPointerMove={(event) => move(event.clientX)} onPointerDown={(event) => move(event.clientX)}
+    onPointerLeave={() => { if (document.activeElement !== ref.current) setActive(null); }}>
+    <span id={helpId} className="sr-only">Gebruik de pijltjestoetsen om meetpunten te bekijken. Home en End springen naar het begin of einde.</span>
+    <svg viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none" aria-hidden="true">
       {band && <rect x="0" width={width} y={y(band[1])} height={Math.max(1, y(band[0]) - y(band[1]))} fill="currentColor" fillOpacity=".09" />}
       {baseline != null && <line x1="0" x2={width} y1={y(baseline)} y2={y(baseline)} stroke="currentColor" strokeOpacity=".35" strokeDasharray="3 3" vectorEffect="non-scaling-stroke" />}
       <path d={area} fill={color} fillOpacity=".12" />
@@ -49,6 +69,6 @@ export function InteractiveSpark({ points, color, baseline, band, unit, digits, 
       {active != null && <line x1={x(shown.date)} x2={x(shown.date)} y1="0" y2={height} stroke={color} strokeOpacity=".5" vectorEffect="non-scaling-stroke" />}
       <circle cx={x(shown.date)} cy={y(shown.value)} r="3.2" fill={color} vectorEffect="non-scaling-stroke" />
     </svg>
-    <p className="p-ispark-read" aria-live="polite">{weekly ? "Week van " : ""}{fmtDay(shown.date, true)} · <b>{fmtNum(shown.value, digits)} {unit}</b>{weekly ? " (gem.)" : ""}</p>
+    <p className="p-ispark-read">{weekly ? "Week van " : ""}{fmtDay(shown.date, true)} · <b>{fmtNum(shown.value, digits)} {unit}</b>{weekly ? " (gem.)" : ""}</p>
   </div>;
 }

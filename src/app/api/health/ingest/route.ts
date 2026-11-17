@@ -7,7 +7,16 @@ import {
   parseHealthPayload,
   RECOMMENDED_HEALTH_METRICS,
 } from "@/lib/health-import";
-import { hasValidSharedSecret } from "@/lib/security";
+import {
+  hasValidSharedSecret,
+  InvalidJsonBodyError,
+  readJsonBodyWithLimit,
+  RequestBodyTooLargeError,
+} from "@/lib/security";
+
+// Below Vercel's 4.5 MB function limit, while leaving ample room for a week
+// of Health Auto Export samples. Larger backfills use the local import script.
+const MAX_INGEST_BYTES = 4 * 1024 * 1024;
 
 export async function POST(request: Request) {
   const secret = request.headers.get("x-ingest-secret");
@@ -17,9 +26,15 @@ export async function POST(request: Request) {
 
   let payload: unknown;
   try {
-    payload = await request.json();
-  } catch {
-    return NextResponse.json({ error: "Invalid JSON payload" }, { status: 400 });
+    payload = await readJsonBodyWithLimit(request, MAX_INGEST_BYTES);
+  } catch (error) {
+    if (error instanceof RequestBodyTooLargeError) {
+      return NextResponse.json({ error: "Payload too large" }, { status: 413 });
+    }
+    if (error instanceof InvalidJsonBodyError) {
+      return NextResponse.json({ error: "Invalid JSON payload" }, { status: 400 });
+    }
+    throw error;
   }
 
   let parsed;

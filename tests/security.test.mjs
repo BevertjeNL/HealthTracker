@@ -3,6 +3,9 @@ import test from "node:test";
 import {
   bearerToken,
   hasValidSharedSecret,
+  InvalidJsonBodyError,
+  readJsonBodyWithLimit,
+  RequestBodyTooLargeError,
   safeEqual,
 } from "../src/lib/security.ts";
 
@@ -24,4 +27,20 @@ test("bearer tokens require the exact scheme", () => {
   assert.equal(bearerToken("Basic cron-secret"), null);
   assert.equal(bearerToken("cron-secret"), null);
   assert.equal(bearerToken("Bearer "), null);
+});
+
+test("JSON request size is enforced even when Content-Length is missing", async () => {
+  const request = new Request("https://example.test/api/health/ingest", {
+    method: "POST",
+    body: JSON.stringify({ values: "x".repeat(200) }),
+  });
+  await assert.rejects(readJsonBodyWithLimit(request, 64), RequestBodyTooLargeError);
+});
+
+test("JSON reader rejects malformed input and accepts a bounded payload", async () => {
+  const valid = new Request("https://example.test", { method: "POST", body: '{"ok":true}' });
+  assert.deepEqual(await readJsonBodyWithLimit(valid, 64), { ok: true });
+
+  const invalid = new Request("https://example.test", { method: "POST", body: "{" });
+  await assert.rejects(readJsonBodyWithLimit(invalid, 64), InvalidJsonBodyError);
 });

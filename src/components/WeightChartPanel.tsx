@@ -147,7 +147,7 @@ export function WeightChartPanel({ points, today }: { points: Point[]; today: st
       </div>
       {latest && latestAge != null && latestAge > 2 && <p className="w-latest stale">Laatste meting: {shortDate(latest.date)} · {kgText(latest.value)} ({latestAge} dagen geleden). Draait je gewichtsopdracht nog?</p>}
     </div>
-    <TrendChart title="Gewicht" subtitle="Sleep de handvatten om in of uit te zoomen" points={visible ?? []} displayPoints={trendVisible} displayLabel={settings.smooth ? "15-daagse trend" : undefined} color="var(--series-blue)" unit="kg" dateDomain={[start, end]} valueDomain={yAxis.error ? undefined : yAxis.domain} controls={controls} periodLines={periodLines} chartAside={aside} chartFooter={footer} />
+    <TrendChart title="Gewicht" subtitle="Sleep de handvatten of gebruik de pijltjestoetsen om in of uit te zoomen" points={visible ?? []} displayPoints={trendVisible} displayLabel={settings.smooth ? "15-daagse trend" : undefined} color="var(--series-blue)" unit="kg" dateDomain={[start, end]} valueDomain={yAxis.error ? undefined : yAxis.domain} controls={controls} periodLines={periodLines} chartAside={aside} chartFooter={footer} />
     {selected && <form className="w-correction" action={correctionAction} onSubmit={(event) => {
       const submitter = (event.nativeEvent as SubmitEvent).submitter as HTMLButtonElement | null;
       if (submitter?.value === "remove" && !window.confirm(`Gewichtsmeting van ${selected.date} uit Pulse verwijderen?`)) event.preventDefault();
@@ -160,7 +160,7 @@ export function WeightChartPanel({ points, today }: { points: Point[]; today: st
       </div>
       <p id="w-correction-help">Gebruik een komma of punt als decimaalteken. Kies Verwijder meting als die ook uit Health is gewist.</p>
       <div className="w-correction-actions"><button type="submit" name="operation" value="save" disabled={correctionPending}>Waarde opslaan</button><button type="submit" name="operation" value="remove" disabled={correctionPending}>Verwijder meting</button></div>
-      {correctionState.message && <p className={correctionState.ok ? "w-success" : "w-error"} role="status">{correctionState.message}</p>}
+      {correctionState.message && <p className={correctionState.ok ? "w-success" : "w-error"} role={correctionState.ok ? "status" : "alert"}>{correctionState.message}</p>}
     </form>}
   </section>;
 }

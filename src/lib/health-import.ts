@@ -174,8 +174,8 @@ function metricLists(names: string[]) {
   const receivedMetrics = [...new Set(names)].sort();
   return {
     receivedMetrics,
-    importedMetrics: receivedMetrics.filter((name) => name in HEALTH_METRIC_MAP),
-    ignoredMetrics: receivedMetrics.filter((name) => !(name in HEALTH_METRIC_MAP)),
+    importedMetrics: receivedMetrics.filter((name) => Object.hasOwn(HEALTH_METRIC_MAP, name)),
+    ignoredMetrics: receivedMetrics.filter((name) => !Object.hasOwn(HEALTH_METRIC_MAP, name)),
   };
 }
 
@@ -219,8 +219,8 @@ function parseHealthAutoExportPayload(payload: Record<string, unknown>): ParsedH
 
   for (const metric of metrics) {
     if (typeof metric.name !== "string" || !Array.isArray(metric.data)) continue;
+    if (!Object.hasOwn(HEALTH_METRIC_MAP, metric.name)) continue;
     const mapping = HEALTH_METRIC_MAP[metric.name];
-    if (!mapping) continue;
     const units = typeof metric.units === "string" ? metric.units : undefined;
     const points = metric.data.filter(isRecord).sort((a, b) => String(a.date).localeCompare(String(b.date)));
 

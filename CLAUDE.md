@@ -10,26 +10,27 @@ Read the Next.js 16 docs relevant to what you're about to touch, resolved from `
 
 ## Architecture (current, keep this section in sync with the repo)
 
-- **Next.js 16.4.3** (App Router, React 19.2, TypeScript, Tailwind v4) on **Vercel**. Server Components render the dashboard with `export const dynamic = "force-dynamic"`; interactivity lives in `"use client"` components.
+- **Next.js 16.4.6** (App Router, React 19.2, TypeScript, Tailwind v4) on **Vercel**. Server Components render the dashboard with `export const dynamic = "force-dynamic"`; interactivity lives in `"use client"` components.
 - **Neon Postgres**, accessed via `@neondatabase/serverless` HTTP driver + **Drizzle ORM** (`drizzle-orm/neon-http`) — one-shot HTTP queries, not a pooled/long-lived connection. No transactions spanning multiple round trips.
 - **Recharts** for trend charts; `jose` for session signing.
-- Single-user app: password login with a signed stateless session cookie; no accounts or multi-tenant concerns.
+- Single-user app: password login with a signed stateless session cookie and a persistent 10-attempts-per-IP/15-minute limiter; no accounts or multi-tenant concerns.
 - UI language is Dutch (nl-NL); product name in the UI is **Pulse**. Light and dark follow the system setting (`colorScheme: "light dark"`, a `themeColor` per scheme). Dark colours are never written by hand: `src/app/dark.css` is generated from the light stylesheets, so after changing a colour in `globals.css`, `pulse.css` or `ios.css` run `npm run theme:generate` (a test fails when it is stale). Only the root tokens and the Recharts overrides live in `scripts/generate-dark-css.mjs`. The UI design system is `src/app/pulse.css` (`p-*` classes, shared series colours so a colour always means the same signal, mobile bottom tab bar). `src/app/globals.css` keeps only the legacy `c-*`/`g-*`/`an-*`/`w-*` classes still used by run detail, goal, weight panel and login; remove a class there when its last user goes.
 
 Files:
 
 ```
-src/db/schema.ts                        Drizzle schema: strava_tokens, activities (incl. nullable kind_override: manual race/not_race choice, never written by sync), health_metrics, training_goals (one active single-user goal, unique id index)
+src/db/schema.ts                        Drizzle schema: strava_tokens, activities (incl. nullable kind_override: manual race/not_race choice, never written by sync), health_metrics, training_goals (one active single-user goal, unique id index), login_attempts (hashed source only)
 src/db/index.ts                         Neon client
 src/lib/strava.ts                       Strava OAuth token exchange/refresh + storage; getDetailedActivity() for per-run detail
 src/lib/strava-id.ts                    Exact Strava activity/athlete ID selection: prefer id_str; reject unsafe numeric fallback
+src/lib/activity-id.ts                  Validate internal activities.id against PostgreSQL serial's signed 32-bit range before a query
 src/lib/sync.ts                         Full-history Strava run sync and reconciliation (upserts runs, deletes runs no longer on Strava); afterwards fetches Strava detail (km splits, laps) for the 6 newest runs without it, stops at the first Strava error, never fails the sync because of it
 src/lib/activity-raw.ts                 preserveDetailedRaw(): conflict-update SQL that keeps fetched detail (splits_metric or _coach_detail_loaded) in activities.raw during sync; hasDetailedRaw() is the pure mirror of the 'missing detail' SQL condition in sync.ts
 src/lib/format.ts                       Shared date/pace/duration/km formatters (nl-NL locale)
 src/lib/health-import.ts                Apple Shortcuts/Health Auto Export payload parsing, HEALTH_METRIC_MAP, plausibility ranges, daily aggregation and unit normalization
 src/lib/weight-correction.ts            Validates date and weight for manual correction of an existing imported measurement
 src/lib/insights.ts                     Rule-based weight/run-performance summaries, buildTrainingAdvice() and buildInsights()
-src/lib/training-health.ts             Pure Strava × Apple Health link layer: per-run load (Banister TRIMP from heart rate, estimated without HR; max HR from the last 400 days), day/week series, acute vs. chronic load balance, health trends against a personal 7d-vs-28d baseline (newest value with its age, per-metric windows), efficiency index (m per beat vs. the median of the same run kind) fitness trend, next-morning response profile per load bucket, HRV/RHR/weight-vs-efficiency correlations (min. 8 pairs, |r| ≥ 0.25), body alert and per-run body context (readiness judges the DAY BEFORE the run against the 21 days before it in own daily swings, z ≤ −1 for HRV or ≥ +1 for resting HR; the run day's own daily value is never used because it contains post-run readings)
+src/lib/training-health.ts             Pure Strava × Apple Health link layer: per-run load (Banister TRIMP from heart rate, estimated without HR; max HR from the last 400 days), day/week series, acute vs. chronic load balance, health trends against a personal 7d-vs-28d baseline (newest value with its age, per-metric windows), efficiency index (m per beat vs. the median of the same run kind) fitness trend, next-day response profile per load bucket, previous-day HRV/RHR and nearby weight vs. efficiency correlations (min. 8 pairs, |r| ≥ 0.25), body alert and per-run body context (readiness judges the DAY BEFORE the run against the 21 days before it in own daily swings, z ≤ −1 for HRV or ≥ +1 for resting HR; the run day's own daily value is never used because it contains post-run readings)
 src/lib/metric-guide.ts               Pure plain-language guide per Health metric (what it is, how to read it, likely causes), badge labels/tones and describeTrend(): explains nu vs. basis vs. personal swing. Type-only imports so it is client-safe
 src/lib/recovery.ts                     Readiness/recovery score from HRV, resting HR, cardio recovery and walking HR vs. personal baseline (min. 5 baseline samples, freshness check)
 src/lib/half-marathon.ts                buildHalfMarathonPlan(): phase, progress towards 21.1 km, adjustments and example week from the last 28/42 days of runs
@@ -47,10 +48,12 @@ src/lib/run-stats.ts                    Pure all-history run statistics: per yea
 src/lib/chart-range.ts                  Range-adaptive chart ticks/labels, point summaries, manual X/Y range validation, and parse/resolve of the saved weight-chart settings (presets, custom window, Y limits)
 src/lib/weight-periods.ts              Recent-weeks versus previous-period weight averages (min. 3 measurements each), summary sentence and latest measurement
 src/lib/weight-trend.ts                Centered fifteen-day smoothing at real weight-measurement dates; isolated measurements keep their original values
-src/lib/security.ts                     Constant-time secret comparison and Bearer parsing
+src/lib/security.ts                     Constant-time secret comparison, Bearer parsing and streamed JSON body limits
+src/lib/login-throttle.ts                Atomic database-backed login limiter keyed by HMAC of requester IP; raw IP is never stored
+src/lib/page-auth.ts                     Session guard called before every private Server Component page reads data
 src/lib/session.ts                      Session signing/verification and password check
 src/lib/session-server.ts               Cookie-backed server-side session check
-src/proxy.ts                            Optimistic route protection; write actions re-check auth
+src/proxy.ts                            Optimistic route protection, per-request nonce CSP and no-store; pages and write actions re-check auth
 src/app/login/*                         Single-user login/logout actions and UI
 src/app/api/strava/auth/route.ts        GET → redirects to Strava OAuth consent
 src/app/api/strava/callback/route.ts    GET → validates OAuth state, exchanges code, saves tokens
@@ -62,6 +65,7 @@ src/app/manifest.ts                     PWA manifest and installable app icons
 src/app/globals.css                     Tailwind import plus the hand-written Pulse/coach design system
 src/app/ios.css                         iPhone/iPad layer loaded last: safe areas, dvh, floating tab bar (<900px) with sticky blurred top bar, 44px tap targets and pressed states on touch, no hover tricks, 16px inputs (no iOS focus zoom), scrollable chips, segmented controls, login on small screens, pull-to-refresh and skeleton styles
 src/app/loading.tsx                     Instant skeleton with navigation on every tab change
+src/app/error.tsx, not-found.tsx        Generic Dutch recovery and 404 screens without private error details
 src/app/dark.css                        GENERATED dark theme (prefers-color-scheme: dark) derived from globals/pulse/ios.css by colour role; never edit by hand
 scripts/generate-dark-css.mjs           Generator for dark.css: role-based colour mapping (background/text/border), hand-written dark root tokens and Recharts overrides; `npm run theme:generate`
 scripts/generate-splash.py              Draws the iOS launch images in public/splash (light and dark, portrait) with Pillow
@@ -108,7 +112,8 @@ public/safari-pinned-tab.svg            Safari pinned-tab mask icon
 .github/workflows/quality.yml           Audit, lint, typecheck, tests and build in CI (Node 24, dummy env vars)
 docs/apple-shortcuts.md                 iPhone setup guide for the subscription-free Apple Shortcuts Health sync
 tests/activity-raw.test.mjs             Sync upsert keeps detailed raw (splits) instead of overwriting it
-tests/security.test.mjs                 Shared-secret fail-closed regression tests
+tests/security.test.mjs                 Shared-secret and bounded JSON-body regression tests
+tests/activity-id.test.mjs              Internal activity-ID range regression test
 tests/health-import.test.mjs            Health payload parsing and unit-normalization regression tests
 tests/weight-correction.test.mjs       Weight correction date, operation and value validation
 tests/insights.test.mjs                 Insight thresholds, staleness and recommendations
@@ -166,7 +171,7 @@ The app is used mostly as an iOS home-screen web app. Keep these rules when you 
 - Apple Shortcuts sends already aggregated daily values in kcal/kg and the other documented canonical units. Legacy Health Auto Export samples are aggregated server-side; `active_energy` is normalized from kJ to kcal and weight from lb/lbs to kg in `src/lib/health-import.ts`. New units need explicit tests before import.
 - Sleep is intentionally not accepted, imported or analyzed because the connected export does not provide usable sleep data. `sleep_hours` and `sleep_score` are legacy nullable columns only; do not re-enable them without confirming that reliable source data exists and adding fixtures/tests.
 - `activities.raw` holds the Strava JSON for a run. `/api/strava/activity/[id]` stores the *detailed* activity with an internal `_coach_detail_loaded` marker, including any `splits_metric`, `laps` and `best_efforts` supplied by Strava. `syncStravaRuns()` writes the *summary* activity via `preserveDetailedRaw()` (`src/lib/activity-raw.ts`): existing detail is merged with refreshed summary keys, including when Strava supplied no splits. Otherwise the summary replaces raw. See Gotcha 10. No schema change is required.
-- Strava activity and athlete identifiers use `id_str` as the authoritative value. `stravaObjectId()` accepts an older numeric `id` only when it is a safe JavaScript integer. The full sync resolves every run ID before any upsert or deletion, so an unusable ID cannot trigger history reconciliation. Both external ID columns already use `text`; the app's own serial `activities.id` remains a separate internal key.
+- Strava activity and athlete identifiers use `id_str` as the authoritative value. `stravaObjectId()` accepts an older numeric `id` only when it is a safe JavaScript integer. The full sync resolves every run ID before any upsert or deletion, so an unusable ID cannot trigger history reconciliation. Both external ID columns already use `text`; the app's own serial `activities.id` is a signed 32-bit internal key and must be parsed with `parseActivityId()` before a query.
 - All distances in the DB are meters; pace is precomputed at ingest as `avg_pace_min_per_km`. Don't re-derive pace from raw Strava fields in the UI layer — use the stored column so there's one source of truth.
 
 ## Minimum sample size for insights
@@ -177,7 +182,7 @@ Any feature that surfaces a trend, average, correlation, or "insight" must not p
 
 - **Never log health data.** No `console.log`/`console.error` of request bodies, parsed metric values, or DB rows from `health_metrics` or `activities.raw`, in any route, script, or debug output — including while diagnosing the "ingest silently produces zero rows" gotcha below. If you need to inspect a payload, inspect its *shape* (metric names, point counts, date ranges) — never its values — and never paste real values into commit messages, PR descriptions, or chat output.
 - **Never bypass or remove auth checks.** Dashboard pages and user-triggered mutations require a valid signed session. `/api/strava/sync` requires `CRON_SECRET`; `/api/health/ingest` requires `HEALTH_INGEST_SECRET`. Every check must fail closed when its environment variable is absent.
-- `src/proxy.ts` is only an optimistic first gate. Every Server Action and Route Handler that reads private data or mutates state must perform its own authorization check close to the operation.
+- `src/proxy.ts` is only an optimistic first gate. Every private Server Component page, Server Action and Route Handler must check the signed session before reading private data or mutating state. Pages use `requirePageSession()` before any database query.
 - Keep the Strava OAuth `state` validation and short-lived HttpOnly cookie intact. The callback must require both a logged-in session and a matching state value.
 - Never commit `.env.local`, real secret values, or real health/activity data into the repo, a commit message, or a memory/scratch file. `.env.local.example` documents shape only, no real values.
 - Don't add a dependency that phones home with request/response data (analytics SDKs, error-reporting tools that capture payloads) without explicit user sign-off — this app's request bodies contain health data.

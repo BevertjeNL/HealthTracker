@@ -32,6 +32,16 @@ test("marks the day before yesterday as stale when a daily Health sync was expec
   assert.equal(signal?.fresh, false);
 });
 
+test("a future-dated Health row cannot make an older recovery signal look current", () => {
+  const rows = [
+    { date: "2026-08-27", hrvMs: 42 },
+    { date: "2026-09-01", hrvMs: 55 },
+  ];
+  const signal = latestRecoverySignal(rows, "hrvMs", "2026-08-30");
+  assert.equal(signal?.date, "2026-08-27");
+  assert.equal(signal?.fresh, false);
+});
+
 test("does not manufacture a readiness score from incomplete recovery data", () => {
   const rows = [
     { date: "2026-08-20", hrvMs: 40, restingHeartRate: 60 },

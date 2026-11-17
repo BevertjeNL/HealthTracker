@@ -138,3 +138,20 @@ test("imports actual sleep duration and ignores time in bed", () => {
   const bad = parseHealthPayload({ source: "apple-shortcuts", date: "2026-11-12", sleep_hours: 20 });
   assert.equal(bad.rows.length, 0);
 });
+
+test("prototype property names never become accepted health metrics", () => {
+  const shortcut = parseHealthPayload(JSON.parse('{"source":"apple-shortcuts","date":"2026-11-12","toString":1,"__proto__":1,"step_count":4200}'));
+  assert.deepEqual(shortcut.importedMetrics, ["step_count"]);
+  assert.deepEqual(shortcut.ignoredMetrics, ["__proto__", "toString"]);
+  assert.deepEqual(shortcut.rows[0].values, { steps: 4200 });
+
+  const autoExport = parseHealthPayload({
+    data: { metrics: [
+      { name: "constructor", data: [{ date: "2026-11-12", qty: 99 }] },
+      { name: "resting_heart_rate", data: [{ date: "2026-11-12", qty: 54 }] },
+    ] },
+  });
+  assert.deepEqual(autoExport.importedMetrics, ["resting_heart_rate"]);
+  assert.deepEqual(autoExport.ignoredMetrics, ["constructor"]);
+  assert.deepEqual(autoExport.rows[0].values, { restingHeartRate: 54 });
+});

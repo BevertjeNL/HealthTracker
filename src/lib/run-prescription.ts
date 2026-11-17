@@ -170,7 +170,7 @@ export function prescribeNextRun(input: PrescriptionInput): RunPrescription {
   const adverse = (readiness != null && readiness < 58) || (loadChangePct != null && loadChangePct > 30 && (daysSinceLast ?? 0) <= 2) || input.recoveryAdverse === true;
 
   if (!last || daysSinceLast == null) {
-    return zones ? { kind: "easy", title: "Duurloop op gesprekstempo", detail: `25–35 min op ${paceRangeText(zones.easy)}.${hrNote}`, why: zones.basis, distanceKm: null, paceSec: zones.easy } : rest("Begin met rustig lopen", "25–35 min op gesprekstempo; je kunt volledige zinnen spreken.", "Er zijn nog te weinig runs om tempo en afstand uit je cijfers af te leiden.");
+    return zones ? { kind: "easy", title: "Duurloop op gesprekstempo", detail: `25–35 min op ${paceRangeText(zones.easy)}.${hrNote}`, why: zones.basis, distanceKm: null, paceSec: zones.easy } : { kind: "easy", title: "Begin met rustig lopen", detail: "25–35 min op gesprekstempo; je kunt volledige zinnen spreken.", why: "Er zijn nog te weinig runs om tempo en afstand uit je cijfers af te leiden.", distanceKm: null, paceSec: null };
   }
   if (daysSinceLast === 0) return rest("Vandaag niet nogmaals lopen", `Herstel na ${km(Math.round(last.distanceM / 100) / 10)} km · wandelen optioneel`, "Een tweede training op dezelfde dag levert minder op dan herstel, eten en slaap.");
   if (adverse) {

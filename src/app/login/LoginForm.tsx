@@ -29,6 +29,8 @@ export function LoginForm() {
           autoCorrect="off"
           spellCheck={false}
           required
+          aria-invalid={Boolean(state.error)}
+          aria-describedby={state.error ? "login-error" : undefined}
           className="c-login-input w-full rounded-lg px-3 py-2 outline-none focus:ring-2"
           style={{
             color: "var(--text-primary)",
@@ -38,7 +40,7 @@ export function LoginForm() {
         />
       </div>
       {state.error && (
-        <p role="alert" className="text-sm" style={{ color: "var(--status-critical)" }}>
+        <p id="login-error" role="alert" className="text-sm" style={{ color: "var(--status-critical)" }}>
           {state.error}
         </p>
       )}

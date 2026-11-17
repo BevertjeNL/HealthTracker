@@ -8,7 +8,19 @@ import {
   date,
   jsonb,
   uniqueIndex,
+  index,
 } from "drizzle-orm/pg-core";
+
+// Stores a keyed hash of the requester address, never the raw IP or password.
+export const loginAttempts = pgTable(
+  "login_attempts",
+  {
+    sourceHash: text("source_hash").primaryKey(),
+    attempts: integer("attempts").notNull(),
+    windowStartedAt: timestamp("window_started_at", { withTimezone: true }).notNull(),
+  },
+  (table) => [index("login_attempts_window_started_idx").on(table.windowStartedAt)],
+);
 
 export const stravaTokens = pgTable(
   "strava_tokens",

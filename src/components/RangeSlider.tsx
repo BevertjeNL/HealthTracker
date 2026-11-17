@@ -51,11 +51,16 @@ export function RangeSlider({
   }
 
   function onPointerDown(event: PointerEvent<HTMLDivElement>) {
-    const target = (event.target as HTMLElement).closest<HTMLElement>("[data-role]")?.dataset.role as Role | undefined;
+    const handle = (event.target as HTMLElement).closest<HTMLElement>("[data-role]");
+    const target = handle?.dataset.role as Role | undefined;
     const v = valueAt(event);
     const role: Role = target ?? (Math.abs(v - lo) <= Math.abs(v - hi) ? "lo" : "hi");
     drag.current = { role, offset: v - lo };
     event.currentTarget.setPointerCapture(event.pointerId);
+    if (event.pointerType === "mouse") {
+      const focusTarget = role === "pan" ? null : event.currentTarget.querySelector<HTMLElement>(`[data-role="${role}"]`);
+      focusTarget?.focus();
+    }
     if (!target) move(role, v);
   }
 
@@ -66,12 +71,17 @@ export function RangeSlider({
 
   function onKey(role: "lo" | "hi") {
     return (event: KeyboardEvent<HTMLDivElement>) => {
-      const forward = event.key === "ArrowRight" || event.key === "ArrowUp";
-      const backward = event.key === "ArrowLeft" || event.key === "ArrowDown";
-      if (!forward && !backward) return;
+      const current = role === "lo" ? lo : hi;
+      const lower = role === "lo" ? min : lo + minGap;
+      const upper = role === "lo" ? hi - minGap : max;
+      let next: number;
+      if (event.key === "Home") next = lower;
+      else if (event.key === "End") next = upper;
+      else if (event.key === "ArrowRight" || event.key === "ArrowUp" || event.key === "PageUp") next = current + step * (event.shiftKey || event.key === "PageUp" ? 10 : 1);
+      else if (event.key === "ArrowLeft" || event.key === "ArrowDown" || event.key === "PageDown") next = current - step * (event.shiftKey || event.key === "PageDown" ? 10 : 1);
+      else return;
       event.preventDefault();
-      const delta = (forward ? 1 : -1) * step * (event.shiftKey ? 10 : 1);
-      move(role, (role === "lo" ? lo : hi) + delta);
+      move(role, next);
     };
   }
 

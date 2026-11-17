@@ -67,7 +67,15 @@ test("response profile only reports a bucket with at least three next-morning sa
   const profile = buildResponseProfile(buildRunLoads(rows, crashed), crashed);
   assert.equal(profile.enough, true);
   assert.ok(profile.buckets.find((b) => b.label === "Zwaar").hrvDeltaPct < -10);
-  assert.match(profile.summary, /zakt je HRV/);
+  assert.match(profile.summary, /HRV gemiddeld/);
+});
+
+test("missing HRV days after hard runs do not count as slow recovery", () => {
+  const days = range("2026-02-01", 12 * 9).filter((_, index) => index % 9 === 0);
+  const loads = days.map((day, index) => ({ day, load: (index + 1) * 10 }));
+  const missing = new Set(days.slice(-3).flatMap((day) => range(shiftDay(day, 1), 5)));
+  const health = range("2026-01-01", 160).filter((day) => !missing.has(day)).map((day) => hday(day));
+  assert.equal(buildResponseProfile(loads, health).recoveryDays, null);
 });
 
 test("pearson and link insights keep a minimum of eight pairs", () => {
@@ -81,10 +89,24 @@ test("link insight finds a clear HRV-to-efficiency relationship", () => {
   const days = range("2026-07-01", 80).filter((_, i) => i % 3 === 0);
   const health = range("2026-06-01", 140).map((date) => hday(date, { hrvMs: 60 + (Number(date.slice(-2)) % 7) * 3 }));
   const byDay = new Map(health.map((row) => [row.date, row]));
-  const rows = days.map((day, i) => run(i + 1, day, { avgHeartRate: 160 - (byDay.get(day).hrvMs - 60) }));
+  const rows = days.map((day, i) => run(i + 1, day, { avgHeartRate: 160 - (byDay.get(shiftDay(day, -1)).hrvMs - 60) }));
   const link = buildLinkInsights(buildRunLoads(rows, health), health).find((item) => item.id === "hrv-vs-efficiency");
   assert.equal(link.verdict, "verband");
   assert.ok(link.r > 0.25);
+});
+
+test("post-run daily HRV does not enter the pre-run correlation", () => {
+  const days = range("2026-07-01", 72).filter((_, index) => index % 3 === 0);
+  const missingBefore = new Set(days.map((day) => shiftDay(day, -1)));
+  const health = range("2026-06-01", 120).filter((date) => !missingBefore.has(date)).map((date) => hday(date, { hrvMs: 60 }));
+  const byDay = new Map(health.map((row) => [row.date, row]));
+  const rows = days.map((day, index) => {
+    byDay.get(day).hrvMs = 40 + index;
+    return run(index + 1, day, { avgHeartRate: 160 - index });
+  });
+  const link = buildLinkInsights(buildRunLoads(rows, [...byDay.values()]), [...byDay.values()]).find((item) => item.id === "hrv-vs-efficiency");
+  assert.equal(link.verdict, "onvoldoende");
+  assert.equal(link.r, null);
 });
 
 test("body alert needs concurring signals and says so when there is no baseline", () => {
@@ -95,6 +117,23 @@ test("body alert needs concurring signals and says so when there is no baseline"
   assert.equal(alert.signals.length, 2);
   assert.equal(buildBodyAlert([healthTrend([], "hrvMs", today)]).level, "ok");
   assert.match(buildBodyAlert([healthTrend([], "hrvMs", today)]).title, /Nog geen/);
+});
+
+test("body alert describes the signals that actually changed", () => {
+  const rows = [...range("2026-09-01", 40).map((date) => hday(date, { respiratoryRate: 12, oxygenSaturationPct: 99 })), ...range("2026-10-12", 6).map((date) => hday(date, { respiratoryRate: 16, oxygenSaturationPct: 94 }))];
+  const trends = ["hrvMs", "restingHeartRate", "respiratoryRate", "oxygenSaturationPct"].map((key) => healthTrend(rows, key, today));
+  const alert = buildBodyAlert(trends);
+  assert.equal(alert.signals.length, 2);
+  assert.doesNotMatch(alert.detail, /HRV en hartslag/);
+});
+
+test("body alert keeps non-core warnings visible and describes partial data honestly", () => {
+  const rows = [...range("2026-09-01", 40).map((date) => hday(date, { respiratoryRate: 12, oxygenSaturationPct: 99 })), ...range("2026-10-12", 6).map((date) => hday(date, { respiratoryRate: 16, oxygenSaturationPct: 94 }))];
+  const otherSignals = ["respiratoryRate", "oxygenSaturationPct"].map((key) => healthTrend(rows, key, today));
+  assert.equal(buildBodyAlert(otherSignals).level, "let-op");
+  const onlyHrv = buildBodyAlert([healthTrend(rows, "hrvMs", today)]);
+  assert.equal(onlyHrv.level, "ok");
+  assert.match(onlyHrv.title, /Beperkt/);
 });
 
 test("run body context judges the day before the run and the next morning's response against the personal baseline", () => {
@@ -119,7 +158,7 @@ test("the run day's own readings do not make a run look unfresh", () => {
   const loads = buildRunLoads([run(1, day)], patched);
   const context = buildRunBodyContext(loads[0], day, patched, loads);
   assert.equal(context.readiness.tone, "good");
-  assert.equal(context.readiness.label, "Je startte fris");
+  assert.equal(context.readiness.label, "Vorige dag: geen duidelijke afwijking");
   assert.equal(context.before.hrv, 60);
 });
 
@@ -153,4 +192,15 @@ test("training-health bundle works with no health data at all", () => {
   assert.equal(bundle.alert.level, "ok");
   assert.equal(bundle.trends.hrvMs.current, null);
   assert.equal(bundle.days.length, 120);
+});
+
+test("training-health excludes future records from freshness and load", () => {
+  const bundle = buildTrainingHealth(
+    [run(1, "2026-10-19")],
+    [hday("2026-10-17"), hday("2026-10-19")],
+    new Date("2026-10-18T10:00:00Z"),
+  );
+  assert.equal(bundle.latestHealthDate, "2026-10-17");
+  assert.equal(bundle.healthAgeDays, 1);
+  assert.equal(bundle.loads.length, 0);
 });

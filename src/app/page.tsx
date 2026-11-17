@@ -1,4 +1,5 @@
 import Link from "next/link";
+import type { Metadata } from "next";
 import { desc, eq, gte, sql } from "drizzle-orm";
 import { BodyAlert } from "@/components/BodyAlert";
 import { CoachNav } from "@/components/CoachNav";
@@ -19,10 +20,13 @@ import { buildGoalPlan, dateText } from "@/lib/goal-plan";
 import { KIND_LABEL, toAnalysisRun } from "@/lib/run-analysis";
 import { amsterdamDay, buildRunBodyContext, buildTrainingHealth } from "@/lib/training-health";
 import { watchWorkout } from "@/lib/watch-workout";
+import { requirePageSession } from "@/lib/page-auth";
 
+export const metadata: Metadata = { title: "Vandaag | Pulse" };
 export const dynamic = "force-dynamic";
 
 export default async function Home() {
+  await requirePageSession();
   const [runs, health, savedGoals] = await Promise.all([
     db.select().from(activities).where(gte(activities.startDate, sql<Date>`CURRENT_TIMESTAMP - INTERVAL '400 days'`)).orderBy(desc(activities.startDate)),
     db.select().from(healthMetrics).where(gte(healthMetrics.date, sql<string>`CURRENT_DATE - 400`)),
@@ -46,7 +50,7 @@ export default async function Home() {
   const weekKm = body.days.slice(-7).reduce((sum, day) => sum + day.km, 0);
   const fit = body.fitness.efficiency;
 
-  return <div className="c-shell"><main className="c-container"><CoachNav active="today" />
+  return <div className="c-shell"><main id="main-content" className="c-container"><CoachNav active="today" />
     <header className="p-head">
       <div><span className="p-overline">VANDAAG · {fmtDate(coach.today).toUpperCase()}</span><h1>Je volgende run</h1></div>
       <DataRefreshButton healthNeedsSync={stale} lastHealthDate={coach.latestHealthDate} />

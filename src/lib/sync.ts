@@ -41,7 +41,7 @@ async function fetchAllRuns(accessToken: string): Promise<StravaActivity[]> {
       { headers: { Authorization: `Bearer ${accessToken}` } },
     );
     if (!res.ok) {
-      throw new Error(`Strava API error (page ${page}): ${await res.text()}`);
+      throw new Error(`Strava API error on page ${page} (status ${res.status})`);
     }
     const pageActivities = (await res.json()) as StravaActivity[];
     runs.push(...pageActivities.filter((a) => RUN_TYPES.has(a.type)));
