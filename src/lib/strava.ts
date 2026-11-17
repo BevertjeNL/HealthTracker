@@ -7,7 +7,7 @@ type StravaTokenResponse = {
   access_token: string;
   refresh_token: string;
   expires_at: number;
-  athlete?: { id: number };
+  athlete?: { id?: number; id_str?: string };
 };
 
 export async function exchangeCodeForToken(code: string) {

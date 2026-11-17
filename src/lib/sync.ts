@@ -3,9 +3,11 @@ import { db } from "@/db";
 import { activities } from "@/db/schema";
 import { preserveDetailedRaw } from "@/lib/activity-raw";
 import { getDetailedActivity, getValidAccessToken } from "@/lib/strava";
+import { stravaObjectId } from "@/lib/strava-id";
 
 type StravaActivity = {
   id: number;
+  id_str?: string;
   name: string;
   type: string;
   start_date: string;
@@ -77,11 +79,16 @@ async function fetchMissingDetails(accessToken: string): Promise<number> {
 export async function syncStravaRuns(): Promise<{ synced: number; deleted: number; detailed: number }> {
   const accessToken = await getValidAccessToken();
   const stravaActivities = await fetchAllRuns(accessToken);
+  // Resolve all IDs before writing or deleting. Invalid IDs must abort the sync.
+  const runs = stravaActivities.map((activity) => ({
+    activity,
+    stravaId: stravaObjectId(activity),
+  }));
 
   let upserted = 0;
-  for (const a of stravaActivities) {
+  for (const { activity: a, stravaId } of runs) {
     const values = {
-      stravaId: String(a.id),
+      stravaId,
       name: a.name,
       type: a.type,
       startDate: new Date(a.start_date),
@@ -109,7 +116,7 @@ export async function syncStravaRuns(): Promise<{ synced: number; deleted: numbe
 
   // fetchAllRuns walks the athlete's full history, so any run currently in the
   // DB but absent from this result set was deleted (or un-Run-ified) on Strava.
-  const currentStravaIds = stravaActivities.map((a) => String(a.id));
+  const currentStravaIds = runs.map(({ stravaId }) => stravaId);
   const deleteResult =
     currentStravaIds.length > 0
       ? await db
