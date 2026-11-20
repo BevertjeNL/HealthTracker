@@ -42,7 +42,7 @@ De meeste Strava-runs bevatten aanvankelijk alleen de samenvatting. Het detail w
 - **Gewichtsanalyse**: gemiddelde van de laatste 4, 8, 12 of 26 weken naast de periode ervoor (minimaal 3 metingen per periode), met verschil in kg en gemiddeldelijnen in de grafiek, zoals in Apple Gezondheid.
 - **Duidelijke oordelen**: het overzicht, wedstrijddoel en de runanalyse tonen per belangrijk signaal een tekstueel oordeel met reden en opdracht. Groen betekent goed onderbouwd, oranje vraagt beheersing, rood vraagt ingrijpen en grijs betekent dat gegevens ontbreken. De kleur staat nooit alleen. De pagina vraagt nieuwe servergegevens op wanneer je het tabblad weer opent en elke minuut zolang het zichtbaar is; een nieuwe Strava- of Health-import wordt daardoor in het advies verwerkt zonder handmatig herladen.
 - **Strava-koppeling en toegang**: OAuth met `state`-controle, dagelijkse synchronisatie en wachtwoordlogin met ondertekende HttpOnly-sessie en een persistente limiet van 10 pogingen per IP per 15 minuten. Het IP-adres wordt alleen als HMAC opgeslagen.
-- **Strava-ID’s**: activiteit- en atleet-ID’s komen uit `id_str` en blijven tekst in de database. Alleen oudere, veilig representabele numerieke ID’s worden nog geaccepteerd; een onveilig ID zonder `id_str` breekt de sync af voordat runs worden verwijderd.
+- **Strava-ID’s**: activiteit- en atleet-ID’s komen uit `id_str` en blijven tekst in de database. Alleen oudere, veilig representabele numerieke ID’s worden nog geaccepteerd; een onveilig ID zonder `id_str` breekt de sync af voordat runs worden bijgewerkt. De sync verwijdert geen lokaal opgeslagen runs als Strava ze niet teruggeeft.
 
 De adviezen zijn observaties uit persoonlijke data. Ze zijn geen medische diagnose.
 
@@ -102,6 +102,14 @@ Selecteer bij voorkeur:
 
 Ontbrekende metrics blokkeren de import niet. De app toont de werkelijke dekking en maakt alleen een conclusie wanneer voldoende metingen beschikbaar zijn.
 
+## Back-up van appgegevens
+
+Open na het inloggen **Back-up** in de bovenbalk. Met je app-wachtwoord en een **aparte wachtzin van minimaal 16 tekens** download je een versleuteld `.pulsebackup`-bestand. Het bevat alle lokaal opgeslagen runs met details en handmatige classificaties, Health-dagen met correcties en het wedstrijddoel. Strava-tokens, app-/databasewachtwoorden en tijdelijke inlogtellers zitten er niet in. Bewaar bestand en wachtzin apart op een tweede veilige plek; de app bewaart de download niet en maakt deze kopie niet automatisch.
+
+Op dezelfde pagina kun je een bestand eerst laten **controleren**. De app toont daarna de datum en aantallen, laat eerst een nieuwe versleutelde veiligheidkopie van de huidige stand downloaden en vraagt een afzonderlijke bevestiging. Het herstel vervangt de drie genoemde gegevenstabellen in één database-transactie; bij een databasefout wordt de wijziging teruggedraaid. Een bestaande Strava-koppeling op dezelfde database blijft staan. Op een nieuwe database moet je Strava opnieuw verbinden. Test een herstel bij voorkeur eerst op een geïsoleerde database.
+
+Deze handmatige, draagbare kopie staat los van Neons eigen herstelgeschiedenis of snapshots. Controleer in het Neon-project de ingestelde **History window** en een eventueel snapshot-schema; beide zijn vanuit de app niet te zien. Het bestandsformaat heeft een versie en een groottebegrenzing, zodat een later gewijzigd datamodel expliciete migratie van oude kopieën kan vereisen.
+
 ## Techniek
 
 | Onderdeel | Keuze |
@@ -129,7 +137,7 @@ Apple Opdrachten ──POST──┘                  ▼
 | `src/app/page.tsx` | Advies voor vandaag, lichaamssignalen, doel, laatste run met lichaamscontext |
 | `src/app/vorm/`, `src/app/lichaam/` | Koppeling training × Apple Health en de Health-trends met datakwaliteit |
 | `src/app/runs/` | Trainingsdagboek, post-run coachanalyse en handmatige sync-actie |
-| `src/app/api/` | Strava OAuth/sync/activity-detail en Health-ingest |
+| `src/app/api/` | Strava OAuth/sync/activity-detail, Health-ingest en beveiligde back-upacties |
 | `src/lib/` | Pure logica: coach, runanalyse, training-health (belasting, fitness, herstelprofiel, verbanden), import, herstel, halve-marathonplan, sessies en security |
 | `src/components/` | UI-componenten; `src/app/pulse.css` is het ontwerpsysteem (p-* klassen) |
 | `scripts/` | Eenmalige backfill uit een Apple Health-export |
@@ -234,7 +242,7 @@ Controleer daarna GitHub Actions, de Vercel-deployment, de publieke URL, de `mai
 
 - De persoonlijke Apple-automatisering moet dagelijks blijven draaien; de opdracht stuurt telkens de afgelopen 7 dagen mee, het dashboard verwacht iedere ochtend gegevens van gisteren en toont anders een knop om de synchronisatie opnieuw te starten.
 - De Health-import heeft synthetische regressietests voor zowel Apple Opdrachten als het compatibele Health Auto Export-formaat; echte gezondheidswaarden worden niet als fixtures bewaard.
-- Databasewijzigingen gebruiken nog directe `db:push`; versieerbare migraties en een geteste herstelprocedure ontbreken.
+- Databasewijzigingen gebruiken nog directe `db:push`; versieerbare migraties en een geteste provider-herstelprocedure ontbreken. De handmatige versleutelde export en het herstel zijn getest met een geïsoleerde PostgreSQL-database; een automatisch extern back-upschema is er niet.
 - Cardio Recovery en Walking Heart Rate Average leveren pas conclusies nadat voldoende nieuwe metingen zijn verzameld.
 - De aanbevelingen zijn regelgebaseerd en herberekenen bij nieuwe Strava- en Health-data. Er is geen LLM-gegenereerde coachinglaag.
 - De elf uitgebreide Health-metrics blijven opgeslagen; de coach gebruikt voor herstel alleen signalen waarvoor voldoende betrouwbare dagmetingen bestaan.

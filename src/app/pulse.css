@@ -29,7 +29,10 @@
 .p-nav-links a:hover { color: var(--p-ink); }
 .p-nav-links a[aria-current="page"] { color: var(--p-ink); }
 .p-nav-links a[aria-current="page"]::after { content: ""; position: absolute; right: 0; bottom: -1px; left: 0; height: 3px; border-radius: 4px 4px 0 0; background: var(--series-run); }
-.p-nav-logout button { padding: 8px 13px; border: 1px solid #d4dbd1; border-radius: 10px; color: #4b6155; background: transparent; font-size: 13px; font-weight: 650; cursor: pointer; }
+.p-nav-actions { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+.p-nav-backup { min-height: 44px; padding: 9px 12px; display: grid; place-items: center; border-radius: 10px; color: var(--p-ink); font-size: 13px; font-weight: 750; }
+.p-nav-backup:hover, .p-nav-backup[aria-current="page"] { background: var(--p-soft); }
+.p-nav-logout button { min-height: 44px; padding: 8px 13px; border: 1px solid #d4dbd1; border-radius: 10px; color: #4b6155; background: transparent; font-size: 13px; font-weight: 650; cursor: pointer; }
 .p-nav-logout button:hover { background: #fff; }
 .p-tabbar { display: none; }
 

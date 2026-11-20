@@ -11,7 +11,7 @@ Read the Next.js 16 docs relevant to what you're about to touch, resolved from `
 ## Architecture (current, keep this section in sync with the repo)
 
 - **Next.js 16.4.6** (App Router, React 19.2, TypeScript, Tailwind v4) on **Vercel**. Server Components render the dashboard with `export const dynamic = "force-dynamic"`; interactivity lives in `"use client"` components.
-- **Neon Postgres**, accessed via `@neondatabase/serverless` HTTP driver + **Drizzle ORM** (`drizzle-orm/neon-http`) — one-shot HTTP queries, not a pooled/long-lived connection. No transactions spanning multiple round trips.
+- **Neon Postgres**, accessed via `@neondatabase/serverless` HTTP driver + **Drizzle ORM** (`drizzle-orm/neon-http`) — one-shot HTTP queries, not a pooled/long-lived connection. No transactions spanning multiple round trips; backup restore uses one atomic Neon HTTP transaction.
 - **Recharts** for trend charts; `jose` for session signing.
 - Single-user app: password login with a signed stateless session cookie and a persistent 10-attempts-per-IP/15-minute limiter; no accounts or multi-tenant concerns.
 - UI language is Dutch (nl-NL); product name in the UI is **Pulse**. Light and dark follow the system setting (`colorScheme: "light dark"`, a `themeColor` per scheme). Dark colours are never written by hand: `src/app/dark.css` is generated from the light stylesheets, so after changing a colour in `globals.css`, `pulse.css` or `ios.css` run `npm run theme:generate` (a test fails when it is stale). Only the root tokens and the Recharts overrides live in `scripts/generate-dark-css.mjs`. The UI design system is `src/app/pulse.css` (`p-*` classes, shared series colours so a colour always means the same signal, mobile bottom tab bar). `src/app/globals.css` keeps only the legacy `c-*`/`g-*`/`an-*`/`w-*` classes still used by run detail, goal, weight panel and login; remove a class there when its last user goes.
@@ -24,7 +24,7 @@ src/db/index.ts                         Neon client
 src/lib/strava.ts                       Strava OAuth token exchange/refresh + storage; getDetailedActivity() for per-run detail
 src/lib/strava-id.ts                    Exact Strava activity/athlete ID selection: prefer id_str; reject unsafe numeric fallback
 src/lib/activity-id.ts                  Validate internal activities.id against PostgreSQL serial's signed 32-bit range before a query
-src/lib/sync.ts                         Full-history Strava run sync and reconciliation (upserts runs, deletes runs no longer on Strava); afterwards fetches Strava detail (km splits, laps) for the 6 newest runs without it, stops at the first Strava error, never fails the sync because of it
+src/lib/sync.ts                         Full-history Strava run sync (upserts runs, preserves locally stored runs absent from a Strava response); afterwards fetches Strava detail (km splits, laps) for the 6 newest runs without it, stops at the first Strava error, never fails the sync because of it
 src/lib/activity-raw.ts                 preserveDetailedRaw(): conflict-update SQL that keeps fetched detail (splits_metric or _coach_detail_loaded) in activities.raw during sync; hasDetailedRaw() is the pure mirror of the 'missing detail' SQL condition in sync.ts
 src/lib/format.ts                       Shared date/pace/duration/km formatters (nl-NL locale)
 src/lib/health-import.ts                Apple Shortcuts/Health Auto Export payload parsing, HEALTH_METRIC_MAP, plausibility ranges, daily aggregation and unit normalization
@@ -53,6 +53,10 @@ src/lib/login-throttle.ts                Atomic database-backed login limiter ke
 src/lib/page-auth.ts                     Session guard called before every private Server Component page reads data
 src/lib/session.ts                      Session signing/verification and password check
 src/lib/session-server.ts               Cookie-backed server-side session check
+src/lib/backup-format.ts                 Versioned portable app-data archive (activities, health_metrics, training_goals only), gzip + scrypt + AES-256-GCM; no credentials
+src/lib/backup-db.ts                     Consistent app-data snapshot and atomic restore through Neon HTTP transaction
+src/lib/backup-sql.ts                    Shared snapshot/digest SQL and guarded restore statements; exercised against isolated PostgreSQL in tests
+src/lib/backup-http.ts                   Backup Origin/session/password checks, bounded requests and short-lived inspection/safety tokens
 src/proxy.ts                            Optimistic route protection, per-request nonce CSP and no-store; pages and write actions re-check auth
 src/app/login/*                         Single-user login/logout actions and UI
 src/app/api/strava/auth/route.ts        GET → redirects to Strava OAuth consent
@@ -60,6 +64,8 @@ src/app/api/strava/callback/route.ts    GET → validates OAuth state, exchanges
 src/app/api/strava/sync/route.ts        GET/POST, requires Authorization: Bearer $CRON_SECRET → syncs runs
 src/app/api/strava/activity/[id]/route.ts POST, session-protected: fetches Strava activity detail and stores it in activities.raw with _coach_detail_loaded marker
 src/app/api/health/ingest/route.ts      GET metric contract + protected POST ingest for Apple Shortcuts and legacy Health Auto Export payloads; upserts health_metrics
+src/app/api/backup/*                    Authenticated export, inspection and confirmed restore; current-data safety download required before restore
+src/app/backup/*                        Private backup page and styles (manual encrypted download and two-step restore)
 src/app/layout.tsx                      Pulse metadata (noindex), favicon/Apple/Safari/PWA integration and authenticated shell
 src/app/manifest.ts                     PWA manifest and installable app icons
 src/app/globals.css                     Tailwind import plus the hand-written Pulse/coach design system
@@ -84,7 +90,8 @@ src/app/goal/actions.ts                Session-protected Server Action for valid
 src/app/runs/actions.ts                 Authenticated Server Actions: manual Strava sync (syncRunsAction) and setRunKindAction (writes activities.kind_override: race, not_race, easy, long, interval or cleared)
 src/app/runs/[id]/page.tsx              Post-run coach: start/middle/finish/load story, body context card (morning before, load, morning after, Watch form), next step, adjustable chart and split tools Also shows the short verdict, 'Doe dit' and, for runs of 20-22.5 km, the half-marathon time at exactly 21.0975 km
 src/components/AppLogo.tsx              Shared Pulse wordmark used throughout the UI
-src/components/CoachNav.tsx             Client component: shared navigation (desktop top bar from 900px, floating bottom tab bar below, logout) for all six sections; falls back to the pathname when no `active` is passed (loading.tsx); re-tapping the active tab scrolls to top
+src/components/CoachNav.tsx             Client component: shared navigation (desktop top bar from 900px, floating bottom tab bar below, backup utility link and logout) for all six sections; falls back to the pathname when no `active` is passed (loading.tsx); re-tapping the active tab scrolls to top
+src/components/BackupManager.tsx        Client flow for encrypted download, backup inspection, pre-restore safety download and explicit restore confirmation
 src/components/PullToRefresh.tsx        Touch-only pull-to-refresh for the authenticated app (Strava sync at most every 2 min, then router.refresh); leaves charts, sliders, inputs and scrollable tables alone
 src/components/RunLessonCard.tsx        Post-run coaching card: meaning, what to keep, what to improve (the next run lives only on the dashboard)
 src/components/LiveCoachRefresh.tsx     Refreshes authenticated dynamic pages on focus and at most once a minute while visible
@@ -284,7 +291,7 @@ npm run db:studio     # Drizzle Studio GUI against the live DB
 - No manual light/dark switch (the system setting decides), no iOS Dynamic Type support (fixed px sizes), launch images exist for portrait only, and white text on the coral fills (`.st-persona`, `.st-delta-down`) is 2.9:1 in both schemes.
 - No AI-generated coaching/advice layer; current insights are deliberately rule-based observations.
 - Health payload parsing, unit conversion and insight rules have synthetic regression tests. Never add real health values as fixtures.
-- Database changes still use direct `db:push`; versioned migrations and a tested restore procedure remain future work.
+- Database changes still use direct `db:push`; versioned migrations and a tested provider-level Neon restore procedure remain future work. The app's portable encrypted backup restore is covered by an isolated PostgreSQL integration test.
 - `health_metrics.sleep_hours`, `.sleep_score` and `.raw` are legacy columns and are not populated.
 - Cardio recovery and walking heart-rate insights remain unavailable until enough daily samples have accumulated.
 - The 11 extended Health metrics (oxygen saturation … ground contact time) are shown on `/lichaam` and feed the body alert, but stay empty until the Shortcut sends them.
