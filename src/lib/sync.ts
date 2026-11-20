@@ -1,4 +1,4 @@
-import { desc, eq, notInArray, sql } from "drizzle-orm";
+import { desc, eq, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { activities } from "@/db/schema";
 import { preserveDetailedRaw } from "@/lib/activity-raw";
@@ -79,7 +79,7 @@ async function fetchMissingDetails(accessToken: string): Promise<number> {
 export async function syncStravaRuns(): Promise<{ synced: number; deleted: number; detailed: number }> {
   const accessToken = await getValidAccessToken();
   const stravaActivities = await fetchAllRuns(accessToken);
-  // Resolve all IDs before writing or deleting. Invalid IDs must abort the sync.
+  // Resolve all IDs before writing. Invalid IDs must abort the sync.
   const runs = stravaActivities.map((activity) => ({
     activity,
     stravaId: stravaObjectId(activity),
@@ -114,18 +114,11 @@ export async function syncStravaRuns(): Promise<{ synced: number; deleted: numbe
     upserted++;
   }
 
-  // fetchAllRuns walks the athlete's full history, so any run currently in the
-  // DB but absent from this result set was deleted (or un-Run-ified) on Strava.
-  const currentStravaIds = runs.map(({ stravaId }) => stravaId);
-  const deleteResult =
-    currentStravaIds.length > 0
-      ? await db
-          .delete(activities)
-          .where(notInArray(activities.stravaId, currentStravaIds))
-          .returning({ id: activities.id })
-      : [];
+  // A successful Strava response can still omit runs temporarily. Preserve
+  // local history and manual classifications when a run is absent upstream.
+  // Keep the response field for existing API clients; automatic sync never deletes.
 
   // Detail failures never fail the sync itself: the summaries above are already saved.
   const detailed = await fetchMissingDetails(accessToken).catch(() => 0);
-  return { synced: upserted, deleted: deleteResult.length, detailed };
+  return { synced: upserted, deleted: 0, detailed };
 }
