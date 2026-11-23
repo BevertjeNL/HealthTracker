@@ -264,6 +264,52 @@ a, button { -webkit-tap-highlight-color: transparent; }
 .g-form button:disabled { opacity: .6; cursor: wait; }
 .g-form .g-form-error { color: #a63730; }
 .g-form .g-form-success { color: #1c6b42; }
+.g-countdown { display: grid; grid-template-columns: minmax(0,1.3fr) minmax(240px,.7fr); gap: 0; overflow: hidden; border: 1px solid #d9e3d4; border-radius: 23px; background: #fff; }
+.g-count-main { padding: 29px 34px; background: linear-gradient(125deg,#e8f0db,#f8f8ef); }
+.g-count-main .c-overline { color: #3a664a; }
+.g-count-hero { display: flex; align-items: center; gap: 26px; margin-top: 18px; }
+.g-count-number { min-width: 145px; display: flex; align-items: baseline; gap: 5px; color: #174d35; }
+.g-count-number strong { font-size: clamp(64px,7vw,100px); line-height: .9; letter-spacing: -.09em; font-weight: 800; font-variant-numeric: tabular-nums; }
+.g-count-number span { writing-mode: vertical-rl; transform: rotate(180deg); font-size: 12px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; }
+.g-count-hero h2 { margin: 0 0 5px; color: #17432f; font-size: clamp(23px,3vw,37px); letter-spacing: -.045em; line-height: 1.08; }
+.g-count-hero time { color: #486a50; font-size: 16px; font-weight: 750; text-transform: capitalize; }
+.g-count-hero p { margin: 12px 0 0; color: #526c55; font-size: 14px; line-height: 1.45; }
+.g-count-queue { padding: 28px 28px 24px; border-left: 1px solid #e3e9de; }
+.g-count-queue > p { margin: 20px 0 0; color: #647469; font-size: 14px; }
+.g-count-queue ol { margin: 13px 0 0; padding: 0; list-style: none; max-height: 235px; overflow-y: auto; }
+.g-count-queue li { display: flex; align-items: center; gap: 11px; padding: 10px 0; border-bottom: 1px solid #e9eee6; }
+.g-count-queue li:last-child { border-bottom: 0; }
+.g-count-pin { width: 9px; height: 9px; flex: none; border-radius: 50%; background: #da8059; box-shadow: 0 0 0 4px #f9e9dd; }
+.g-count-queue li > span:nth-child(2) { display: grid; gap: 2px; min-width: 0; }
+.g-count-queue strong { color: #244b35; font-size: 14px; }
+.g-count-queue time { color: #64786a; font-size: 13px; text-transform: capitalize; }
+.g-count-queue b { margin-left: auto; color: #476451; font-size: 13px; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.g-setup { margin-top: 18px; }
+.g-calendar { margin-top: 31px; }
+.g-calendar > ol { margin: 14px 0 0; padding: 0; display: grid; gap: 8px; list-style: none; }
+.g-calendar > ol > li { display: grid; grid-template-columns: minmax(135px,.6fr) minmax(180px,1fr) auto; align-items: center; gap: 16px; padding: 16px 20px; border: 1px solid #e0e8dc; border-radius: 15px; background: #fff; }
+.g-calendar > ol > li.is-next { border-color: #b9d7a6; background: #f6f9f0; }
+.g-calendar-date, .g-calendar-info { display: grid; gap: 4px; }
+.g-calendar-date time { color: #204b34; font-size: 17px; font-weight: 800; text-transform: capitalize; }
+.g-calendar-date span, .g-calendar-info span { color: #65796a; font-size: 13px; }
+.g-calendar-info strong { color: #204b34; font-size: 16px; }
+.g-calendar-edit { justify-self: end; }
+.g-calendar-edit summary { padding: 10px 13px; border: 1px solid #d6e1d2; border-radius: 9px; color: #315d3d; font-size: 14px; font-weight: 750; cursor: pointer; list-style: none; }
+.g-calendar-edit summary::-webkit-details-marker { display: none; }
+.g-calendar-edit[open] { grid-column: 1 / -1; justify-self: stretch; width: 100%; }
+.g-calendar-edit[open] summary { width: fit-content; margin-left: auto; }
+.g-calendar-edit-inner { margin-top: 14px; padding-top: 17px; border-top: 1px solid #e2e9df; }
+.g-calendar-edit-inner > form:last-child { margin-top: 8px; text-align: right; }
+.g-delete, .g-past button { padding: 9px 12px; border: 0; border-radius: 8px; color: #9c493a; background: transparent; font: inherit; font-size: 13px; font-weight: 700; cursor: pointer; }
+.g-delete:hover, .g-past button:hover { background: #fff0e8; }
+.g-past { margin-top: 16px; color: #536e58; font-size: 14px; }
+.g-past summary { width: fit-content; cursor: pointer; font-weight: 750; }
+.g-past ul { margin: 12px 0 0; padding: 0; list-style: none; }
+.g-past li { display: flex; align-items: center; gap: 12px; padding: 7px 0; }
+.g-wait { margin-top: 18px; padding: 30px 34px; border: 1px solid #dce8d9; border-radius: 22px; background: #fff; }
+.g-wait h2 { margin: 10px 0; color: #174631; font-size: clamp(24px,3vw,34px); letter-spacing: -.035em; }
+.g-wait p { max-width: 800px; margin: 0 0 15px; color: #4e6856; font-size: 16px; line-height: 1.6; }
+.g-wait > span:last-child { color: #a45031; font-size: 14px; font-weight: 750; }
 .g-target { margin-top: 18px; padding: 30px 34px; display: flex; align-items: center; justify-content: space-between; gap: 28px; border-radius: 23px; color: #fff; background: linear-gradient(110deg,#184d37,#246545); }
 .g-target .c-overline { color: #d4eb9b; }
 .g-target h2 { margin: 7px 0; font-size: clamp(32px,4vw,51px); letter-spacing: -.06em; }
@@ -306,16 +352,28 @@ a, button { -webkit-tap-highlight-color: transparent; }
 @media (max-width: 980px) {
 .g-setup, .g-assessment { grid-template-columns: 1fr; }
 .g-setup-copy p { max-width: none; }
+.g-countdown { grid-template-columns: 1fr; }
+.g-count-queue { border-left: 0; border-top: 1px solid #e3e9de; }
 }
 @media (max-width: 720px) {
 .g-weeks { grid-template-columns: 1fr; }
 .g-target { align-items: flex-start; flex-direction: column; }
 .g-race { grid-template-columns: 1fr; gap: 10px; }
 .g-form { grid-template-columns: 1fr; }
+.g-calendar > ol > li { grid-template-columns: 1fr auto; }
+.g-calendar-info { grid-column: 1; }
+.g-calendar-edit { grid-column: 2; grid-row: 1 / span 2; }
+.g-calendar-edit[open] { grid-column: 1 / -1; grid-row: auto; }
 }
 @media (max-width: 450px) {
 .g-setup, .g-target, .g-assessment, .g-week { padding: 20px; }
 .g-day { grid-template-columns: 1fr; gap: 6px; }
+.g-count-main, .g-count-queue, .g-wait { padding: 22px; }
+.g-count-hero { gap: 17px; align-items: flex-start; }
+.g-count-number { min-width: 112px; }
+.g-count-number strong { font-size: clamp(55px,16vw,70px); }
+.g-count-hero h2 { font-size: 23px; }
+.g-calendar > ol > li { padding: 14px; }
 }
 /* Clearer overview decisions and readable chart controls */
 .w-section { margin-top: 42px; }

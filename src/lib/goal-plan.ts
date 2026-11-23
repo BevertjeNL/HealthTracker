@@ -4,7 +4,7 @@ export type TrainingGoal = Pick<typeof trainingGoals.$inferSelect, "distanceM" |
 type Activity = Pick<typeof activities.$inferSelect, "startDate" | "distanceM" | "movingTimeS" | "avgPaceMinPerKm" | "name">;
 export type GoalContext = { recoveryScore: number | null; loadChangePct: number | null; sleepConcern?: boolean; generalAdvice: { label: string; detail: string; coach: string }; lastRunWarning?: { at: Date; reason: string } | null };
 export type PlanDay = { date: string; title: string; detail: string; tone: "rest" | "easy" | "quality" | "long" | "race"; status: "planned" | "run-recorded" | "extra-run" | "adjusted"; actualKm: number | null };
-export type GoalPlan = { daysUntilRace: number; finishTime: string; distanceLabel: string; targetPace: string; level: "basis opbouwen" | "afstand uitbreiden" | "gericht voorbereiden"; assessment: string; evidence: string[]; weeks: Array<{ label: string; days: PlanDay[] }>; raceDay: PlanDay; today: { label: string; detail: string; coach: string }; nextSession: PlanDay | null; last42LongestKm: number; runsPerWeek: number | null };
+export type GoalPlan = { daysUntilRace: number; preparationStart: string; preparationWeeks: number; phase: "voorbereiding" | "aanloop"; finishTime: string; distanceLabel: string; targetPace: string; level: "basis opbouwen" | "afstand uitbreiden" | "gericht voorbereiden"; assessment: string; evidence: string[]; weeks: Array<{ label: string; days: PlanDay[] }>; raceDay: PlanDay; today: { label: string; detail: string; coach: string }; nextSession: PlanDay | null; last42LongestKm: number; runsPerWeek: number | null };
 
 const DAY_MS = 86_400_000;
 export const GOAL_DISTANCES = [{ meters: 5000, label: "5 kilometer" }, { meters: 10000, label: "10 kilometer" }, { meters: 21097, label: "Halve marathon" }] as const;
@@ -15,6 +15,15 @@ export const daysBetween = (later: string, earlier: string) => Math.round((dateM
 export const paceText = (seconds: number) => `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
 export const finishText = (seconds: number) => { const total = Math.round(seconds); return `${Math.floor(total / 3600)}:${String(Math.floor((total % 3600) / 60)).padStart(2, "0")}:${String(total % 60).padStart(2, "0")}`; };
 export const dateText = (date: string) => new Intl.DateTimeFormat("nl-NL", { day: "numeric", month: "short", weekday: "short", timeZone: "UTC" }).format(new Date(`${date}T12:00:00Z`));
+export type SavedRace = TrainingGoal & { id: number };
+export function upcomingRaces(races: SavedRace[], today: string): SavedRace[] {
+  return races.filter((race) => daysBetween(race.raceDate, today) >= 0).sort((a, b) => a.raceDate.localeCompare(b.raceDate) || a.id - b.id);
+}
+export function preparationWeeks(distanceM: number, longestKm: number, runsPerWeek: number | null): number {
+  const base = distanceM >= 20000 ? 12 : distanceM >= 10000 ? 8 : 6;
+  const distanceReady = longestKm >= distanceM / 1000 * .65;
+  return base + (distanceReady && (runsPerWeek ?? 0) >= 2 ? 0 : 4);
+}
 const km = (run: Activity) => Math.max(0, run.distanceM ?? 0) / 1000;
 const roundHalf = (value: number) => Math.round(value * 2) / 2;
 const dayOfWeek = (date: string) => new Date(`${date}T12:00:00Z`).getUTCDay();
@@ -90,6 +99,9 @@ export function buildGoalPlan(goal: TrainingGoal, runs: Activity[], context: Goa
   const baseLong = distanceKm >= 20 ? 14 : distanceKm >= 9 ? 9 : 6;
   const moderateLong = distanceKm >= 20 ? 8 : distanceKm >= 9 ? 6 : 4;
   const level: GoalPlan["level"] = recent.length >= 3 && last42LongestKm >= distanceKm * .9 || runsPerWeek != null && runsPerWeek >= 2.5 && last42LongestKm >= baseLong ? "gericht voorbereiden" : recent.length >= 3 && last42LongestKm >= moderateLong ? "afstand uitbreiden" : "basis opbouwen";
+  const prepWeeks = preparationWeeks(goal.distanceM, last42LongestKm, runsPerWeek);
+  const preparationStart = addDays(goal.raceDate, -prepWeeks * 7);
+  const phase: GoalPlan["phase"] = daysUntilRace > prepWeeks * 7 ? "aanloop" : "voorbereiding";
   const qualityEligible = recent.length >= 3 && last42LongestKm >= moderateLong;
   const trainingPaceSec = Math.max(goal.targetPaceSecPerKm, fullDistancePace ?? goal.targetPaceSecPerKm);
   const recentPacingWarning = context.lastRunWarning && daysBetween(today, goalDate(context.lastRunWarning.at)) >= 0 && daysBetween(today, goalDate(context.lastRunWarning.at)) <= 14 ? context.lastRunWarning : null;
@@ -98,7 +110,7 @@ export function buildGoalPlan(goal: TrainingGoal, runs: Activity[], context: Goa
   const evidence = [recent.length >= 3 ? `${(recent.length / 6).toFixed(1).replace(".", ",")} runs per week in de laatste 6 weken` : "Je schema begint met twee vaste loopmomenten per week", `Langste run in 6 weken: ${last42LongestKm.toFixed(1).replace(".", ",")} km`, recentPacingWarning ? "Tempoverlies in de laatste loop: start de tempoblokken rustiger" : recentFullDistance ? "De wedstrijdafstand is al recent gelopen; focus op tempovastheid" : sustainedPace ? "Drie langere runs ondersteunen korte blokken rond het doeltempo" : "Tempoblokken worden op inspanning gestuurd", context.recoveryScore == null ? "Herstel: houd zware en rustige dagen gescheiden" : `Herstel ${context.recoveryScore}/100`, context.loadChangePct == null ? "Weekbelasting: verhoog de omvang niet om trainingen in te halen" : `Laatste 7 dagen ${Math.abs(context.loadChangePct)}% ${context.loadChangePct >= 0 ? "boven" : "onder"} je basis`];
   const sessionContext: SessionContext = { level, longestKm: last42LongestKm, runsPerWeek, paceSupported, sustainedPace, qualityEligible, recentFullDistanceAt: recentFullDistance ? goalDate(recentFullDistance.startDate) : null, trainingPaceSec };
   const allDays: PlanDay[] = [];
-  const previewDays = Math.min(28, Math.max(0, daysUntilRace));
+  const previewDays = phase === "aanloop" ? 0 : Math.min(28, Math.max(0, daysUntilRace));
   const runDates = new Map<string, Activity[]>();
   for (const run of runs) {
     if (run.startDate.getTime() > now.getTime()) continue;
@@ -124,13 +136,14 @@ export function buildGoalPlan(goal: TrainingGoal, runs: Activity[], context: Goa
   let todayAdvice: GoalPlan["today"];
   if (daysUntilRace < 0) todayAdvice = { label: "Stel een nieuw doel in", detail: "Je wedstrijddatum is voorbij.", coach: "Werk je doel bij om een nieuw schema te krijgen." };
   else if (daysUntilRace === 0) todayAdvice = { label: "Wedstrijddag", detail: raceDay.detail, coach: "Je schema is afgerond. Stem het tempo af op hoe je je vandaag voelt." };
+  else if (phase === "aanloop") todayAdvice = { label: "Nog geen wedstrijdschema", detail: `Gerichte voorbereiding start op ${dateText(preparationStart)}.`, coach: "Loop nu volgens je gewone ritme en herstel. Je hoeft nog geen doeltempo of extra kilometers af te dwingen." };
   else if (todayDay?.status === "run-recorded" || todayDay?.status === "extra-run") todayAdvice = { label: "Vandaag herstellen", detail: "Je hebt vandaag al gelopen. Wandelen is optioneel.", coach: "De run staat in je schema. De volgende training wordt getoond zodra je hersteld bent." };
   else if (generalRest || ((recoveryOverride || recentRunWarning) && (todayDay?.tone === "quality" || todayDay?.tone === "long"))) {
     todayAdvice = { label: "Herstel krijgt voorrang", detail: generalRest ? general.detail : "Rust of 20–30 min heel rustig wandelen", coach: `${recentRunWarning?.reason ?? (context.sleepConcern ? "Je recente slaap vraagt om een rustige dag." : general.coach)} De geplande zware sessie schuift niet automatisch naar morgen.` };
     if (todayDay && todayDay.tone !== "rest") { todayDay.status = "adjusted"; todayDay.title = "Aangepast: herstel"; todayDay.detail = todayAdvice.detail; todayDay.tone = "rest"; }
   } else if (todayDay?.tone === "rest") todayAdvice = { label: "Vandaag herstel", detail: todayDay.detail, coach: "Deze rustdag is onderdeel van je schema richting de wedstrijd." };
   else todayAdvice = { label: todayDay.title, detail: todayDay.detail, coach: todayDay.tone === "quality" ? "Houd de eerste herhaling gecontroleerd. De laatste moet even goed gaan; zo train je tempo zonder jezelf leeg te lopen." : todayDay.tone === "long" ? "Loop op een tempo waarop je volledige zinnen kunt spreken. De lange loop traint volhouden, niet racen." : "Dit is een rustige training die je klaar maakt voor de volgende tempoprikkel." };
-  const nextSession = allDays.find((day) => day.date > today && day.tone !== "rest" && day.status === "planned") ?? (daysUntilRace >= 0 ? raceDay : null);
+  const nextSession = phase === "aanloop" ? null : (allDays.find((day) => day.date > today && day.tone !== "rest" && day.status === "planned") ?? (daysUntilRace >= 0 ? raceDay : null));
   const weeks = Array.from({ length: Math.ceil(allDays.length / 7) }, (_, index) => ({ label: `Week ${index + 1}`, days: allDays.slice(index * 7, index * 7 + 7) }));
-  return { daysUntilRace, finishTime: finishText(goal.targetPaceSecPerKm * distanceKm), distanceLabel: GOAL_DISTANCES.find((item) => item.meters === goal.distanceM)?.label ?? `${distanceKm.toFixed(1)} km`, targetPace: paceText(goal.targetPaceSecPerKm), level, assessment, evidence, weeks, raceDay, today: todayAdvice, nextSession, last42LongestKm, runsPerWeek };
+  return { daysUntilRace, preparationStart, preparationWeeks: prepWeeks, phase, finishTime: finishText(goal.targetPaceSecPerKm * distanceKm), distanceLabel: GOAL_DISTANCES.find((item) => item.meters === goal.distanceM)?.label ?? `${distanceKm.toFixed(1)} km`, targetPace: paceText(goal.targetPaceSecPerKm), level, assessment, evidence, weeks, raceDay, today: todayAdvice, nextSession, last42LongestKm, runsPerWeek };
 }

@@ -145,6 +145,33 @@
 .g-form button { color: #ffffff; background: #1d6142; }
 .g-form .g-form-error { color: #d99a96; }
 .g-form .g-form-success { color: #bde9d2; }
+.g-countdown { border: 1px solid #303e37; background: #1b201d; }
+.g-count-main { background: linear-gradient(125deg,#232a26,#1e2421); }
+.g-count-main .c-overline { color: #bdd6c6; }
+.g-count-number { color: #d4efe3; }
+.g-count-hero h2 { color: #daf0e6; }
+.g-count-hero time { color: #bacdbf; }
+.g-count-hero p { color: #b8c7ba; }
+.g-count-queue { border-left: 1px solid #2e3a34; }
+.g-count-queue > p { color: #b2bcb5; }
+.g-count-queue li { border-bottom: 1px solid #2c3731; }
+.g-count-queue strong { color: #d3e7db; }
+.g-count-queue time { color: #b0bbb3; }
+.g-count-queue b { color: #becec3; }
+.g-calendar > ol > li { border: 1px solid #2e3b34; background: #1b201d; }
+.g-calendar > ol > li.is-next { background: #1d2320; }
+.g-calendar-date time { color: #d3eade; }
+.g-calendar-date span, .g-calendar-info span { color: #afbbb2; }
+.g-calendar-info strong { color: #d3eade; }
+.g-calendar-edit summary { border: 1px solid #313e38; color: #c4ddcb; }
+.g-calendar-edit-inner { border-top: 1px solid #2e3934; }
+.g-delete, .g-past button { color: #d3a49c; }
+.g-delete:hover, .g-past button:hover { background: #1e2421; }
+.g-past { color: #b7c6ba; }
+.g-wait { border: 1px solid #2f3b35; background: #1b201d; }
+.g-wait h2 { color: #d8f0e5; }
+.g-wait p { color: #bbcac0; }
+.g-wait > span:last-child { color: #d9a997; }
 .g-target { color: #ffffff; background: linear-gradient(110deg,#1c5a40,#276d4a); }
 .g-assessment { border: 1px solid #2d3933; background: #1b201d; }
 .g-assessment h2 { color: #d4eee1; }
@@ -165,6 +192,7 @@
 .g-adjusted { color: #deba98; }
 .g-race { color: #ffffff; }
 .g-expired { color: #d9b3a2; background: #322313; }
+@media (max-width: 980px) { .g-count-queue { border-top: 1px solid #2e3a34; } }
 .w-presets button, .w-reset { border: 1px solid #38453f; color: #d4ece0; background: #1b201d; }
 .w-presets button[aria-pressed="true"] { border-color: #cdecdd; color: #ffffff; background: #1d6142; }
 .w-curve-choice button { border: 1px solid #38453f; color: #d4ece0; background: #1b201d; }

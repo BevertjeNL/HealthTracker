@@ -56,6 +56,9 @@ function sampleData() {
     training_goals: [{
       id: 1, distance_m: 10000, race_date: "2027-04-18",
       target_pace_sec_per_km: 330, updated_at: "2026-11-18T09:00:00.000Z",
+    }, {
+      id: 2, distance_m: 21097, race_date: "2027-10-17",
+      target_pace_sec_per_km: 350, updated_at: "2026-11-18T09:00:00.000Z",
     }],
   };
 }
@@ -85,15 +88,16 @@ test("restore replaces all three app tables atomically and preserves dates, deta
 
     const runs = await db.query("SELECT id, strava_id, kind_override, raw->'splits_metric'->0->>'distance' AS split FROM activities");
     const health = await db.query("SELECT id, date::text AS date, weight_kg FROM health_metrics");
-    const goals = await db.query("SELECT id, race_date::text AS race_date, distance_m FROM training_goals");
+    const goals = await db.query("SELECT id, race_date::text AS race_date, distance_m FROM training_goals ORDER BY id");
     assert.deepEqual(runs.rows, [{ id: 4, strava_id: "synthetic-activity", kind_override: "easy", split: "1000" }]);
     assert.equal(health.rows.length, 1);
     assert.deepEqual({ id: health.rows[0].id, date: health.rows[0].date, weight: health.rows[0].weight_kg },
       { id: 7, date: "2026-11-18", weight: 70.5 });
-    assert.deepEqual(goals.rows, [{ id: 1, race_date: "2027-04-18", distance_m: 10000 }]);
+    assert.deepEqual(goals.rows, [{ id: 1, race_date: "2027-04-18", distance_m: 10000 }, { id: 2, race_date: "2027-10-17", distance_m: 21097 }]);
     const exported = (await db.query(BACKUP_READ_SQL)).rows[0].data;
     assert.equal(exported.health_metrics[0].date, "2026-11-18");
     assert.equal(exported.training_goals[0].race_date, "2027-04-18");
+    assert.equal(exported.training_goals[1].race_date, "2027-10-17");
     assert.match(exported.activities[0].start_date, /Z$/);
 
     const next = await db.query("SELECT nextval(pg_get_serial_sequence('activities','id'))::int AS activity, nextval(pg_get_serial_sequence('health_metrics','id'))::int AS health");
