@@ -185,10 +185,12 @@ function assertBackupData(value: unknown): asserts value is BackupData {
   const stravaIds = new Set<string>();
   const healthIds = new Set<number>();
   const healthDates = new Set<string>();
+  const goalIds = new Set<number>();
+  const goalDates = new Set<string>();
 
   if (!Array.isArray(activities) || activities.length > MAX_BACKUP_ROWS_PER_TABLE ||
     !Array.isArray(healthMetrics) || healthMetrics.length > MAX_BACKUP_ROWS_PER_TABLE ||
-    !Array.isArray(trainingGoals) || trainingGoals.length > 1) invalidData();
+    !Array.isArray(trainingGoals) || trainingGoals.length > 20) invalidData();
 
   for (const row of activities) {
     if (!isRecord(row) || !hasExactKeys(row, ACTIVITY_COLUMNS) || !isId(row.id) ||
@@ -215,11 +217,13 @@ function assertBackupData(value: unknown): asserts value is BackupData {
   }
 
   for (const row of trainingGoals) {
-    if (!isRecord(row) || !hasExactKeys(row, GOAL_COLUMNS) || row.id !== 1 ||
+    if (!isRecord(row) || !hasExactKeys(row, GOAL_COLUMNS) || !isId(row.id) || goalIds.has(row.id) ||
       !Number.isInteger(row.distance_m) || Number(row.distance_m) <= 0 || Number(row.distance_m) > 2_147_483_647 ||
-      !isDateOnly(row.race_date) ||
+      !isDateOnly(row.race_date) || goalDates.has(row.race_date) ||
       !Number.isInteger(row.target_pace_sec_per_km) || Number(row.target_pace_sec_per_km) <= 0 || Number(row.target_pace_sec_per_km) > 2_147_483_647 ||
       !isUtcTimestamp(row.updated_at)) invalidData();
+    goalIds.add(row.id);
+    goalDates.add(row.race_date);
   }
 }
 

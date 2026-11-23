@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { addDays, buildGoalPlan, daysBetween, finishText, parseGoalInput } from "../src/lib/goal-plan.ts";
+import { addDays, buildGoalPlan, daysBetween, finishText, parseGoalInput, preparationWeeks, upcomingRaces } from "../src/lib/goal-plan.ts";
 
 const now = new Date("2026-10-07T12:00:00Z");
 const goal = { distanceM: 21097, raceDate: "2026-11-04", targetPaceSecPerKm: 320 };
@@ -121,6 +121,37 @@ test("a future-dated Strava run cannot mark a planned session as completed", () 
 test("calendar arithmetic stays correct across the Amsterdam daylight-saving change", () => {
   assert.equal(daysBetween("2026-11-04", "2026-10-07"), 28);
   assert.equal(addDays("2026-10-24", 2), "2026-10-26");
+});
+
+test("the earliest upcoming race leads and a past race drops out", () => {
+  const races = [
+    { id: 1, raceDate: "2026-10-01", distanceM: 5000, targetPaceSecPerKm: 300 },
+    { id: 3, raceDate: "2026-12-01", distanceM: 21097, targetPaceSecPerKm: 340 },
+    { id: 2, raceDate: "2026-11-01", distanceM: 10000, targetPaceSecPerKm: 320 },
+  ];
+  assert.deepEqual(upcomingRaces(races, "2026-10-07").map((race) => race.id), [2, 3]);
+  assert.deepEqual(upcomingRaces(races, "2026-11-02").map((race) => race.id), [3]);
+});
+
+test("a distant race waits for its preparation window instead of prescribing race sessions", () => {
+  const distant = { ...goal, raceDate: "2027-04-18" };
+  const plan = buildGoalPlan(distant, runs, context, now);
+  assert.equal(plan.phase, "aanloop");
+  assert.equal(plan.preparationStart, addDays(distant.raceDate, -plan.preparationWeeks * 7));
+  assert.equal(plan.weeks.length, 0);
+  assert.equal(plan.nextSession, null);
+  assert.match(plan.today.label, /Nog geen wedstrijdschema/);
+  const start = new Date(`${plan.preparationStart}T12:00:00Z`);
+  const active = buildGoalPlan(distant, runs, context, start);
+  assert.equal(active.phase, "voorbereiding");
+  assert.ok(active.weeks.length > 0);
+});
+
+test("a thin running base gets more preparation time than a ready athlete", () => {
+  assert.equal(preparationWeeks(21097, 17, 3), 12);
+  assert.equal(preparationWeeks(21097, 4, null), 16);
+  assert.equal(preparationWeeks(5000, 4, 3), 6);
+  assert.equal(preparationWeeks(10000, 3, 1), 12);
 });
 
 test("race day gives a pace plan from the goal pace with a controlled push at the end", () => {

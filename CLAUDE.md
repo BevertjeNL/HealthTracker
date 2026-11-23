@@ -19,7 +19,7 @@ Read the Next.js 16 docs relevant to what you're about to touch, resolved from `
 Files:
 
 ```
-src/db/schema.ts                        Drizzle schema: strava_tokens, activities (incl. nullable kind_override: manual race/not_race choice, never written by sync), health_metrics, training_goals (one active single-user goal, unique id index), login_attempts (hashed source only)
+src/db/schema.ts                        Drizzle schema: strava_tokens, activities (incl. nullable kind_override: manual race/not_race choice, never written by sync), health_metrics, training_goals (multiple saved race dates; earliest upcoming is active), login_attempts (hashed source only)
 src/db/index.ts                         Neon client
 src/lib/strava.ts                       Strava OAuth token exchange/refresh + storage; getDetailedActivity() for per-run detail
 src/lib/strava-id.ts                    Exact Strava activity/athlete ID selection: prefer id_str; reject unsafe numeric fallback
@@ -34,7 +34,7 @@ src/lib/training-health.ts             Pure Strava × Apple Health link layer: p
 src/lib/metric-guide.ts               Pure plain-language guide per Health metric (what it is, how to read it, likely causes), badge labels/tones and describeTrend(): explains nu vs. basis vs. personal swing. Type-only imports so it is client-safe
 src/lib/recovery.ts                     Readiness/recovery score from HRV, resting HR, cardio recovery and walking HR vs. personal baseline (min. 5 baseline samples, freshness check)
 src/lib/half-marathon.ts                buildHalfMarathonPlan(): phase, progress towards 21.1 km, adjustments and example week from the last 28/42 days of runs
-src/lib/goal-plan.ts                    Pure race-goal validation, calendar-day arithmetic and rolling training schedule from goal, Strava history, recent split warning and recovery/load context
+src/lib/goal-plan.ts                    Pure race-goal validation, upcoming-race sorting, calendar-day arithmetic, preparation start window and rolling training schedule from goal, Strava history, recent split warning and recovery/load context
 src/lib/coach.ts                        Pure coach orchestration: 7-day load versus a 4-week basis, today’s advice and reasons, per-run Strava/Health evidence, post-run recovery comparison, split warning and next step
 src/lib/coach-verdict.ts                Pure colored judgments and concrete actions for load, recovery, goal readiness and each run (no UI renders them since the de-duplication; tests keep them)
 src/lib/next-run.ts                     Pure next-run planner for the dashboard headline: today if a run fits, otherwise the first day ahead where rest days after the last run, load, recovery score and body alert allow it (easyOnly = no long/quality when Health signals ask for calm); with an active goal it takes the first planned session on/after that day. Returns date, title, detail, tone and max. 3 data-based reasons
@@ -85,8 +85,8 @@ src/app/pulse.css                       Pulse design system v2 (p-* classes, sha
 src/app/actions.ts                     Authenticated Server Action to update or clear one day's weight while preserving its other Health metrics
 src/app/runs/page.tsx                   Training journal: summary tiles, filters (?type=, ?alle=1: Alles, Wedstrijd = confirmed only, Te bevestigen = name-only race guesses with confirm buttons, Rustig, Lange duur, Interval), one compact row per run (date, race badge, short verdict tag, distance, time, pace, heart rate, load, half-marathon time at 21.0975 km); coach text and 'Doe dit' live on the run page
 src/app/stats/page.tsx                  Read-only "Cijfers" tab: colourful statistics overview (totals, per year/month, comparisons, trend, run days, records, fun facts) built from run-stats.ts
-src/app/goal/page.tsx                   Saved race goal, editable target and four-week calendar schedule (today's advice lives on the dashboard)
-src/app/goal/actions.ts                Session-protected Server Action for validated single-goal upsert and revalidation
+src/app/goal/page.tsx                   Race countdown and calendar; earliest upcoming race owns the preparation timing and four-week rolling schedule (today's advice lives on the dashboard)
+src/app/goal/actions.ts                Session-protected Server Actions for adding, editing and deleting saved races with validation and revalidation
 src/app/runs/actions.ts                 Authenticated Server Actions: manual Strava sync (syncRunsAction) and setRunKindAction (writes activities.kind_override: race, not_race, easy, long, interval or cleared)
 src/app/runs/[id]/page.tsx              Post-run coach: start/middle/finish/load story, body context card (morning before, load, morning after, Watch form), next step, adjustable chart and split tools Also shows the short verdict, 'Doe dit' and, for runs of 20-22.5 km, the half-marathon time at exactly 21.0975 km
 src/components/AppLogo.tsx              Shared Pulse wordmark used throughout the UI
@@ -95,7 +95,7 @@ src/components/BackupManager.tsx        Client flow for encrypted download, back
 src/components/PullToRefresh.tsx        Touch-only pull-to-refresh for the authenticated app (Strava sync at most every 2 min, then router.refresh); leaves charts, sliders, inputs and scrollable tables alone
 src/components/RunLessonCard.tsx        Post-run coaching card: meaning, what to keep, what to improve (the next run lives only on the dashboard)
 src/components/LiveCoachRefresh.tsx     Refreshes authenticated dynamic pages on focus and at most once a minute while visible
-src/components/GoalEditor.tsx           Accessible client-side goal form with Server Action state
+src/components/GoalEditor.tsx           Accessible client-side add/edit race form with Server Action state
 src/components/DataRefreshButton.tsx    Dashboard refresh that stays in the app: Strava sync, then router refresh with a three-step animation (no Shortcuts link)
 src/components/TrendChart.tsx           Recharts ComposedChart (line/area; Area needs ComposedChart, not LineChart) with range-adaptive axes, optional manual Y-domain (chart-range.ts) and optional chartAside/chartFooter slots
 src/components/WeightChartPanel.tsx     Active overview weight chart: draggable X (period) and Y (kg) sliders, period presets, raw/smoothed toggle, collapsed exact inputs; settings persist in localStorage (pulse.weight-chart.v1)

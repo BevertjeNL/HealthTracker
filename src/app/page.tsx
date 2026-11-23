@@ -1,6 +1,6 @@
 import Link from "next/link";
 import type { Metadata } from "next";
-import { desc, eq, gte, sql } from "drizzle-orm";
+import { desc, gte, sql } from "drizzle-orm";
 import { BodyAlert } from "@/components/BodyAlert";
 import { CoachNav } from "@/components/CoachNav";
 import { DataRefreshButton } from "@/components/DataRefreshButton";
@@ -16,7 +16,7 @@ import { activities, healthMetrics, trainingGoals } from "@/db/schema";
 import { buildCoachToday, buildPostRunCoach, postRunPlanWarning } from "@/lib/coach";
 import { buildNextRun } from "@/lib/next-run";
 import { fmtDate, fmtDuration, fmtKm, fmtNum, fmtPace, fmtSigned } from "@/lib/format";
-import { buildGoalPlan, dateText } from "@/lib/goal-plan";
+import { buildGoalPlan, dateText, goalDate, upcomingRaces } from "@/lib/goal-plan";
 import { KIND_LABEL, toAnalysisRun } from "@/lib/run-analysis";
 import { amsterdamDay, buildRunBodyContext, buildTrainingHealth } from "@/lib/training-health";
 import { watchWorkout } from "@/lib/watch-workout";
@@ -30,16 +30,17 @@ export default async function Home() {
   const [runs, health, savedGoals] = await Promise.all([
     db.select().from(activities).where(gte(activities.startDate, sql<Date>`CURRENT_TIMESTAMP - INTERVAL '400 days'`)).orderBy(desc(activities.startDate)),
     db.select().from(healthMetrics).where(gte(healthMetrics.date, sql<string>`CURRENT_DATE - 400`)),
-    db.select().from(trainingGoals).where(eq(trainingGoals.id, 1)).limit(1),
+    db.select().from(trainingGoals).orderBy(trainingGoals.raceDate),
   ]);
   const now = new Date();
   const coach = buildCoachToday(runs, health, now);
   const body = buildTrainingHealth(runs, health, now);
   const last = coach.lastRun;
   const review = last ? buildPostRunCoach(last, runs, health) : null;
-  const goal = savedGoals[0] ?? null;
+  const races = upcomingRaces(savedGoals, goalDate(now));
+  const goal = races[0] ?? null;
   const goalPlan = goal ? buildGoalPlan(goal, runs, { recoveryScore: coach.recovery.score, loadChangePct: coach.load.changePct, sleepConcern: coach.sleep.concern, generalAdvice: coach.advice, lastRunWarning: last && review ? postRunPlanWarning(review, last.startDate) : null }, now) : null;
-  const activePlan = goalPlan && goalPlan.daysUntilRace >= 0 ? goalPlan : null;
+  const activePlan = goalPlan && goalPlan.phase === "voorbereiding" ? goalPlan : null;
   const nextRun = buildNextRun({ runs, coach, body: { alertLevel: body.alert.level, alertSignals: body.alert.signals, hrvDeltaPct: body.trends.hrvMs.deltaPct, rhrDeltaPct: body.trends.restingHeartRate.deltaPct }, planDays: activePlan?.weeks.flatMap((week) => week.days) ?? null });
   const watchSteps = watchWorkout(nextRun.detail);
   const stale = coach.healthAgeDays == null || coach.healthAgeDays > 1;
@@ -93,11 +94,11 @@ export default async function Home() {
         </div>
       </section>
 
-      {activePlan && goal && <section className="p-goalbar" aria-label="Wedstrijddoel">
-        <div><span className="p-overline">JE WEDSTRIJD</span><h2>{activePlan.distanceLabel} · {dateText(goal.raceDate)}</h2><p>{activePlan.daysUntilRace === 0 ? "Vandaag is het zover" : `Nog ${activePlan.daysUntilRace} dagen`} · doel {activePlan.targetPace}/km · richttijd {activePlan.finishTime} · fase: {activePlan.level}</p></div>
+      {goalPlan && goal && <section className="p-goalbar" aria-label="Eerstvolgende wedstrijd">
+        <div><span className="p-overline">EERSTVOLGENDE WEDSTRIJD · {races.length} GEPLAND</span><h2><b className="p-goal-count">{goalPlan.daysUntilRace}</b> {goalPlan.daysUntilRace === 1 ? "dag" : "dagen"} tot {goalPlan.distanceLabel.toLowerCase()}</h2><p>{dateText(goal.raceDate)} · {goalPlan.phase === "aanloop" ? `gerichte voorbereiding vanaf ${dateText(goalPlan.preparationStart)}` : `doeltempo ${goalPlan.targetPace}/km`}</p></div>
         <Link href="/goal">Bekijk je schema →</Link>
       </section>}
-      {!activePlan && <section className="p-goalbar" aria-label="Wedstrijddoel"><div><span className="p-overline">JE WEDSTRIJD</span><h2>Kies je volgende wedstrijd</h2><p>Met een datum en doeltempo maakt je coach een schema vanuit je huidige loopbasis.</p></div><Link href="/goal">Stel je doel in →</Link></section>}
+      {!goalPlan && <section className="p-goalbar" aria-label="Wedstrijddoel"><div><span className="p-overline">JE WEDSTRIJD</span><h2>Kies je volgende wedstrijd</h2><p>Met een datum en doeltempo maakt je coach een schema vanuit je huidige loopbasis.</p></div><Link href="/goal">Stel je doel in →</Link></section>}
 
       {last && review && <section className="p-section" aria-labelledby="last-run-title">
         <div className="p-section-head"><div><span className="p-overline">NA JE LAATSTE RUN</span><h2 id="last-run-title">{last.name || "Hardlooptraining"}</h2></div><Link href={`/runs/${last.id}`}>Alle kilometers →</Link></div>

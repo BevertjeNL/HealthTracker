@@ -74,6 +74,7 @@ function sampleData() {
 
 test("encrypted JSON archive round-trips every portable table and keeps private data inside ciphertext", async () => {
   const data = sampleData();
+  data.training_goals.push({ id: 2, distance_m: 21097, race_date: "2027-04-18", target_pace_sec_per_km: 345, updated_at: "2026-11-17T07:30:00.000Z" });
   const first = await sealBackup(data, PASSPHRASE);
   const second = await sealBackup(data, PASSPHRASE);
   const archiveText = new TextDecoder().decode(first);
